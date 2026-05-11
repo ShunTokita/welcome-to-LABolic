@@ -2863,7 +2863,7 @@ const EXPERIMENT_TEMPLATES = [
   // sequences so no accidental match occurs. One element substitution (Cu→Ni) lands on
   // Azoth's element composition, giving D19 its first "elements" hint.
   // The title/description hints at the 2+2 legendary/real structure without spoiling the recipe.
-  { code:'E26', tier:4, title:'伝説と現実の配合',
+  { code:'E25', tier:4, title:'伝説と現実の配合',
     recipe:{ elements:['Adam','Mit','Fe','Cu'], synthesis:'phase', processing:[{equip:'rolling',param:1},{equip:'agt',param:2}], orderMatters:false, analysis:'qaa' } },
 ];
 
@@ -4859,7 +4859,7 @@ function renderDiscoveries() {
     { key:'real', label:'Level 1〜3', filter: d => d.tier === 'real' },
     { key:'t1',   label:'Level 4 Tier 1', filter: d => d.tier === 't1' },
     { key:'t2',   label:'Level 4 Tier 2', filter: d => d.tier === 't2' },
-    { key:'t3',   label:'Level 4 Tier 3', filter: d => d.tier === 't3' },
+    { key:'t3',   label:'Level 4 Tier 3 4元素・プロセス順序固定', filter: d => d.tier === 't3' },
   ];
 
   // Counters for header
