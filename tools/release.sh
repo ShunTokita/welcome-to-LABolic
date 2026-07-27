@@ -31,3 +31,8 @@ cat > index.html <<EOF
 EOF
 
 echo "index.html -> $target (v$ver)"
+
+# Superseded builds bounce back here so a refresh cannot strand someone on an
+# old version. Must run after index.html is written and must clear the stub
+# from the version just released, or the two redirects chase each other.
+python3 tools/redirect_stubs.py "$ver"

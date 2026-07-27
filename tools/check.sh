@@ -50,5 +50,21 @@ if [ -f index.html ]; then
   fi
 fi
 
+# 5. Redirect stubs: exactly the build index.html points at must be stub-free.
+#    If the live version kept its stub, it would bounce to index.html, which
+#    bounces straight back — an unbreakable loop on the public entry point.
+if [ -f index.html ] && [ -n "${dest:-}" ]; then
+  loop=0
+  for f in $VERSION_GLOB; do
+    has=$(grep -c 'LABOLIC-REDIRECT-START' "$f" || true)
+    if [ "$f" = "$dest" ] && [ "$has" -ne 0 ]; then
+      echo "REDIRECT LOOP: $f is live but still redirects to index.html"; loop=1; fail=1
+    elif [ "$f" != "$dest" ] && [ "$has" -eq 0 ]; then
+      echo "NOTE $f has no redirect stub (pinned for rollback?)"
+    fi
+  done
+  [ $loop -eq 0 ] && echo "OK   redirect: live build ($dest) is stub-free"
+fi
+
 echo
 [ $fail -eq 0 ] && echo "check passed (v$ver)" || { echo "check FAILED (v$ver)"; exit 1; }
