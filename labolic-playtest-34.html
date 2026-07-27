@@ -5294,9 +5294,13 @@ function escapeHtml(s) {
 
 // Unread BOT notices accumulated while the chat log is folded away.
 //
-// Only botChat() feeds this. The Co-Workers' ambient chatter would keep the
-// badge permanently lit, and a badge is only worth reading if a number on it
-// means something is actually waiting for you.
+// Only botChat() feeds this, and only for the categories below. Counting every
+// system line put a number on the badge constantly — coin warnings, repairs,
+// reset confirmations — which is noise, not notification. The yellow
+// discovery_hint lines are the ones that hand the player something to act on
+// ("conditions are all met, Submit for the Discovery"), so they are the only
+// ones worth interrupting for. Everything else is reporting, not asking.
+const CHAT_BADGE_CATEGORIES = new Set(['discovery_hint']);
 let chatUnread = 0;
 function updateChatBadge() {
   const badge = document.getElementById('chat-badge');
@@ -5321,12 +5325,14 @@ function botChat(text, category) {
   while (log.children.length > CHAT_MAX_MSG) log.removeChild(log.firstChild);
   log.scrollTop = log.scrollHeight;
   // A folded chat used to spring back open here, which overrode the player's
-  // choice every time a Discovery ticked over. Raise a count instead and let
-  // them open it when they want to.
-  const overlay = document.getElementById('chat-overlay');
-  if (overlay && overlay.classList.contains('collapsed')) {
-    chatUnread++;
-    updateChatBadge();
+  // choice every time a Discovery ticked over. Raise a count instead — and only
+  // for the categories that warrant one — then let them open it when they want.
+  if (CHAT_BADGE_CATEGORIES.has(cls)) {
+    const overlay = document.getElementById('chat-overlay');
+    if (overlay && overlay.classList.contains('collapsed')) {
+      chatUnread++;
+      updateChatBadge();
+    }
   }
 }
 
