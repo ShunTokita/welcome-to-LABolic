@@ -17,6 +17,11 @@ target=$(version_file "$ver")
 
 cat > index.html <<EOF
 <!doctype html>
+<!--
+  Welcome to LABolic!
+  Copyright (c) 2026 Toki. All rights reserved.
+  ライセンス未設定（全権利留保）。 https://github.com/ShunTokita/welcome-to-LABolic
+-->
 <html lang="ja">
 <head>
 <meta charset="utf-8">

@@ -1,0 +1,48 @@
+{
+  "_comment": [
+    "Realtime Database のセキュリティルール。Firebase Console に貼り付けて適用する。",
+    "適用手順は README ではなく、この隣の firebase-rules.md を参照。",
+    "",
+    "できること: 書き込みの形と大きさの制限、既存エントリの改変・削除の禁止。",
+    "できないこと: 送信元ドメインの制限。RTDB のルールは Origin や Referer を",
+    "参照できないため、フォークされたサイトからの書き込みはこれでは止まらない。",
+    "それを止めるには App Check が必要（firebase-rules.md 参照）。",
+    "",
+    "ゲーム本体は GET /leaderboard.json で全件読み、POST で1件追加するだけなので、",
+    "読み取りは公開のまま、書き込みは新規追加のみ許可すればよい。",
+    "Console からの操作はルールを迂回するので、不正エントリの削除は今まで通り可能。"
+  ],
+
+  "rules": {
+    ".read": false,
+    ".write": false,
+
+    "leaderboard": {
+      ".read": true,
+      "$entry": {
+        ".write": "!data.exists() && newData.exists()",
+        ".validate": "newData.hasChildren(['clearDate', 'playerName', 'dayCount', 'coins'])",
+        "clearDate":  { ".validate": "newData.isString() && newData.val().length <= 20" },
+        "playerName": { ".validate": "newData.isString() && newData.val().length >= 1 && newData.val().length <= 24" },
+        "fontClass":  { ".validate": "newData.isString() && newData.val().length <= 40" },
+        "dayCount":   { ".validate": "newData.isNumber() && newData.val() >= 1 && newData.val() <= 100000" },
+        "coins":      { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 1000000000" },
+        "$other":     { ".validate": false }
+      }
+    },
+
+    "leaderboard_udm": {
+      ".read": true,
+      "$entry": {
+        ".write": "!data.exists() && newData.exists()",
+        ".validate": "newData.hasChildren(['clearDate', 'playerName', 'score', 'dayCount'])",
+        "clearDate":  { ".validate": "newData.isString() && newData.val().length <= 20" },
+        "playerName": { ".validate": "newData.isString() && newData.val().length >= 1 && newData.val().length <= 24" },
+        "fontClass":  { ".validate": "newData.isString() && newData.val().length <= 40" },
+        "score":      { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 1000000000000" },
+        "dayCount":   { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 100000" },
+        "$other":     { ".validate": false }
+      }
+    }
+  }
+}
