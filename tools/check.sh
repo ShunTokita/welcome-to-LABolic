@@ -60,7 +60,16 @@ if [ -f index.html ] && [ -n "${dest:-}" ]; then
     if [ "$f" = "$dest" ] && [ "$has" -ne 0 ]; then
       echo "REDIRECT LOOP: $f is live but still redirects to index.html"; loop=1; fail=1
     elif [ "$f" != "$dest" ] && [ "$has" -eq 0 ]; then
-      echo "NOTE $f has no redirect stub (pinned for rollback?)"
+      # A build newer than the live one is simply awaiting release — it needs
+      # to stay directly reachable so it can be playtested. Only an *older*
+      # stub-free build is a deliberate rollback pin.
+      n=$(echo "$f" | sed -n 's/^labolic-playtest-\([0-9]\{1,\}\)\.html$/\1/p')
+      live_n=$(echo "$dest" | sed -n 's/^labolic-playtest-\([0-9]\{1,\}\)\.html$/\1/p')
+      if [ -n "$n" ] && [ -n "$live_n" ] && [ "$n" -gt "$live_n" ]; then
+        echo "NOTE $f is newer than the live build (not released yet)"
+      else
+        echo "NOTE $f has no redirect stub (pinned for rollback?)"
+      fi
     fi
   done
   [ $loop -eq 0 ] && echo "OK   redirect: live build ($dest) is stub-free"
