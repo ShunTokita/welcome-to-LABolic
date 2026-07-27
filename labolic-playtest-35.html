@@ -10130,6 +10130,10 @@ const STORY_SPEAKERS = {
 let storyFlags = {};
 let pendingStoryEvents = [];
 let storyDialogActive = false;
+// ST_FOCUS's gate — see armFocusStory(). Declared up here with the rest of the
+// story state because STORY_EVENTS' condition closes over it, and that runs
+// before the assignment further down would be reached.
+let focusStoryReady = false;
 
 // Are any blocking modals (Discovery, Popup, Settings, Smith Rescue,
 // Story itself) currently open? Used to defer story dispatch.
@@ -10393,11 +10397,12 @@ const STORY_EVENTS = [
     // them. Owning the full Lv3 set is when the lab is finally busy enough
     // that hiding a panel is worth doing, so the nudge lands here rather than
     // earlier, when there would be nothing to declutter.
+    // Timed off dismissing the purchase popup rather than the purchase itself:
+    // firing on the buy would queue the story behind the "You have developed"
+    // fanfare and then open the moment it closed, stepping on its own reveal.
+    // armFocusStory() below sets the flag one second after that dismissal.
     id: 'ST_FOCUS', phase: 'Lv3', requires: 'ST09',
-    condition: () =>
-      ['laser', 'magnet', 'tem']
-        .every(id => (gameStats.ownedEquipment[id] || 0) >= 1),
-    delay: 1000,
+    condition: () => focusStoryReady,
     dialogue: [
       ['you',    '実験室は広くなったけど…装置もログもたくさんで何が何だか…'],
       ['watson', '自分の作業に集中したいときは、チャットやタスクを閉じておくのも良いと思うよ'],
@@ -10972,6 +10977,26 @@ function closeEquipPopup() {
   document.getElementById('equippop-backdrop').classList.remove('open');
   resumeAi();
   try { tutOnEquipPopupClose(); } catch(e) {}
+  try { armFocusStory(); } catch(e) {}
+}
+
+// ST_FOCUS gate. The story is meant to land a second after the third Lv3
+// device's popup is dismissed, so the flag it waits on is set here rather
+// than by the ownership check itself.
+//
+// Any equipment popup arms it, not just a Lv3 one: a save that already owned
+// all three before this build shipped would otherwise never see the story,
+// and catching up on the next purchase beats never showing it. For the
+// intended path — buying the third Lv3 device — the two are the same moment.
+function armFocusStory() {
+  if (focusStoryReady || storyFlags['ST_FOCUS']) return;
+  const complete = ['laser', 'magnet', 'tem']
+    .every(id => (gameStats.ownedEquipment[id] || 0) >= 1);
+  if (!complete) return;
+  setTimeout(() => {
+    focusStoryReady = true;
+    try { checkStoryTriggers(); } catch(e) {}
+  }, 1000);
 }
 
 function bindEquipPopup() {
