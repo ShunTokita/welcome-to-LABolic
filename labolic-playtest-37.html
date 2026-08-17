@@ -2966,14 +2966,20 @@
 
   /* Scrim: darkens the floor so the logo and the prompt stay legible over
      whatever happens to be moving underneath. Darkest under the logo. */
+  /* Scrim: darkens the floor enough to seat the logo without draining the
+     colour out of it. An earlier, heavier version was the main reason the logo
+     looked pasted on — it pushed the lab down in key while the artwork stayed
+     at full strength, so the two read as belonging to different pictures. The
+     prompt no longer leans on the scrim for contrast (see .title-start), which
+     is what allows it to be this light. */
   .title-scrim {
     position: absolute; inset: 0; pointer-events: none;
     background:
       radial-gradient(ellipse 90% 70% at 50% 42%,
-        rgba(18, 26, 42, 0.52) 0%,
-        rgba(18, 26, 42, 0.38) 45%,
-        rgba(18, 26, 42, 0.30) 70%,
-        rgba(18, 26, 42, 0.52) 100%);
+        rgba(18, 26, 42, 0.42) 0%,
+        rgba(18, 26, 42, 0.28) 45%,
+        rgba(18, 26, 42, 0.22) 70%,
+        rgba(18, 26, 42, 0.44) 100%);
   }
   /* Name plates are drawn to be read at a glance in play; behind a logo they
      only need to say "these are people", so let them recede a little. */
@@ -2993,7 +2999,14 @@
     width: min(82vw, 720px);
     max-height: 46vh;
     object-fit: contain;
-    filter: drop-shadow(0 8px 22px rgba(0, 0, 0, 0.45));
+    /* saturate() only — no brightness(). The logo is drawn at full saturation
+       and near-full value, while nothing in the game's palette is both at once
+       (the most saturated colour it owns, --accent-coin, is held down to 79%
+       value). Easing the saturation brings it under that rule. Cutting
+       brightness instead turns the white "olic!" letters grey and the whole
+       mark muddy, because it attacks the neutrals rather than the chroma.
+       This is the taste knob: 1 = untouched artwork, 0.8 = clearly muted. */
+    filter: saturate(0.88) drop-shadow(0 8px 22px rgba(0, 0, 0, 0.45));
   }
   /* display:block above outranks the UA sheet's [hidden] rule, so the broken
      image would keep its box and its alt text when the fallback takes over. */
@@ -3012,7 +3025,15 @@
     font-size: clamp(15px, 3.4vw, 26px);
     font-weight: 800; letter-spacing: 0.6px;
     color: #fff8e2;
-    text-shadow: 0 2px 0 rgba(31, 44, 68, 0.9), 0 0 18px rgba(255, 232, 160, 0.45);
+    /* Carries its own dark halo rather than relying on the scrim, because the
+       thing behind it moves: a Co-Worker or a pale device sprite drifting under
+       the prompt would otherwise wash it out. This is what let the scrim be
+       lightened without costing legibility. */
+    text-shadow:
+      0 2px 0 rgba(31, 44, 68, 0.95),
+      0 0 7px rgba(18, 26, 42, 0.9),
+      0 0 16px rgba(18, 26, 42, 0.55),
+      0 0 22px rgba(255, 232, 160, 0.35);
     animation: title-pulse 1.9s ease-in-out infinite;
   }
   @keyframes title-pulse {
