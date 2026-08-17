@@ -45,20 +45,35 @@ def main() -> None:
 
     # Longest first so assets/icon/x.png is never clobbered by a prefix match.
     total = 0
+    missing = set()
     for path in sorted(paths, key=len, reverse=True):
-        blob = (root / path).read_bytes()
+        blob_path = root / path
+        if not blob_path.exists():
+            # Warn and carry on rather than abort. check.sh is the gate that
+            # decides whether a missing asset blocks a release; a preview whose
+            # only fault is one absent file is still worth looking at, and
+            # refusing to build one leaves no way to review the rest of the
+            # page. The reference is left as-is, so it renders as a broken
+            # image under the Artifact CSP — visibly missing, not silently so.
+            missing.add(path)
+            continue
+        blob = blob_path.read_bytes()
         if not blob:
             raise SystemExit(f"empty asset: {path}")
         uri = f"data:{mime_of(blob)};base64,{base64.b64encode(blob).decode()}"
         html = html.replace(path, uri)
         total += len(blob)
 
-    leftover = re.findall(r"assets/[A-Za-z0-9_/.-]+", html)
+    leftover = [p for p in re.findall(r"assets/[A-Za-z0-9_/.-]+", html)
+                if p not in missing]
     if leftover:
         raise SystemExit(f"unresolved references remain: {leftover[:5]}")
 
     out.write_text(html, encoding="utf-8")
-    print(f"inlined {len(paths)} assets ({total/1e6:.2f} MB) -> {out}")
+    if missing:
+        print(f"WARNING: {len(missing)} asset(s) not found, left un-inlined: "
+              f"{', '.join(sorted(missing))}", file=sys.stderr)
+    print(f"inlined {len(paths) - len(missing)} assets ({total/1e6:.2f} MB) -> {out}")
     print(f"output size: {out.stat().st_size/1e6:.2f} MB")
 
 
