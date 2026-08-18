@@ -7457,7 +7457,7 @@ function computeReward(spec, ctx) {
 
   if (udmActive) {
     // UDM: match against active Discovery Variants instead of base discoveries.
-    const v = findMatchingUdmVariant(spec);
+    const v = findMatchingUdmVariant(spec, ctx ? ctx.claimedVariants : null);
     if (v) { bonus += v.score; matchedVariant = v; }
   } else {
     for (const disc of discoveries) {
@@ -8886,6 +8886,7 @@ function computeSubmitBatch(ids) {
       discoveries
         .filter(d => (discoveryState[d.id]?.stage ?? 0) === 4)
         .map(d => d.id)),
+    claimedVariants: new Set(),
     cleared: new Set(clearedCodes),
   };
   const rewards = new Map();
@@ -8898,6 +8899,7 @@ function computeSubmitBatch(ids) {
     rewards.set(id, r);
     total += r.total;
     if (r.matchedDiscovery) ctx.claimedDiscoveries.add(r.matchedDiscovery.id);
+    if (r.matchedVariant) ctx.claimedVariants.add(r.matchedVariant.id);
     if (r.matchedExp) {
       const idx = ctx.experiments.findIndex(e => e.instanceId === r.matchedExp.instanceId);
       if (idx >= 0) {
@@ -9128,10 +9130,28 @@ function confirmSubmit() {
     const triggerSpec = submittedSpecs.find(sp => isExactMatch(compareToRecipe(sp, v.recipe)));
     showUdmVariantPopup(v, triggerSpec || submittedSpecs[0]);
   }
+  // One line per order, not per specimen. A repeat-toggled order can be
+  // fulfilled several times in a single Submit, and echoing every fulfilment
+  // — plus a re-accept notice for each — pushed everything else out of the
+  // log. The count and the summed reward carry the same information in one
+  // line, and a single re-accept notice describes the end state correctly:
+  // one fresh instance is active however many times the order came round.
+  const fulfilledByCode = new Map();
   for (const e of fulfilledExps) {
-    botChat(`✓ [${e.code}] ${e.title} 達成 (+${e.reward}c)`, 'submit');
+    const g = fulfilledByCode.get(e.code)
+      || { code: e.code, title: e.title, count: 0, reward: 0 };
+    g.count += 1;
+    g.reward += e.reward;
+    fulfilledByCode.set(e.code, g);
   }
+  for (const g of fulfilledByCode.values()) {
+    const times = g.count > 1 ? ` ×${g.count}` : '';
+    botChat(`✓ [${g.code}] ${g.title} 達成${times} (+${g.reward}c)`, 'submit');
+  }
+  const reAcceptedSeen = new Set();
   for (const t of reAcceptedTemplates) {
+    if (reAcceptedSeen.has(t.code)) continue;
+    reAcceptedSeen.add(t.code);
     botChat(`🔁 反復受注: [${t.code}] ${t.title}`, 'system');
   }
   saveAll();
@@ -11712,10 +11732,15 @@ function udmAnalyzeHook(spec, cw) {
 }
 
 // Find an unachieved variant exactly matched by a specimen (used at Submit).
-function findMatchingUdmVariant(spec) {
+// `claimed` (optional) hides variant ids already taken earlier in the same
+// Submit batch, so the popup's estimate matches what will actually be paid.
+// The live path needs no such set: achieveUdmVariant splices the variant out
+// as each specimen is processed.
+function findMatchingUdmVariant(spec, claimed) {
   if (!udmActive || !udm) return null;
   for (const v of udm.variants) {
     if (v.stage >= 4) continue;
+    if (claimed && claimed.has(v.id)) continue;
     if (isExactMatch(compareToRecipe(spec, v.recipe))) return v;
   }
   return null;
