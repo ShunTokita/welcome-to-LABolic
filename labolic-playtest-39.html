@@ -8428,22 +8428,30 @@ function updateSynthSlots(meta) {
 // Maximum batch size = how many specimens can be afforded at once.
 // We cap at 99 visually for sanity even if more are affordable.
 const QTY_MAX = 99;
-// Doing it yourself is convenient — a whole batch lands at once, with no
-// device time and no waiting on anyone. These three surcharges are what that
-// convenience costs, so delegating to a Co-Worker stays worth something.
-// Deliberately cheap: very few players clear the game as it is, so this is a
-// nudge, not a wall.
-const SELF_SYNTH_COST_MULT = 1.10;   // §P1 材料費 +10%
-const SELF_SUBMIT_REWARD_MULT = 0.90; // §P3 報酬 -10%（総額ベース）
-const SELF_BREAKDOWN_PROB = 0.01;     // §P2 試験片1個につき1%
+// Working the devices yourself is fine. Doing a whole pile of them in one
+// click is the shortcut, and these three surcharges are what that shortcut
+// costs — so delegating to a Co-Worker, or simply going one at a time, stays
+// worth something. Deliberately cheap: very few players clear the game as it
+// is, so this is a nudge, not a wall.
+//
+// The trigger is batch size, not who is operating. A single specimen is
+// always free, which is also why the Co-Worker paths never pay: they handle
+// one specimen at a time by construction.
+const BULK_MIN_COUNT = 2;             // 2件以上まとめた時だけ課金
+const BULK_SYNTH_COST_MULT = 1.10;    // §P1 材料費 +10%
+const BULK_SUBMIT_REWARD_MULT = 0.90; // §P3 報酬 -10%（総額ベース）
+const BULK_BREAKDOWN_PROB = 0.01;     // §P2 試験片1個につき1%
 
-// Material cost of one specimen when the player runs the synthesiser.
-// Rounded up, so the surcharge can never vanish on cheap recipes.
-function selfSynthCost(unit) {
-  return Math.ceil(unit * SELF_SYNTH_COST_MULT);
+function isBulk(count) { return count >= BULK_MIN_COUNT; }
+
+// Material cost of one specimen at the given batch size. Rounded up, so the
+// surcharge can never vanish on cheap recipes.
+function bulkSynthCost(unit, qty) {
+  return isBulk(qty) ? Math.ceil(unit * BULK_SYNTH_COST_MULT) : unit;
 }
 
-// §P2 — running a batch yourself risks the device, once per specimen.
+// §P2 — pushing a pile through a device in one go risks it, once per
+// specimen. Running a single specimen never does.
 //
 // The batch always completes; a breakdown costs the repair and the downtime
 // that follows, not the specimens already in hand. Rolling per specimen is
@@ -8452,34 +8460,44 @@ function selfSynthCost(unit) {
 //
 // PCs are exempt, matching the Co-Worker rule: there is no failure mode for
 // writing a paper.
-function rollSelfBreakdown(equipId, count) {
-  if (!(count > 0)) return false;
+function rollBulkBreakdown(equipId, count) {
+  if (!isBulk(count)) return false;
   const eq = equipment.find(e => e.id === equipId);
   if (!eq || eq.broken || eq.type === 'pc') return false;
   let broke = false;
   for (let i = 0; i < count; i++) {
-    if (Math.random() < SELF_BREAKDOWN_PROB) { broke = true; break; }
+    if (Math.random() < BULK_BREAKDOWN_PROB) { broke = true; break; }
   }
   if (!broke) return false;
   eq.broken = true;
   sfx('break');
-  botChat(`💥 ${eq.name} が故障しました（操作: You / ${count}件の連続処理）`, 'breakdown');
+  botChat(`💥 ${eq.name} が故障しました（${count}件の一括処理）`, 'breakdown');
   saveEquipmentState();
   renderLab();
   checkSmithRescueEvent();
   return true;
 }
 
+function rawUnitCost() {
+  return popupState.selectedElements.reduce((s, sym) => s + (ELEM_COST[sym] || 0), 0);
+}
+
+// The popup quotes what the player will actually be charged at the quantity
+// currently dialled in, so the total, the +10/MAX buttons and confirmGo() all
+// agree — including the step from 1 (no surcharge) to 2 (surcharged).
 function unitCost() {
-  const raw = popupState.selectedElements.reduce((s, sym) => s + (ELEM_COST[sym] || 0), 0);
-  // The popup quotes what the player will actually be charged, so the Go!
-  // button, the MAX button and the total all agree with confirmGo().
-  return raw > 0 ? selfSynthCost(raw) : 0;
+  return bulkSynthCost(rawUnitCost(), popupState.quantity || 1);
 }
 function maxAffordableQty() {
-  const c = unitCost();
-  if (c <= 0) return QTY_MAX;
-  return Math.max(1, Math.min(QTY_MAX, Math.floor(gameStats.coins / c)));
+  const raw = rawUnitCost();
+  if (raw <= 0) return QTY_MAX;
+  // Anything past the first specimen is charged at the bulk rate, so that is
+  // the price the cap has to be computed from. One specimen is still
+  // affordable at the raw price even when two are not.
+  const bulk = bulkSynthCost(raw, BULK_MIN_COUNT);
+  const n = Math.floor(gameStats.coins / bulk);
+  if (n < 1) return gameStats.coins >= raw ? 1 : 1;
+  return Math.max(1, Math.min(QTY_MAX, n));
 }
 function changeQty(delta) {
   const next = popupState.quantity + delta;
@@ -8874,7 +8892,7 @@ function renderSubmitPopup(meta) {
     <div class="popup-footer">
       <div class="meta-row">
         <div class="meta-item reward"><span class="label">Total Reward</span><span class="value" id="total-reward">0 c</span></div>
-        <div class="meta-item" style="display:none;"><span class="label">自力提出</span><span class="value" id="self-penalty">—</span></div>
+        <div class="meta-item" style="display:none;"><span class="label">一括提出</span><span class="value" id="self-penalty">—</span></div>
         <div class="meta-item"><span class="label">Total Time</span><span class="value" id="total-time">0 s</span></div>
         <div class="meta-item"><span class="label">Writer</span><span class="value" id="writer-name">—</span></div>
       </div>
@@ -9037,7 +9055,9 @@ function refreshSubmitState() {
   // Quote the net, matching confirmSubmit. The gross is shown alongside so
   // the deduction is visible rather than an unexplained shortfall.
   const grossReward = batch.total;
-  const totalReward = Math.round(grossReward * SELF_SUBMIT_REWARD_MULT);
+  const totalReward = isBulk(sel.size)
+    ? Math.round(grossReward * BULK_SUBMIT_REWARD_MULT)
+    : grossReward;
   let totalTime = 0;
   for (const sid of sel) {
     const spec = specimens.find(s => s.id === sid);
@@ -9048,7 +9068,7 @@ function refreshSubmitState() {
   const rewardEl = document.getElementById('total-reward');
   rewardEl.textContent = `${totalReward} c`;
   rewardEl.title = grossReward > totalReward
-    ? `総額 ${grossReward}c − 自力提出 ${grossReward - totalReward}c`
+    ? `総額 ${grossReward}c − 一括提出 ${grossReward - totalReward}c`
     : '';
   const penaltyEl = document.getElementById('self-penalty');
   if (penaltyEl) {
@@ -9157,11 +9177,14 @@ function confirmSubmit() {
     submittedSpecs.push(spec);
   }
 
-  // §P3 — writing the papers yourself costs 10% of the take. Co-Worker
-  // submits (submitSpecimenAsCoworker) pay full, which is the whole point.
+  // §P3 — writing up a stack of results in one sitting costs 10% of the take.
+  // One at a time is free, and so is a Co-Worker submit, which handles a
+  // single specimen by construction.
   const grossReward = totalReward;
-  totalReward = Math.round(grossReward * SELF_SUBMIT_REWARD_MULT);
-  const selfPenalty = grossReward - totalReward;
+  totalReward = isBulk(submittedSpecs.length)
+    ? Math.round(grossReward * BULK_SUBMIT_REWARD_MULT)
+    : grossReward;
+  const bulkPenalty = grossReward - totalReward;
   gameStats.coins += totalReward;
 
   // Submission feedback. The discovery fanfare (fired from
@@ -9184,7 +9207,7 @@ function confirmSubmit() {
   // Submit result → BOT messages in chat
   botChat(
     `${writer.name} が ${submittedSpecs.length}件 Submit (+${totalReward}c / ${totalTime}s)`
-    + (selfPenalty > 0 ? `　自力提出 -${selfPenalty}c` : ''),
+    + (bulkPenalty > 0 ? `　一括提出 -${bulkPenalty}c` : ''),
     'submit');
   for (const d of newDiscoveries) {
     botChat(`🎉 Discovery: ${d.name} (#${d.no})`, 'discovery');
@@ -9486,8 +9509,8 @@ function confirmGo() {
   if (popupState.type === 'synth') {
     // Cost check (per-unit cost × quantity)
     const rawUnit = popupState.selectedElements.reduce((s, sym) => s + (ELEM_COST[sym] || 0), 0);
-    const unit = selfSynthCost(rawUnit);   // §P1 — Co-Workers pay rawUnit
     const qty = Math.max(1, popupState.quantity || 1);
+    const unit = bulkSynthCost(rawUnit, qty);   // §P1 — 1件なら素の値段
     const totalCost = unit * qty;
     if (gameStats.coins < totalCost) {
       botChat(`コインが足りません（必要: ${totalCost}c, 所持: ${gameStats.coins}c）`, 'breakdown');
@@ -9515,7 +9538,7 @@ function confirmGo() {
     }
     updateTopbar();
     saveAll();
-    rollSelfBreakdown(popupState.equipId, qty);
+    rollBulkBreakdown(popupState.equipId, qty);
     renderLab();
     renderRPanel();
     closePopup();
@@ -9544,7 +9567,7 @@ function confirmGo() {
       botChat(`${applied} 件の試験片を ${PROC_SHORT[procStep.equip]}(${procStep.param}) で処理しました。`, 'work');
     }
     saveAll();
-    rollSelfBreakdown(popupState.equipId, applied);
+    rollBulkBreakdown(popupState.equipId, applied);
     renderLab();
     renderRPanel();
     closePopup();
@@ -9623,7 +9646,7 @@ function confirmGo() {
     if (processed > 1) {
       botChat(`${processed} 件の試験片を ${ANA_SHORT[anaId]} で分析しました。`, 'work');
     }
-    rollSelfBreakdown(popupState.equipId, processed);
+    rollBulkBreakdown(popupState.equipId, processed);
     renderLab();
     renderRPanel();
     saveAll();
@@ -11669,6 +11692,7 @@ const UDM_PHASES = [
   { from: 27, odd: 1, even: 0, minV: 1, maxV: 5 },
   { from: 33, odd: 1, even: 1, minV: 2, maxV: 5 },   // 1.0/day, floor V2
   { from: 45, odd: 2, even: 1, minV: 3, maxV: 5 },   // 1.5/day, floor V3
+  { from: 60, odd: 2, even: 2, minV: 3, maxV: 5 },   // 2.0/day — the ceiling
 ];
 
 function udmPhaseFor(day) {
