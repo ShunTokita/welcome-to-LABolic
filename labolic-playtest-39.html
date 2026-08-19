@@ -10808,7 +10808,11 @@ const STORY_EVENTS = [
     // T2までDiscovery済み）、かつ Azoth が未着手（stage<2）の時のみ。
     // 条件のどれかが欠けていれば発火しないので、自力で辿り着いた人の邪魔は
     // しない。
-    id: 'ST_T3_STUCK', phase: 'Lv4', requires: 'ST13',
+    //
+    // ID はモーダルのヘッダーにそのまま表示される。未発見の Discovery は
+    // "??? (Discovery #19)" と伏せてあるので、ID に Azoth と書くと名前が
+    // 漏れる。中身を言わずに場面を表す名前にしてある。
+    id: 'spontaneous_idea', phase: 'Lv4', requires: 'ST13',
     condition: () =>
       EXPERIMENT_TEMPLATES.every(t => clearedCodes.has(t.code)) &&
       discoveries
