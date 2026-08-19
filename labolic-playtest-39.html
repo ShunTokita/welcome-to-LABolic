@@ -10499,7 +10499,10 @@ function isAnyModalOpenForStory() {
 // elements that haven't been narratively introduced yet.
 function isStoryUnlocked(key) {
   switch (key) {
-    case 'distab': return !!storyFlags.ST03;  // Dis tab visibility
+    // ST03 は E2 報告後まで待つので、それより先に Discovery を達成した人
+    // （E2 を出す前に furnace(1) を引いた場合）にタブが無いままにならない
+    // よう、ST04 でも開くようにしてある。
+    case 'distab': return !!(storyFlags.ST03 || storyFlags.ST04);
     case 'cotab':  return !!storyFlags.ST04;  // Co tab visibility
     case 'lab2':   return !!storyFlags.ST05;  // Lab Lv2 purchase card
     case 'lab3':   return !!storyFlags.ST08;  // Lab Lv3 purchase card
@@ -10577,8 +10580,15 @@ const STORY_EVENTS = [
       '提出が終わると、内容に合わせた報酬と、受注した依頼に応じた報酬が獲得されます。',
   },
   {
+    // 発火は E2 の報告後。以前は「Discoveryヒントが1件でも立った瞬間」で、
+    // それは初観察と同時に起きる。同じ瞬間に Brass のヒント(BOT行)・ST02・
+    // このイベント・PCへの誘導が全部重なって渋滞していた。ヒント自体は
+    // 分析時にしか判定できないのでそのままだが、この話は E1/E2 を一通り
+    // 回し終えてからで筋が通る。
     id: 'ST03', phase: 'Lv1', requires: 'ST01',
-    condition: () => Object.values(discoveryState).some(d => d.stage >= 2),
+    condition: () =>
+      clearedCodes.has('E2') &&
+      Object.values(discoveryState).some(d => d.stage >= 2),
     dialogue: [
       ['you', 'ん…なんだこれ？'],
       ['ben', 'どうしたんですか？'],
@@ -11084,9 +11094,9 @@ function closeStoryEvent(ev) {
   // 残るので、モーダルを閉じたあとでも指示を読み返せる。
   if (ev.bot) { try { botChat(ev.bot, 'discovery_hint'); } catch(e) {} }
 
-  // 第1チュートリアル続き：初観察(ST02)を閉じた1秒後に PC を指す。
+  // 第1チュートリアル続き：初観察(ST02)のあと PC を指す。
   if (ev.id === 'ST02') {
-    setTimeout(() => { try { tutGoto('pc_report'); } catch(e) {} }, 1000);
+    setTimeout(() => { try { tutMaybeStartPcReport(); } catch(e) {} }, 1000);
   }
   // 第3チュートリアル：初Discovery達成(ST04)を閉じた1秒後に Ben 雇用誘導。
   // 同一Submitで Lv1 完遂(ST05)条件も満たしていても、Co-Workerチュートリアルを
@@ -13742,6 +13752,24 @@ function tutOnHire(id) {
 }
 
 // ST04 を閉じた1秒後：Ben 雇用の誘導を開始。
+// 初観察のあと「PCから結果を報告」を指す。
+//
+// 後続のストーリーが連鎖している間は出さずに待つ。fireStoryEvent() は発火時
+// にスポットを消すうえ、スポット(z:1900)はストーリーモーダル(z:850)より前面
+// なので、重なると案内が消えるか、モーダルの上に浮いてしまう。
+function tutMaybeStartPcReport(tries) {
+  const n = tries || 0;
+  if (n > 20) return;                                   // 放置対策（約40秒で断念）
+  if (typeof udmActive !== 'undefined' && udmActive) return;
+  if (clearedCodes.size > 0) return;                    // 既に提出できている人には不要
+  if (storyDialogActive || pendingStoryEvents.length > 0) {
+    setTimeout(() => tutMaybeStartPcReport(n + 1), 2000);
+    return;
+  }
+  if (tutStep) return;                                  // 他の誘導が動いていれば譲る
+  tutGoto('pc_report');
+}
+
 function tutMaybeStartBen() {
   if (typeof udmActive !== 'undefined' && udmActive) return;
   if (storyDialogActive) return;
