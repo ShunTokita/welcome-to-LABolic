@@ -10463,6 +10463,8 @@ const STORY_SPEAKERS = {
   ben:    { name: 'Ben',         bg: '#7e603c', border: '#4a3622', avatar: 'B', icon: 'ben'    },
   grace:  { name: 'Grace',       bg: '#e8c878', border: '#a8741c', avatar: 'G', icon: 'grace'  },
   murphy: { name: 'Murphy',      bg: '#185fa5', border: '#042c53', avatar: 'M', icon: 'murphy' },
+  jeff:   { name: 'Jeff',        bg: '#d85a30', border: '#993c1d', avatar: 'J', icon: 'jeff'   },
+  bobby:  { name: 'Bobby',       bg: '#e8704a', border: '#993c1d', avatar: 'B', icon: 'bobby'  },
   watson: { name: 'Watson',      bg: '#993c1d', border: '#4a1b0c', avatar: 'W', icon: 'watson' },
   system: { name: 'System',      bg: '#888',    border: '#555',    avatar: '!' },
 };
@@ -10798,6 +10800,33 @@ const STORY_EVENTS = [
       '全ステータス★4の最高給スタッフです。',
   },
   {
+    // Tier 3 の入口で完全に手が止まる人への救済。
+    //
+    // T3 のヒントは「近い組成を一度でも作る」ことでしか開かないので、依頼も
+    // T1/T2 も全部埋めたのに Azoth のヒントだけ一度も出ていない、という詰み方
+    // が起こる。そこだけを狙って撃つ：やることが尽きていて（全依頼クリア済み・
+    // T2までDiscovery済み）、かつ Azoth が未着手（stage<2）の時のみ。
+    // 条件のどれかが欠けていれば発火しないので、自力で辿り着いた人の邪魔は
+    // しない。
+    id: 'ST_T3_STUCK', phase: 'Lv4', requires: 'ST13',
+    condition: () =>
+      EXPERIMENT_TEMPLATES.every(t => clearedCodes.has(t.code)) &&
+      discoveries
+        .filter(d => ['real', 't1', 't2'].includes(d.tier))
+        .every(d => (discoveryState[d.id]?.stage ?? 0) >= 4) &&
+      (discoveryState['azoth']?.stage ?? 0) < 2,
+    dialogue: [
+      ['you',   '残るはこの謎のレシピだな…まったく見当もつかないや。手当たり次第にいろいろやってみるか'],
+      ['jeff',  'そういうのは得意だぜー！！'],
+      ['bobby', 'なんかこの実験が怪しい気がする！オレにも合成やらせてよ'],
+      ['grace', '『いろいろやる』と『適当にやる』のはちょっと違うと思うけどな…'],
+      ['smith', '…たまには直感でやってみるのも良いでしょう。くれぐれも事故には気を付けてくださいね。'],
+    ],
+    popup: null,
+    bot: 'JeffとBobbyが、"E25 伝説と現実の配合"が怪しいと言っています。'
+       + '彼らに合成を任せてみると、もしかしたら有用な組成を見つけるかもしれません',
+  },
+  {
     id: 'ST16', phase: 'Lv4', requires: 'ST13',
     condition: () =>
       ['azoth','quintessence','lapis']
@@ -11046,6 +11075,14 @@ function closeStoryEvent(ev) {
   //   「閉じた1秒後」に開始する）
   if (ev.id === 'ST01') {
     setTimeout(() => { try { tutMaybeStart(); } catch(e) {} }, 1000);
+  }
+  // イベントに紐づく BOT 行（あれば）。ダイアログを読み終えてから Lab Chat に
+  // 残るので、モーダルを閉じたあとでも指示を読み返せる。
+  if (ev.bot) { try { botChat(ev.bot, 'discovery_hint'); } catch(e) {} }
+
+  // 第1チュートリアル続き：初観察(ST02)を閉じた1秒後に PC を指す。
+  if (ev.id === 'ST02') {
+    setTimeout(() => { try { tutGoto('pc_report'); } catch(e) {} }, 1000);
   }
   // 第3チュートリアル：初Discovery達成(ST04)を閉じた1秒後に Ben 雇用誘導。
   // 同一Submitで Lv1 完遂(ST05)条件も満たしていても、Co-Workerチュートリアルを
@@ -13214,6 +13251,13 @@ const TUT_STEPS = {
     sel: () => document.querySelector('#popup #btn-go'),
     label: '観察する（Go!）',
   },
+  // 初観察の直後。ST02 が「PCでレポートを書け」と言った先を実際に指す。
+  // ここで案内が切れると、分析済みの試験片を抱えたまま次の一手が
+  // 分からなくなる人が出る。
+  pc_report: {
+    sel: () => document.querySelector('#lab .equip.pc'),
+    label: 'PCから結果を報告',
+  },
 
   // ---- 第2チュートリアル：2つ目の実験(E2)を最後まで通す ----
   e2_exp_tab: {
@@ -13591,6 +13635,10 @@ function tutOnPopupOpen(baseId, type) {
     later(() => { if (tutStep === 'e2_om_dev') tutGoto('e2_ana_pick'); });
   } else if (type === 'pc' && tutStep === 'e2_pc_dev') {
     later(() => { if (tutStep === 'e2_pc_dev') tutGoto('e2_submit_pick'); });
+  // 第1チュートリアル続き：PC を開いた時点で役目は終わり。以降の提出手順は
+  // 第2チュートリアル(e2_*)が改めて案内する。
+  } else if (type === 'pc' && tutStep === 'pc_report') {
+    later(() => { if (tutStep === 'pc_report') tutClear(); });
   }
 }
 
