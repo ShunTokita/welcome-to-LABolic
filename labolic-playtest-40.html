@@ -2442,6 +2442,18 @@
   .popup-section-title { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: var(--text-secondary); margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center; }
   .popup-section-title .meta { font-size: 11px; font-weight: 500; text-transform: none; letter-spacing: 0; color: var(--text-muted); }
   /* Multi-select buttons inside popup section titles (proc / ana popups). */
+  .own-filter-btn {
+    font: inherit; font-size: 10px; font-weight: 700; cursor: pointer;
+    background: var(--bg-card); color: var(--text-secondary);
+    border: 1px solid var(--line-medium); border-radius: 3px;
+    padding: 1px 6px; margin-left: 8px; white-space: nowrap;
+  }
+  .own-filter-btn:hover { background: var(--bg-card-hover); }
+  .own-filter-btn.on {
+    background: var(--accent-active-bg); color: var(--accent-active);
+    border-color: var(--accent-active);
+  }
+  .own-filter-count { margin-left: 4px; opacity: .75; font-weight: 600; }
   .multi-select-actions { display: inline-flex; gap: 4px; }
   .multi-action-btn {
     background: var(--bg-card); border: 1px solid var(--line-medium);
@@ -4824,6 +4836,11 @@ const userSettings = {
   sfxVolume: 60,        // 0-100. Deliberately not 100 by default: this gets
                         // played in a shared lab, next to other people.
   reduceMotion: false,  // true → body.reduce-motion (stops the device effects)
+  // Processing popups list every specimen in the lab, and once a few
+  // Co-Workers are running the same order that list is mostly theirs. This
+  // narrows it to the ones the player synthesised by hand. A view preference,
+  // so it persists rather than resetting every time a device is opened.
+  ownSpecimensOnly: false,
 };
 
 // Seed reduceMotion from the OS accessibility setting when the player has
@@ -4848,6 +4865,7 @@ function loadSettings() {
     const data = JSON.parse(raw);
     if (typeof data.deviceArt === 'boolean') userSettings.deviceArt = data.deviceArt;
     if (typeof data.sfx === 'boolean') userSettings.sfx = data.sfx;
+    if (typeof data.ownSpecimensOnly === 'boolean') userSettings.ownSpecimensOnly = data.ownSpecimensOnly;
 
     // Warn rather than silently correct. A value that is out of range means
     // something wrote it wrong, and a save that quietly repairs itself hides
@@ -9618,7 +9636,9 @@ function renderProcPopup(meta) {
   // Eligible specimens for processing: in_lab + not yet analyzed
   // (analyzed specimens are Results awaiting Submit; further processing
   // would invalidate their analysis and is disallowed by convention).
-  const eligible = specimens.filter(s => s.status === 'in_lab' && s.analysis === null);
+  const eligible = procEligibleSpecimens();
+  const totalInLab = specimens.filter(s => s.status === 'in_lab' && s.analysis === null).length;
+  const hidden = totalInLab - eligible.length;
   const selCount = popupState.selectedSamples.size;
   popup.innerHTML = `
     <div class="popup-header">
@@ -9630,6 +9650,11 @@ function renderProcPopup(meta) {
       <div class="popup-section">
         <div class="popup-section-title">
           Specimens to process
+          <button class="own-filter-btn ${userSettings.ownSpecimensOnly ? 'on' : ''}"
+                  onclick="toggleOwnSpecimensOnly()"
+                  title="自分で合成した試験片だけを表示します">
+            ${userSettings.ownSpecimensOnly ? '☑' : '☐'} 自分のみ${hidden > 0 ? `<span class="own-filter-count">−${hidden}</span>` : ''}
+          </button>
           ${eligible.length > 0 ? `<span class="multi-select-actions">
             <button class="multi-action-btn" onclick="selectAllSpecimensForOp()">全選択</button>
             <button class="multi-action-btn" onclick="clearSpecimenSelection()">解除</button>
@@ -9637,7 +9662,9 @@ function renderProcPopup(meta) {
         </div>
         <div class="sample-list" id="sample-list">
           ${eligible.length === 0
-            ? '<div class="empty-list">処理可能な試験片はありません</div>'
+            ? (userSettings.ownSpecimensOnly && totalInLab > 0
+                ? '<div class="empty-list">自分で合成した試験片はありません（フィルタ解除で ' + totalInLab + ' 件）</div>'
+                : '<div class="empty-list">処理可能な試験片はありません</div>')
             : eligible.map(s => {
                 const isSel = popupState.selectedSamples.has(s.id);
                 return `<div class="sample-row ${isSel ? 'selected' : ''}" data-sample="${s.id}" onclick="toggleSpecimenSelection('${s.id}')">
@@ -9748,12 +9775,39 @@ function _refreshMultiSelectFooter() {
 // Add every eligible specimen to the multi-selection (全選択).
 // Re-renders the full list only once (not per-click), so scroll is only
 // reset when the player deliberately presses 全選択.
+// "Made by me" — the player's own synthesis and MPSS runs both stamp
+// createdBy 'player'; a Co-Worker stamps their own id.
+function isOwnSpecimen(s) { return s.createdBy === 'player'; }
+
+// The specimens a Processing device will show, with the filter applied.
+function procEligibleSpecimens() {
+  const pool = specimens.filter(s => s.status === 'in_lab' && s.analysis === null);
+  return userSettings.ownSpecimensOnly ? pool.filter(isOwnSpecimen) : pool;
+}
+
+function toggleOwnSpecimensOnly() {
+  userSettings.ownSpecimensOnly = !userSettings.ownSpecimensOnly;
+  saveSettings();
+  // Anything now hidden must not stay selected — processing a specimen the
+  // player can no longer see is exactly the surprise this filter exists to
+  // prevent.
+  const visible = new Set(procEligibleSpecimens().map(s => s.id));
+  for (const id of [...popupState.selectedSamples]) {
+    if (!visible.has(id)) popupState.selectedSamples.delete(id);
+  }
+  if (popupState.selectedSample && !visible.has(popupState.selectedSample)) {
+    popupState.selectedSample = null;
+  }
+  const meta = equipMeta[popupState.equipId.replace(/_2$/, '')];
+  if (meta) renderProcPopup(meta);
+}
+
 function selectAllSpecimensForOp() {
   const baseId = popupState.equipId.replace(/_2$/, '');
   const meta = equipMeta[baseId];
   let pool = [];
   if (meta.type === 'proc') {
-    pool = specimens.filter(s => s.status === 'in_lab' && s.analysis === null);
+    pool = procEligibleSpecimens();   // never select what the filter is hiding
   } else if (meta.type === 'ana') {
     const thisLv = meta.lv;
     pool = specimens.filter(s => s.status !== 'submitted' &&
