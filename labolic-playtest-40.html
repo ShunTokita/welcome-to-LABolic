@@ -353,6 +353,16 @@
     font-size: 9px; font-weight: 700; color: #fff; background: #5b2c87;
     border-radius: 3px; padding: 1px 5px; margin-left: 6px;
   }
+  .udm-discard-btn {
+    position: absolute; right: 6px; bottom: 5px;
+    font: inherit; font-size: 9px; font-weight: 700; cursor: pointer;
+    background: transparent; color: var(--accent-danger);
+    border: 1px solid var(--accent-danger); border-radius: 2px; padding: 1px 5px;
+  }
+  .udm-discard-btn:hover { background: var(--accent-danger-bg); }
+  .d-card.udm-variant { position: relative; }
+  /* keep a long recipe line from running under the button */
+  .d-card.udm-variant.has-discard .d-recipe { padding-right: 42px; }
   .udm-vscore {
     margin-left: auto; font-size: 11px; font-weight: 800; color: var(--accent-purple);
   }
@@ -5844,6 +5854,28 @@ function udmInvalidateSkillEffects() {
   _udmEffCache = null;
 }
 
+// A unique only applies while its owner is on shift. This is the single rule
+// behind every tier-4 effect: the party buffs, the stock ceiling, the coin
+// multipliers, Lisa's and Hank's reading of a specimen, Frank's discard.
+// It is also what makes the eight attendance slots the real currency —
+// bringing a buff in costs a slot that could have held a worker.
+function udmUniqueActive(ownerId) {
+  if (!udmActive) return false;
+  if (!udmSkillActive(`${ownerId}:4`)) return false;
+  const cw = coworkers.find(c => c.id === ownerId);
+  return !!(cw && cw.present);
+}
+
+// Party-wide stat buffs. SP is deliberately absent: it gates which equipment a
+// Co-Worker may touch at all, and a lab-wide +2 there would erase the
+// distinction the three builds are made of.
+const UDM_PARTY_STAT_BUFFS = [
+  { owner:'kate',   stat:'An', delta: 2 },  // 顕微鏡講習
+  { owner:'carol',  stat:'W',  delta: 2 },  // 月イチの勉強会
+  { owner:'lee',    stat:'A',  delta: 2 },  // 丁寧にいこう
+  { owner:'murphy', stat:'E',  delta: 2 },  // 実験室の番人
+];
+
 // { S, A, An, E, W: stat deltas, work, walk: multipliers }
 function computeUdmEffects(cw) {
   const e = { S:0, A:0, An:0, E:0, W:0, work:1, walk:1 };
@@ -5855,6 +5887,13 @@ function computeUdmEffects(cw) {
     // Smith's tier 3 is a coin bonus rather than a stat, and is applied at
     // Submit instead — see udmCoinMultiplier().
     if (sk && sk.effect && sk.effect.kind === 'stat') e[sk.effect.stat] += sk.effect.delta;
+  }
+  // Party-wide effects reach only the Co-Workers actually in the lab, the
+  // holder included. Someone on the bench shows their own numbers.
+  if (cw.present) {
+    for (const b of UDM_PARTY_STAT_BUFFS) if (udmUniqueActive(b.owner)) e[b.stat] += b.delta;
+    if (udmUniqueActive('anna')) e.work *= 1.5;  // 手順書、作りました
+    if (udmUniqueActive('mike')) e.walk *= 1.3;  // 整理整頓
   }
   return e;
 }
@@ -5890,9 +5929,15 @@ function udmCoinMultiplier() {
   if (!udmActive) return 1;
   let mul = 1;
   const smith = coworkers.find(c => c.id === 'smith');
-  if (smith && smith.present && udmSkillActive('smith:3')) mul *= 1.1;
+  if (smith && smith.present && udmSkillActive('smith:3')) mul *= 1.1;  // 顔が広い
+  if (udmUniqueActive('watson')) mul *= 2;                              // Reviewer 2 キラー
   return mul;
 }
+
+// Pam's「インフルエンサー」— points only. Coins are a separate lever, and the
+// two are kept apart so the leaderboard number and the shop currency stay the
+// same quantity as agreed.
+function udmScoreMultiplier() { return udmUniqueActive('pam') ? 1.1 : 1; }
 
 // =============================================================
 // UDM skill layer — points
@@ -6024,8 +6069,11 @@ function presentCoworkers() { return coworkers.filter(c => c.present); }
 function hiredCoworkers()   { return coworkers.filter(c => c.hired); }
 
 // Max attendance per spec §10.6 / §5.1
-// Tom's「一緒にやろう」raises this in Phase 3.
-function maxAttendance() { return gameStats.labLv * 2; }
+function maxAttendance() {
+  let n = gameStats.labLv * 2;
+  if (typeof udmUniqueActive === 'function' && udmUniqueActive('tom')) n += 2; // 一緒にやろう
+  return n;
+}
 
 // Active Experiment slots (§5.1). Read through a function rather than the
 // literal 3 that used to sit at each of the five call sites, so システム段階2
@@ -6033,8 +6081,9 @@ function maxAttendance() { return gameStats.labLv * 2; }
 function maxActiveExperiments() { return 3; }
 
 // UDM Variant stock ceiling — the (limit + 1)-th arrival ends the run.
-// Owen's「計画性」raises this in Phase 3.
-function udmStockLimit() { return 10; }
+function udmStockLimit() {
+  return 10 + (typeof udmUniqueActive === 'function' && udmUniqueActive('owen') ? 5 : 0); // 計画性
+}
 function presentCount()  { return coworkers.reduce((n, c) => n + (c.present ? 1 : 0), 0); }
 
 // =============================================================
@@ -9988,7 +10037,7 @@ function confirmSubmit() {
     showDiscoveryPopup(d, triggerSpec || submittedSpecs[0]);
   }
   for (const v of newVariants) {
-    botChat(`🟣 Discovery Variant: D${v.baseNo}-V${v.vLevel}（+${v.score.toLocaleString()}）`, 'discovery');
+    botChat(`🟣 Discovery Variant: D${v.baseNo}-V${v.vLevel}（+${(v.gained ?? v.score).toLocaleString()}）`, 'discovery');
     const triggerSpec = submittedSpecs.find(sp => isExactMatch(compareToRecipe(sp, v.recipe)));
     showUdmVariantPopup(v, triggerSpec || submittedSpecs[0]);
   }
@@ -11014,6 +11063,14 @@ function commitTask(eq) {
         }
       }
       if (udmActive) udmAnalyzeHook(spec, cw);
+      // Ingrid「…分身してない？」— what she analyses is written up in the same
+      // breath. No walk to a PC, no queue behind it: analysis and writing are
+      // the two ends of the pipeline that back up, and this unclogs both.
+      if (udmActive && cw && cw.id === 'ingrid' && udmUniqueActive('ingrid')
+          && spec.status === 'analyzed'
+          && canWriterSubmit({ id: cw.id, name: cw.name, W: statOf(cw, 'W') }, spec)) {
+        submitSpecimenAsCoworker(cw, spec);
+      }
     }
   } else if (task.kind === 'submit') {
     const spec = specimens.find(s => s.id === task.specId);
@@ -11085,7 +11142,7 @@ function submitSpecimenAsCoworker(cw, spec) {
   if (r.matchedVariant) {
     const v = r.matchedVariant;
     achieveUdmVariant(v);
-    enqueueChat(cw, 'discovery', `D${v.baseNo}-V${v.vLevel} を発見！ (+${v.score.toLocaleString()})`);
+    enqueueChat(cw, 'discovery', `D${v.baseNo}-V${v.vLevel} を発見！ (+${(v.gained ?? v.score).toLocaleString()})`);
     showUdmVariantPopup(v, spec);
   }
   // Experiment fulfillment
@@ -12108,7 +12165,7 @@ function showUdmVariantPopup(v, spec) {
     `<b>加工:</b> ${procStr}<br>` +
     `<b>分析:</b> ${ANA_SHORT[r.analysis]}` +
     (r.orderMatters ? '<br><b>順序依存</b> ✓' : '');
-  document.getElementById('udm-var-popup-score').textContent = `+${v.score.toLocaleString()} pts`;
+  document.getElementById('udm-var-popup-score').textContent = `+${(v.gained ?? v.score).toLocaleString()} pts`;
   document.getElementById('udm-variant-backdrop').classList.add('open');
   pauseAi();
 }
@@ -12247,6 +12304,7 @@ function makeFreshUdmRun() {
     variants: [],                 // active Discovery Variants (stage 2)
     customRecipes: [null, null, null], // 3 custom recipe slots (stage 3)
     runSkills: [],                // skills drafted this run; lost when it ends
+    discardDay: null,             // DAY Frank's discard was last used
     pointsAwarded: false,         // this run's score has been paid into the meta
     gameOver: false,
   };
@@ -12301,13 +12359,15 @@ function applyUdmStartState() {
   // most of the shift arrives carrying the unplaced (0,0). udmEnsureNavigable
   // places them, once every present flag is set (findSpawnTile reads who is
   // already on shift to avoid stacking people).
-  const cap = maxAttendance();
+  // maxAttendance() is re-read per Co-Worker rather than captured once: Tom's
+  // 「一緒にやろう」raises it, and Tom is first in the roster, so the ceiling
+  // has to be allowed to move as the shift fills.
   let present = 0;
   for (const cw of coworkers) {
     cw.hired = true;
     cw.state = 'idle'; cw.stateLabel = 'Idle';
     cw._path = null; cw._onArrive = null; cw._walkAcc = 0;
-    cw.present = present < cap;
+    cw.present = present < maxAttendance();
     if (cw.present) present++;
   }
   udmEnsureNavigable();
@@ -12497,6 +12557,7 @@ function saveUdm() {
       gameOver: udm.gameOver,
       runSkills: udm.runSkills || [],
       pointsAwarded: !!udm.pointsAwarded,
+      discardDay: udm.discardDay ?? null,
       lastSchedDay: udm.lastSchedDay,
       vCounter: udm._vCounter || 0,
       day: gameStats.day,
@@ -12524,6 +12585,7 @@ function loadUdm() {
     udm.startedAt = d.startedAt || Date.now();
     udm.runSkills = Array.isArray(d.runSkills) ? d.runSkills.filter(id => UDM_SKILLS.has(id)) : [];
     udm.pointsAwarded = !!d.pointsAwarded;
+    udm.discardDay = (typeof d.discardDay === 'number') ? d.discardDay : null;
     udm.score = Number(d.score) || 0;
     udm.gameOver = !!d.gameOver;
     udm.lastSchedDay = (typeof d.lastSchedDay === 'number') ? d.lastSchedDay : 0;
@@ -12737,11 +12799,25 @@ function markUdmVariantBadge(vid) {
 function udmAnalyzeHook(spec, cw) {
   if (!udmActive || !udm || !spec || !spec.analysis) return;
   let firstHint = null, firstBulb = null;
+  // Hank「気づきメモ」lowers the bar for a hint: normally a specimen has to
+  // get the elements right plus one more field, with him one matching field
+  // of any kind is enough. Only the fields that actually match are revealed,
+  // so this speeds the deduction up without ever telling a lie.
+  const looseHints = udmUniqueActive('hank');
+  // Lisa「ひらめき」reads an order-locked Variant that a specimen matches in
+  // every respect but sequence as "you have found the conditions" — the 💡,
+  // not the discovery. The recipe still has to be rebuilt in the right order.
+  const orderInsight = udmUniqueActive('lisa');
   for (const v of udm.variants) {
     if (v.stage >= 4) continue;
     const cmp = compareToRecipe(spec, v.recipe);
-    const exact = isExactMatch(cmp);
-    const partial = cmp.elements && matchCount(cmp) >= 2;
+    let exact = isExactMatch(cmp);
+    if (!exact && orderInsight && v.recipe.orderMatters
+        && cmp.elements && cmp.synthesis && cmp.analysis
+        && matchProcessing(spec.processing, v.recipe.processing, false)) {
+      exact = true;   // reveals everything; the Submit match is unchanged
+    }
+    const partial = looseHints ? matchCount(cmp) >= 1 : (cmp.elements && matchCount(cmp) >= 2);
     if (exact) {
       if (v.stage < 3) { v.stage = 3; if (!firstBulb) firstBulb = v; markUdmVariantBadge(v.id); }
     } else if (partial) {
@@ -12791,7 +12867,9 @@ function findMatchingUdmVariant(spec, claimed) {
 // Achieve a variant: add score, consume it from the stock.
 function achieveUdmVariant(v) {
   if (!udm) return;
-  udm.score += v.score;
+  // What the Variant is worth, and what this lab actually banks for it.
+  v.gained = Math.round(v.score * udmScoreMultiplier());
+  udm.score += v.gained;
   udmQueueDraft(1);
   const idx = udm.variants.indexOf(v);
   if (idx >= 0) udm.variants.splice(idx, 1);
@@ -12799,6 +12877,40 @@ function achieveUdmVariant(v) {
   updateDisTabBadge();
   refreshLeftVarTab();
   saveUdm();
+}
+
+// --- Frank「優先順位を決めよう」: drop a Variant, once per DAY ---
+//
+// The only way to shed a Variant other than solving it. A V5 nobody can crack
+// otherwise sits in the stock until it kills the run, so this is the one lever
+// that turns "I cannot solve this" into a decision rather than a death.
+function udmCanDiscardVariant() {
+  if (!udmActive || !udm || udm.gameOver) return false;
+  if (!udmUniqueActive('frank')) return false;
+  return udm.discardDay !== gameStats.day;
+}
+
+async function udmDiscardVariant(vid) {
+  if (!udmCanDiscardVariant()) return;
+  const v = udm.variants.find(x => x.id === vid);
+  if (!v) return;
+  const ok = await showConfirm(
+    `D${v.baseNo}-V${v.vLevel}（+${v.score.toLocaleString()}）を破棄します。\n` +
+    'スコアは入らず、この操作はこのDAYではもう使えません。よろしいですか？',
+    '破棄する'
+  );
+  if (!ok) return;
+  if (!udmCanDiscardVariant()) return;   // the day may have turned while asking
+  const idx = udm.variants.indexOf(v);
+  if (idx < 0) return;
+  udm.variants.splice(idx, 1);
+  udm.discardDay = gameStats.day;
+  discoveryBadgeSet.delete(v.id);
+  updateDisTabBadge();
+  botChat(`🗂 D${v.baseNo}-V${v.vLevel} を破棄しました（Frank「優先順位を決めよう」）`, 'system');
+  saveUdm();
+  renderRPanel();
+  refreshLeftVarTab();
 }
 
 // --- Game over ---
@@ -12877,6 +12989,11 @@ function renderUdmVariants(targetEl) {
   }
   el.innerHTML = html;
 
+  el.querySelectorAll('[data-discard]').forEach(b => b.addEventListener('click', e => {
+    e.stopPropagation();
+    udmDiscardVariant(b.dataset.discard);
+  }));
+
   // NEW-badge read detection (same IntersectionObserver pattern as discoveries)
   if (discoveryBadgeSet.size > 0) {
     const obs = new IntersectionObserver(entries => {
@@ -12918,7 +13035,9 @@ function renderUdmVariantCard(v) {
   }).join(sep);
   const recipeHTML = `${elementsHTML} / ${synthHTML} / ${procHTML} / ${anaHTML}`;
   const orderTag = r.orderMatters ? '<span class="udm-order-tag" title="工程の順序が一致する必要があります">順序固定</span>' : '';
-  const cls = ['d-card', 'udm-variant', `stage-${v.stage}`, `v${v.vLevel}`].join(' ');
+  const canDiscard = udmCanDiscardVariant();
+  const cls = ['d-card', 'udm-variant', `stage-${v.stage}`, `v${v.vLevel}`,
+    canDiscard ? 'has-discard' : ''].filter(Boolean).join(' ');
   return `<div class="${cls}" data-variant="${v.id}">
     <div class="d-card-top">
       ${badgeForStage(v.stage)}
@@ -12929,6 +13048,7 @@ function renderUdmVariantCard(v) {
       ${discoveryBadgeSet.has(v.id) ? '<span class="disc-new-badge">NEW</span>' : ''}
     </div>
     <div class="d-recipe">${recipeHTML}</div>
+    ${canDiscard ? `<button class="udm-discard-btn" data-discard="${v.id}" title="このVariantを破棄する（1DAYに1回）">破棄</button>` : ''}
   </div>`;
 }
 
