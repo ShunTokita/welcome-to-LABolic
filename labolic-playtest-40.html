@@ -5574,15 +5574,14 @@ function walkSpeedOf(cw) { const e = udmEffectsFor(cw); return e ? e.walk : 1.0;
 // there are at most 26 candidates however many of the 104 remain.
 // =============================================================
 
-const UDM_SKILL_TIER1 = { name:'手が早い',   desc:'作業速度 +50%', effect:{ kind:'work', mul:1.5 } };
-const UDM_SKILL_TIER2 = { name:'動きが軽い', desc:'移動速度 +30%', effect:{ kind:'walk', mul:1.3 } };
-const UDM_SKILL_TIER3_BY_STAT = {
-  S:  { name:'腕が上がる',   desc:'SP +1' },
-  A:  { name:'丁寧になる',   desc:'AC +1' },
-  An: { name:'目が肥える',   desc:'AN +1' },
-  E:  { name:'工具に慣れる', desc:'EN +1' },
-  W:  { name:'筆が乗る',     desc:'WR +1' },
-};
+// Tiers 1-3 are not named — the effect is the name. Only the tier-4 uniques
+// get a title, which is what makes them read as the character's own trick
+// rather than another rung on the same ladder.
+const UDM_SKILL_TIER1 = { name:'作業速度50%アップ', desc:'装置での作業が1.5倍の速さになります。',
+  effect:{ kind:'work', mul:1.5 } };
+const UDM_SKILL_TIER2 = { name:'移動速度30%アップ', desc:'ラボ内の移動が1.3倍の速さになります。',
+  effect:{ kind:'walk', mul:1.3 } };
+const UDM_SKILL_TIER3_LABEL = { S:'SP', A:'AC', An:'AN', E:'EN', W:'WR' };
 
 // tier3: which stat the +1 goes to. Chosen to make that Co-Worker's own
 // unique work — the four 極意 holders all get AC, which together with Lee's
@@ -5662,7 +5661,7 @@ const UDM_SKILL_OWNERS = [
   { id:'ingrid', stat:'S', unique:{ name:'…分身してない？',
     desc:'Ingridが分析した試験片は、そのまま同時にSubmitされる。',
     flavor:'いつも思うんですが…Ingridさん、分身してませんか？' } },
-  { id:'smith', tier3:{ name:'顔が広い', desc:'Submitで得られるコイン +10%',
+  { id:'smith', tier3:{ name:'Submit報酬コイン10%アップ', desc:'Smithの出勤中のみ有効。',
       effect:{ kind:'coin', mul:1.1 } },
     unique:{ name:'進捗報告',
     desc:'Smithにカスタムレシピが割り当てられているとき、類似する元素発見済みVariantの進捗に合わせてレシピを自動で更新していく。Smithの出勤中は「LABの司令塔」が無効化される。',
@@ -5703,7 +5702,16 @@ const UDM_SKILLS = (() => {
       if (isSystem)      base = owner.tiers[tier - 1];
       else if (tier === 1) base = UDM_SKILL_TIER1;
       else if (tier === 2) base = UDM_SKILL_TIER2;
-      else if (tier === 3) base = owner.tier3 || UDM_SKILL_TIER3_BY_STAT[owner.stat];
+      else if (tier === 3) {
+        // The +1 is worth spelling out per Co-Worker: whether it clears an
+        // equipment gate depends entirely on where that stat already sits.
+        if (owner.tier3) base = owner.tier3;
+        else {
+          const lbl = UDM_SKILL_TIER3_LABEL[owner.stat];
+          const from = cw ? (cw.stats[owner.stat] || 0) : 0;
+          base = { name: `${lbl}ステータス＋１`, desc: `${lbl} ${from} → ${Math.min(4, from + 1)}` };
+        }
+      }
       else                 base = owner.unique;
       const price = isSystem ? UDM_SKILL_PRICE_SYSTEM[tier]
         : (tier < 4 ? UDM_SKILL_PRICE_COMMON[tier] : UDM_SKILL_PRICE_UNIQUE[cw ? cw.tier : 1]);
