@@ -219,11 +219,95 @@
   }
   .udm-intro-ok:hover { background: #5d3f8a; }
 
+  /* UDM skill draft */
+  .udm-draft-panel { max-width: 560px; }
+  .udm-draft-sub { font-size: 12px; color: var(--text-muted); margin: 2px 0 10px; }
+  .udm-draft-cards { display: flex; flex-direction: column; gap: 8px; }
+  .udm-draft-card {
+    display: block; width: 100%; text-align: left; cursor: pointer;
+    background: var(--bg-card); border: 1px solid var(--line-light);
+    border-left: 3px solid var(--accent-purple); border-radius: 3px;
+    padding: 10px 12px; font: inherit; color: var(--text-primary);
+  }
+  .udm-draft-card:hover { background: var(--bg-card-hover); border-color: var(--accent-purple); }
+  .udm-draft-card:focus-visible { outline: 2px solid var(--accent-purple); outline-offset: 2px; }
+  .udm-draft-owner {
+    font-size: 10px; letter-spacing: .06em; color: var(--accent-purple); font-weight: 800;
+  }
+  .udm-draft-tier {
+    font-size: 9px; margin-left: 6px; padding: 0 4px; border-radius: 2px;
+    background: var(--accent-purple-bg); color: var(--accent-purple); font-weight: 700;
+  }
+  .udm-draft-name { font-size: 14px; font-weight: 800; margin-top: 1px; }
+  .udm-draft-desc { font-size: 11px; color: var(--text-secondary); line-height: 1.55; margin-top: 2px; }
+  .udm-draft-flavor {
+    font-size: 11px; color: var(--text-muted); line-height: 1.6; margin-top: 5px;
+    padding-left: 8px; border-left: 2px solid var(--line-light);
+  }
+
+  /* UDM skill store */
+  .udm-store-panel { max-width: 720px; }
+  .udm-store-panel .udm-intro-header { display: flex; align-items: baseline; gap: 10px; }
+  .udm-store-points {
+    margin-left: auto; font-size: 13px; font-weight: 800; color: var(--accent-purple);
+    font-family: ui-monospace, monospace;
+  }
+  .udm-store-hint { font-size: 11px; color: var(--text-muted); line-height: 1.6; margin-bottom: 10px; }
+  .udm-store-body { max-height: 56vh; overflow-y: auto; overflow-x: auto; }
+  .udm-store-row {
+    display: grid; grid-template-columns: 92px repeat(4, 1fr); gap: 4px;
+    align-items: stretch; margin-bottom: 4px; min-width: 560px;
+  }
+  .udm-store-row.head { position: sticky; top: 0; background: var(--bg-panel); z-index: 1; }
+  .udm-store-row.head > div {
+    font-size: 10px; color: var(--text-muted); font-weight: 700; letter-spacing: .06em;
+    padding: 2px 4px; text-align: center;
+  }
+  .udm-store-row.head > div:first-child { text-align: left; }
+  .udm-store-who {
+    display: flex; flex-direction: column; justify-content: center;
+    font-size: 12px; font-weight: 800; padding: 4px 2px; line-height: 1.3;
+  }
+  .udm-store-who .sub { font-size: 9px; color: var(--text-muted); font-weight: 600; }
+  .udm-store-cell {
+    background: var(--bg-card); border: 1px solid var(--line-light); border-radius: 3px;
+    padding: 5px 6px; font-size: 10px; line-height: 1.45; color: var(--text-secondary);
+    display: flex; flex-direction: column; gap: 3px; min-width: 0;
+  }
+  .udm-store-cell.owned { background: var(--accent-purple-bg); border-color: var(--accent-purple); }
+  .udm-store-cell.masked { color: var(--text-muted); }
+  .udm-store-cell .nm {
+    font-size: 11px; font-weight: 800; color: var(--text-primary);
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .udm-store-cell.masked .nm { color: var(--text-muted); }
+  .udm-store-cell .price { font-family: ui-monospace, monospace; font-size: 10px; color: var(--text-muted); }
+  .udm-store-buy {
+    margin-top: auto; font: inherit; font-size: 10px; font-weight: 700; cursor: pointer;
+    background: var(--accent-purple); color: #fff; border: 1px solid var(--accent-purple);
+    border-radius: 2px; padding: 2px 0;
+  }
+  .udm-store-buy:disabled { background: var(--bg-input); color: var(--text-muted); border-color: var(--line-light); cursor: default; }
+  .udm-store-have { font-size: 10px; font-weight: 800; color: var(--accent-purple); text-align: center; }
+  .udm-store-actions { display: flex; gap: 8px; align-items: center; margin-top: 10px; }
+  .udm-store-actions .udm-intro-ok { margin-top: 0; margin-left: auto; width: auto; padding: 6px 18px; }
+  .udm-store-reset {
+    font: inherit; font-size: 11px; cursor: pointer; background: transparent;
+    color: var(--accent-danger); border: 1px solid var(--accent-danger);
+    border-radius: 3px; padding: 5px 10px;
+  }
+  .udm-store-reset:hover { background: var(--accent-danger-bg); }
+
   /* UDM game over panel */
   .udm-gameover-panel { text-align: center; }
   .udm-go-score { font-size: 12px; color: var(--text-muted); margin-top: 4px; }
   .udm-go-num { font-size: 34px; font-weight: 800; color: var(--accent-purple); margin: 2px 0 8px; }
   .udm-gameover-panel p { font-size: 12px; line-height: 1.6; }
+  .udm-go-points {
+    margin-top: 10px; padding-top: 8px; border-top: 1px solid var(--line-light);
+  }
+  .udm-go-points b { color: var(--accent-purple); font-size: 14px; }
+  .udm-go-points-hint { font-size: 11px; color: var(--text-muted); }
   .udm-gameover-skip {
     display: block; width: 100%; margin-top: 8px; padding: 8px;
     font-size: 12px; font-weight: 700; cursor: pointer;
@@ -3151,6 +3235,8 @@
         <div id="settings-udm-section" style="display:none;">
           <button class="settings-btn udm-start-btn" id="btn-udm-start">Unlimited Discovery Mode</button>
           <div class="settings-udm-hint">DAYと共に追加される Discovery Variant を消化し続け、ハイスコアを競う高難易度モード。本編セーブは保護されます。</div>
+          <button class="settings-btn" id="btn-udm-store">🧪 UDMスキルストア</button>
+          <div class="settings-udm-hint" id="settings-udm-store-hint">UDMで稼いだポイントで、次回以降のUDMに効く恒常強化を購入します。</div>
         </div>
         <div class="settings-section-label">情報</div>
         <button class="settings-btn" id="btn-leaderboard">🏆 リーダーボード</button>
@@ -3281,6 +3367,31 @@
       <div class="udm-intro-body" id="udm-gameover-body"></div>
       <button class="udm-intro-ok" id="udm-gameover-ok">記録を送信して本編に戻る</button>
       <button class="udm-gameover-skip" id="udm-gameover-skip">送信せずに本編に戻る</button>
+    </div>
+  </div>
+
+  <!-- UDM skill draft — one pick per Variant discovered -->
+  <div class="udm-intro-backdrop" id="udm-draft-backdrop">
+    <div class="udm-intro-panel udm-draft-panel">
+      <div class="udm-intro-header">🧪 スキル獲得</div>
+      <div class="udm-draft-sub" id="udm-draft-sub"></div>
+      <div class="udm-draft-cards" id="udm-draft-cards"></div>
+    </div>
+  </div>
+
+  <!-- UDM skill store — permanent upgrades, opened from settings -->
+  <div class="udm-intro-backdrop" id="udm-store-backdrop">
+    <div class="udm-intro-panel udm-store-panel">
+      <div class="udm-intro-header">
+        <span>🧪 UDMスキルストア</span>
+        <span class="udm-store-points" id="udm-store-points">0 pt</span>
+      </div>
+      <div class="udm-store-hint">UDM中に一度でも獲得したスキルを、恒常的な強化として購入できます。段階は1から順に。ポイントはUDMを終えたときにスコアがそのまま加算されます。</div>
+      <div class="udm-store-body" id="udm-store-body"></div>
+      <div class="udm-store-actions">
+        <button class="udm-store-reset" id="udm-store-reset">UDM強化をリセット</button>
+        <button class="udm-intro-ok" id="udm-store-close">閉じる</button>
+      </div>
     </div>
   </div>
 
@@ -5362,6 +5473,470 @@ function statOf(cw, key) {
 // Work speed multiplies throughput, so it *divides* task duration.
 function workSpeedOf(cw) { return 1.0; }
 function walkSpeedOf(cw) { return 1.0; }
+
+
+// =============================================================
+// UDM skill layer — data (§ roguelike/growth system, phase 1)
+//
+// 26 items (25 Co-Workers + the system) × 4 tiers = 104 skills. Tiers 1-3 are
+// the same shape for every Co-Worker — work speed, walk speed, +1 to one stat
+// — so they are generated rather than typed out; only the stat differs, and
+// that choice is the real balance lever, since a stat is also the gate on
+// which equipment a Co-Worker may touch at all. Tier 4 is the unique.
+//
+// A skill id is `owner:tier` ('ben:4', 'sys:1'): a plain string, so ownership
+// is a Set lookup and the save file stays readable.
+//
+// Tiers are taken in order, which is what keeps the draft pool small: at any
+// moment only the next unowned tier of each of the 26 items is offered, so
+// there are at most 26 candidates however many of the 104 remain.
+// =============================================================
+
+const UDM_SKILL_TIER1 = { name:'手が早い',   desc:'作業速度 +50%', effect:{ kind:'work', mul:1.5 } };
+const UDM_SKILL_TIER2 = { name:'動きが軽い', desc:'移動速度 +30%', effect:{ kind:'walk', mul:1.3 } };
+const UDM_SKILL_TIER3_BY_STAT = {
+  S:  { name:'腕が上がる',   desc:'SP +1' },
+  A:  { name:'丁寧になる',   desc:'AC +1' },
+  An: { name:'目が肥える',   desc:'AN +1' },
+  E:  { name:'工具に慣れる', desc:'EN +1' },
+  W:  { name:'筆が乗る',     desc:'WR +1' },
+};
+
+// tier3: which stat the +1 goes to. Chosen to make that Co-Worker's own
+// unique work — the four 極意 holders all get AC, which together with Lee's
+// party-wide +2 puts them at AC 4 (no drift) for their batch operations.
+// Smith is the one exception: every stat is already 4, so tier 3 is a
+// bespoke effect instead.
+const UDM_SKILL_OWNERS = [
+  { id:'tom', stat:'A', unique:{ name:'一緒にやろう',
+    desc:'出勤できるCo-Workerの上限 +2。',
+    flavor:'人手が足りない？友達連れてきますよ！' } },
+  { id:'lisa', stat:'A', unique:{ name:'ひらめき',
+    desc:'順序固定のVariantで、順序以外がすべて一致したとき、その場で全条件が判明する。発見にはならない。',
+    flavor:'あんまりよくわかんないけど…うまくいきそうな気がする…。' } },
+  { id:'ben', stat:'A', unique:{ name:'僕だけの装置',
+    desc:'BenとSmithが出勤しているとき、MPSSで元素未発見のうち最も報酬の高いVariantの元素が判明する。クールタイム1DAY。',
+    flavor:'せっかく作った装置、僕も使ってみようと思います。' } },
+  { id:'anna', stat:'S', unique:{ name:'手順書、作りました',
+    desc:'出勤中のすべてのCo-Workerの作業速度 +50%。',
+    flavor:'マニュアル作りました。これでスムーズに実験できますね。' } },
+  { id:'mike', stat:'S', unique:{ name:'整理整頓',
+    desc:'出勤中のすべてのCo-Workerの移動速度 +30%。',
+    flavor:'綺麗なデータは綺麗な実験室から。通路幅は足りてるかな？' } },
+  { id:'owen', stat:'An', unique:{ name:'計画性',
+    desc:'ストックできるVariantの上限 +5。',
+    flavor:'手当たり次第にやるのも良いですが、計画は大事です。' } },
+  { id:'pam', stat:'W', unique:{ name:'インフルエンサー',
+    desc:'獲得するVariantのポイント +10%。',
+    flavor:'研究所のPRは任せて！あ、先生！あとで写真撮らせてくださいねー！' } },
+  { id:'kate', stat:'S', unique:{ name:'顕微鏡講習',
+    desc:'出勤中のすべてのCo-WorkerのAN +2。',
+    flavor:'Chenさんに講習会してもらうことになりました！これでみんな使えるね。' } },
+  { id:'sam', stat:'A', unique:{ name:'熱処理の極意',
+    desc:'Furnace以外の加工を行わない代わりに、バッチ指定されたFurnace処理を3条件まとめて行う。Furnaceに必要なSPを自動的に満たす。',
+    flavor:'ただ入れるだけなんて甘いね！配置と温度分布を味方にしてこそエキスパートさ' } },
+  { id:'carol', stat:'A', unique:{ name:'月イチの勉強会',
+    desc:'出勤中のすべてのCo-WorkerのWR +2。',
+    flavor:'論文を書く前に、インプットが足りない気がする。勉強会やりましょう。' } },
+  { id:'dave', stat:'A', unique:{ name:'同期の絆',
+    desc:'DaveとGraceのSPが4になる。両名が出勤しているとき、元素未発見のVariantからランダムに1つ選んでその元素が判明する。クールタイム1DAY。',
+    flavor:'研究室での何気ない会話も、新しいアイデアにつながったりするんだよね' } },
+  { id:'eve', stat:'A', unique:{ name:'磁化の極意',
+    desc:'Magnetization以外の加工を行わない代わりに、バッチ指定されたMag処理を3条件まとめて行う。Magnetizerに必要なSPを自動的に満たす。',
+    flavor:'目には見えない変化だけど、試験片によってぜんぜん違うのね！' } },
+  { id:'frank', stat:'An', unique:{ name:'優先順位を決めよう',
+    desc:'1DAYに1回、ストック中のVariantを1つ破棄できる。スコアは入らない。',
+    flavor:'新しいことを始めるなら、ひとつやめて時間を作らないとね。' } },
+  { id:'grace', stat:'A', unique:{ name:'同期の絆',
+    desc:'DaveとGraceが一度に、同じ元素の試験片を3つ合成する。元素の費用も3倍かかる。',
+    flavor:'仲間と一緒なら、大量の実験もあっという間だよ' } },
+  { id:'hank', stat:'An', unique:{ name:'気づきメモ',
+    desc:'部分一致の手がかりが、1項目の一致でも得られるようになる。',
+    flavor:'実験ノート、ちゃんと書いてるかい？' } },
+  { id:'iris', stat:'A', unique:{ name:'反重力の極意',
+    desc:'AGT以外の加工を行わない代わりに、バッチ指定されたAGT処理を3条件まとめて行う。SPが4になる。',
+    flavor:'わけのわからない装置だけど、結構慣れてきた気がする' } },
+  { id:'joe', stat:'A', unique:{ name:'圧延の極意',
+    desc:'Rolling以外の加工を行わない代わりに、バッチ指定されたRoll処理を3条件まとめて行う。Rolling Millに必要なSPを自動的に満たす。',
+    flavor:'圧延は危ないからね。僕がまとめてやっておくよ' } },
+  { id:'jeff', stat:'An', unique:{ name:'失敗は成功の母',
+    desc:'JeffとBobbyが両方出勤しているときのみ有効。Co-Workerのドリフト回数が表示され、規定回数に達すると未発見で最も報酬の高いVariantのレシピがすべて判明してカウントが戻る。出勤中のすべてのCo-WorkerのAC −2。「LABの司令塔」を無効化する。',
+    flavor:'「数打ちゃ当たる」の極み。良い子は真似しないでね。' } },
+  { id:'murphy', stat:'S', unique:{ name:'実験室の番人',
+    desc:'出勤中のすべてのCo-WorkerのEN +2。',
+    flavor:'日々の掃除とメンテナンスから叩き込んでやるよ！' } },
+  { id:'chen', stat:'W', unique:{ name:'分析の極意',
+    desc:'分析を3試料まとめて行う。',
+    flavor:'ただ写真撮ればいいってものではありません。大切なのはパッションとデータへの誠実さです。' } },
+  { id:'lee', stat:'An', unique:{ name:'丁寧にいこう',
+    desc:'出勤中のすべてのCo-WorkerのAC +2。',
+    flavor:'実験は料理みたいなものです。手間暇を惜しまなければ結果は自然とついてきます。' } },
+  { id:'watson', stat:'A', unique:{ name:'Reviewer 2 キラー',
+    desc:'Submitで得られるコインが2倍になる。Variantのスコアには影響しない。',
+    flavor:'今回の査読も手強いね。まあなんとかしますよ。' } },
+  { id:'bobby', stat:'An', unique:{ name:'失敗は成功の母',
+    desc:'Jeffと対になるスキル。両名が出勤していないと発動しない。',
+    flavor:'※これはゲームです。' } },
+  { id:'ingrid', stat:'S', unique:{ name:'…分身してない？',
+    desc:'Ingridが分析した試験片は、そのまま同時にSubmitされる。',
+    flavor:'いつも思うんですが…Ingridさん、分身してませんか？' } },
+  { id:'smith', tier3:{ name:'顔が広い', desc:'Submitで得られるコイン +10%',
+      effect:{ kind:'coin', mul:1.1 } },
+    unique:{ name:'進捗報告',
+    desc:'Smithにカスタムレシピが割り当てられているとき、類似する元素発見済みVariantの進捗に合わせてレシピを自動で更新していく。Smithの出勤中は「LABの司令塔」が無効化される。',
+    flavor:'画面の向こうのあなた…研究、進んでますか？' } },
+  // The system track is four separate unlocks rather than three upgrades and
+  // a unique, and it is a prerequisite chain: the batch designation of tier 4
+  // is a custom-recipe feature, so it cannot come before tier 1.
+  { id:'sys', name:'システム', tiers:[
+    { name:'オリジナルレシピ', desc:'カスタムレシピ（3枠）を解放する。' },
+    { name:'マルチタスク',     desc:'Active Experiments の受注枠 +1。' },
+    { name:'役割分担',         desc:'Co-Workerごとに、担当するActive Experimentを指定できる。' },
+    { name:'LABの司令塔',      desc:'カスタムレシピに、条件を指定しないバッチ指定を追加する。Fur / Roll / Mag / AGT だけを指定し、レベルは3段階のいずれかをランダムに対象とする。' },
+  ] },
+];
+
+// Prices. The spread is wide because UDM scores are: a V1 from a Lv1 base is
+// worth 2 points and a V5 from a Lv4 base is worth 17,280, so a flat curve
+// would be either unbuyable on run one or exhausted on a lucky run three.
+const UDM_SKILL_PRICE_COMMON = { 1: 3000, 2: 8000, 3: 20000 };
+const UDM_SKILL_PRICE_UNIQUE = { 1: 40000, 2: 70000, 3: 100000 }; // keyed by Co-Worker tier
+const UDM_SKILL_PRICE_SYSTEM = { 1: 15000, 2: 40000, 3: 80000, 4: 150000 };
+
+// The system is the spine both other builds hang off — a Variant discovered
+// early should have a better-than-uniform chance of moving it along, or a
+// run can reach DAY 30 with no custom recipes at all.
+const UDM_DRAFT_SYSTEM_WEIGHT = 3;
+const UDM_DRAFT_CHOICES = 3;
+
+// id -> { id, owner, ownerName, tier, name, desc, flavor, price, effect }
+const UDM_SKILLS = (() => {
+  const map = new Map();
+  for (const owner of UDM_SKILL_OWNERS) {
+    const cw = coworkers.find(c => c.id === owner.id);
+    const ownerName = owner.name || (cw ? cw.name : owner.id);
+    const isSystem = owner.id === 'sys';
+    for (let tier = 1; tier <= 4; tier++) {
+      let base;
+      if (isSystem)      base = owner.tiers[tier - 1];
+      else if (tier === 1) base = UDM_SKILL_TIER1;
+      else if (tier === 2) base = UDM_SKILL_TIER2;
+      else if (tier === 3) base = owner.tier3 || UDM_SKILL_TIER3_BY_STAT[owner.stat];
+      else                 base = owner.unique;
+      const price = isSystem ? UDM_SKILL_PRICE_SYSTEM[tier]
+        : (tier < 4 ? UDM_SKILL_PRICE_COMMON[tier] : UDM_SKILL_PRICE_UNIQUE[cw ? cw.tier : 1]);
+      map.set(`${owner.id}:${tier}`, {
+        id: `${owner.id}:${tier}`, owner: owner.id, ownerName, tier,
+        name: base.name, desc: base.desc, flavor: base.flavor || null, price,
+        effect: base.effect || (tier === 3 && !isSystem && owner.stat
+          ? { kind: 'stat', stat: owner.stat, delta: 1 } : null),
+        unique: tier === 4 && !isSystem,
+      });
+    }
+  }
+  return map;
+})();
+
+function udmSkill(id) { return UDM_SKILLS.get(id) || null; }
+
+// =============================================================
+// UDM skill layer — persistence
+//
+// Two stores, deliberately separate:
+//   labolic.udm.meta.pt1   permanent. Points, what has been bought, and what
+//                          has ever been seen. Survives leaving UDM and
+//                          resetting the main game — it is the record of
+//                          every run, not of one save file.
+//   the run's own key      runSkills[], the picks made this run, wiped with
+//                          the run like every other roguelike does.
+// =============================================================
+const UDM_META_KEY = 'labolic.udm.meta.pt1';
+
+let udmMeta = { version: 1, earned: 0, spent: 0, owned: {}, seen: {} };
+
+function loadUdmMeta() {
+  try {
+    const raw = localStorage.getItem(UDM_META_KEY);
+    if (!raw) return;
+    const d = JSON.parse(raw);
+    if (!d || d.version !== 1) return;
+    udmMeta.earned = Number(d.earned) || 0;
+    udmMeta.spent  = Number(d.spent)  || 0;
+    udmMeta.owned  = (d.owned && typeof d.owned === 'object') ? d.owned : {};
+    udmMeta.seen   = (d.seen  && typeof d.seen  === 'object') ? d.seen  : {};
+    // Drop ids that no longer exist, so a renamed skill cannot resurrect as a
+    // permanent unlock nobody can see or spend against.
+    for (const k of Object.keys(udmMeta.owned)) if (!UDM_SKILLS.has(k)) delete udmMeta.owned[k];
+    for (const k of Object.keys(udmMeta.seen))  if (!UDM_SKILLS.has(k)) delete udmMeta.seen[k];
+  } catch(e) { console.warn('loadUdmMeta failed:', e); }
+}
+
+function saveUdmMeta() {
+  try { localStorage.setItem(UDM_META_KEY, JSON.stringify(udmMeta)); }
+  catch(e) { console.warn('saveUdmMeta failed:', e); }
+}
+
+function udmPoints() { return Math.max(0, (udmMeta.earned || 0) - (udmMeta.spent || 0)); }
+
+function udmMarkSeen(id) {
+  if (udmMeta.seen[id]) return;
+  udmMeta.seen[id] = true;
+  saveUdmMeta();
+}
+
+// =============================================================
+// UDM skill layer — what is in effect right now
+//
+// A skill counts as active when it is owned permanently or was drafted in
+// this run. Both only mean anything inside UDM; the main game never consults
+// them. Phase 2 hangs statOf / workSpeedOf / walkSpeedOf off these.
+// =============================================================
+function udmSkillActive(id) {
+  if (!udmActive) return false;
+  if (udmMeta.owned[id]) return true;
+  return !!(udm && udm.runSkills && udm.runSkills.indexOf(id) >= 0);
+}
+
+// Highest tier held for an owner. Tiers are taken in order, so this is also
+// "how far along that track we are".
+function udmOwnerTier(ownerId) {
+  let t = 0;
+  for (let i = 1; i <= 4; i++) { if (udmSkillActive(`${ownerId}:${i}`)) t = i; else break; }
+  return t;
+}
+
+// Permanent-only progress, which is what the store sells against.
+function udmOwnedTier(ownerId) {
+  let t = 0;
+  for (let i = 1; i <= 4; i++) { if (udmMeta.owned[`${ownerId}:${i}`]) t = i; else break; }
+  return t;
+}
+
+// =============================================================
+// UDM skill layer — the draft
+//
+// One pick per Variant discovered, three candidates drawn uniformly from the
+// next unowned tier of each item (the system weighted a little heavier).
+// Uniform is deliberate: drawing a strong skill for someone on the bench is
+// what nudges a player into trying that Co-Worker, which is the whole point
+// of having twenty-five of them.
+// =============================================================
+let udmDraftDue = 0;
+let udmDraftOffer = null;
+
+function udmDraftCandidates() {
+  const out = [];
+  for (const owner of UDM_SKILL_OWNERS) {
+    const next = udmOwnerTier(owner.id) + 1;
+    if (next <= 4) out.push(`${owner.id}:${next}`);
+  }
+  return out;
+}
+
+function udmRollDraft() {
+  const cands = udmDraftCandidates();
+  const pool = [];
+  for (const id of cands) {
+    const w = id.startsWith('sys:') ? UDM_DRAFT_SYSTEM_WEIGHT : 1;
+    for (let i = 0; i < w; i++) pool.push(id);
+  }
+  const picked = [];
+  while (picked.length < UDM_DRAFT_CHOICES && pool.length) {
+    const id = pool[Math.floor(Math.random() * pool.length)];
+    picked.push(id);
+    for (let k = pool.length - 1; k >= 0; k--) if (pool[k] === id) pool.splice(k, 1);
+  }
+  return picked;
+}
+
+function udmQueueDraft(n) { udmDraftDue += (n || 1); }
+
+// Drafts wait behind the Variant popup that owes them, so the discovery
+// fanfare is not shoved aside by a menu.
+function udmDrainDraft() {
+  if (!udmActive || !udm || udm.gameOver) { udmDraftDue = 0; return; }
+  if (udmDraftDue <= 0 || udmDraftOffer) return;
+  if (document.querySelector('.udm-intro-backdrop.open, .discovery-backdrop.open, .event-backdrop.open, .popup-backdrop.open')) return;
+  const offer = udmRollDraft();
+  if (!offer.length) {
+    udmDraftDue = 0;
+    botChat('取得できるスキルはもうありません。', 'system');
+    return;
+  }
+  udmDraftDue--;
+  udmDraftOffer = offer;
+  renderUdmDraft();
+  document.getElementById('udm-draft-backdrop')?.classList.add('open');
+  pauseAi();
+}
+
+function renderUdmDraft() {
+  const sub = document.getElementById('udm-draft-sub');
+  const box = document.getElementById('udm-draft-cards');
+  if (!box) return;
+  if (sub) sub.textContent = 'Variantを発見しました。1つ選んでください。'
+    + (udmDraftDue > 0 ? `（このあと あと${udmDraftDue}回）` : '');
+  box.innerHTML = udmDraftOffer.map(id => {
+    const sk = udmSkill(id);
+    if (!sk) return '';
+    return `<button class="udm-draft-card" data-skill="${sk.id}">
+      <div><span class="udm-draft-owner">${sk.ownerName}</span><span class="udm-draft-tier">段階 ${sk.tier}</span></div>
+      <div class="udm-draft-name">${sk.name}</div>
+      <div class="udm-draft-desc">${sk.desc}</div>
+      ${sk.flavor ? `<div class="udm-draft-flavor">${sk.flavor}</div>` : ''}
+    </button>`;
+  }).join('');
+  box.querySelectorAll('[data-skill]').forEach(el =>
+    el.addEventListener('click', () => udmTakeDraft(el.dataset.skill)));
+}
+
+function udmTakeDraft(id) {
+  if (!udmDraftOffer || udmDraftOffer.indexOf(id) < 0) return;
+  const sk = udmSkill(id);
+  if (!sk) return;
+  udm.runSkills = udm.runSkills || [];
+  if (udm.runSkills.indexOf(id) < 0) udm.runSkills.push(id);
+  udmMarkSeen(id);
+  udmInvalidateSkillEffects();
+  udmDraftOffer = null;
+  document.getElementById('udm-draft-backdrop')?.classList.remove('open');
+  resumeAi();
+  saveUdm();
+  botChat(`🧪 ${sk.ownerName}「${sk.name}」を習得しました。`, 'discovery_hint');
+  renderRPanel(); renderLPanel(); renderBottomBar(); renderLab();
+  // More than one Variant can land in a single Submit.
+  setTimeout(udmDrainDraft, 300);
+}
+
+// Effects are read on every AI tick, so they are composed once and cached
+// until something that feeds them changes. Phase 2 fills the cache in;
+// for now the counter just needs to exist and be bumped in the right places.
+let udmSkillEffectsVersion = 0;
+function udmInvalidateSkillEffects() { udmSkillEffectsVersion++; }
+
+// =============================================================
+// UDM skill layer — points
+//
+// Points are the score, one for one: a run's score is added to the permanent
+// balance when the run ends, whether it ended in game over or the player
+// walked away. Awarding on only one of those two makes the other feel like a
+// punishment, so both pay, and a flag on the run keeps a reload from paying
+// twice.
+// =============================================================
+function udmAwardPoints() {
+  if (!udm || udm.pointsAwarded) return 0;
+  udm.pointsAwarded = true;
+  const gained = Math.max(0, Math.round(udm.score || 0));
+  udmMeta.earned = (udmMeta.earned || 0) + gained;
+  saveUdmMeta();
+  saveUdm();
+  return gained;
+}
+
+// =============================================================
+// UDM skill layer — the store
+//
+// Doubles as the catalogue: a skill nobody has ever drafted shows as ???.
+// Tier 4 is the exception — three tiers of investment in someone earns the
+// right to see what the fourth is, or a build could stay out of reach for
+// want of a draw that never came.
+// =============================================================
+function udmStoreRevealed(sk) {
+  if (udmMeta.seen[sk.id]) return true;
+  return sk.tier === 4 && udmOwnedTier(sk.owner) >= 3;
+}
+
+function openUdmStore() {
+  renderUdmStore();
+  document.getElementById('udm-store-backdrop')?.classList.add('open');
+}
+function closeUdmStore() {
+  document.getElementById('udm-store-backdrop')?.classList.remove('open');
+}
+
+function renderUdmStore() {
+  const body = document.getElementById('udm-store-body');
+  const pts = document.getElementById('udm-store-points');
+  if (!body) return;
+  if (pts) pts.textContent = `${udmPoints().toLocaleString()} pt`;
+
+  let html = `<div class="udm-store-row head">
+    <div>対象</div><div>段階1</div><div>段階2</div><div>段階3</div><div>段階4</div>
+  </div>`;
+  const rows = UDM_SKILL_OWNERS.slice().sort((a, b) =>
+    (a.id === 'sys' ? 0 : 1) - (b.id === 'sys' ? 0 : 1));
+  for (const owner of rows) {
+    const ownedTier = udmOwnedTier(owner.id);
+    const cw = coworkers.find(c => c.id === owner.id);
+    const name = owner.name || (cw ? cw.name : owner.id);
+    const sub = owner.id === 'sys' ? 'システム' : `Tier ${cw ? cw.tier : '-'}`;
+    html += `<div class="udm-store-row">
+      <div class="udm-store-who">${name}<span class="sub">${sub}</span></div>`;
+    for (let tier = 1; tier <= 4; tier++) {
+      const sk = udmSkill(`${owner.id}:${tier}`);
+      const owned = !!udmMeta.owned[sk.id];
+      const revealed = udmStoreRevealed(sk);
+      const affordable = udmPoints() >= sk.price;
+      const inOrder = ownedTier === tier - 1;
+      const cls = 'udm-store-cell' + (owned ? ' owned' : (revealed ? '' : ' masked'));
+      const label = revealed ? sk.name : '???';
+      const title = revealed ? `${sk.name} — ${sk.desc}` : 'UDM中に一度獲得すると内容が表示されます';
+      let action;
+      if (owned) action = '<div class="udm-store-have">所持</div>';
+      else {
+        const can = revealed && inOrder && affordable;
+        const why = !revealed ? '未取得' : (!inOrder ? '前の段階が必要' : (!affordable ? 'ポイント不足' : '購入'));
+        action = `<button class="udm-store-buy" data-buy="${sk.id}" ${can ? '' : 'disabled'}>${can ? '購入' : why}</button>`;
+      }
+      html += `<div class="${cls}" title="${title.replace(/"/g, '&quot;')}">
+        <div class="nm">${label}</div>
+        <div class="price">${sk.price.toLocaleString()} pt</div>
+        ${action}
+      </div>`;
+    }
+    html += `</div>`;
+  }
+  body.innerHTML = html;
+  body.querySelectorAll('[data-buy]').forEach(el =>
+    el.addEventListener('click', () => udmBuySkill(el.dataset.buy)));
+}
+
+function udmBuySkill(id) {
+  const sk = udmSkill(id);
+  if (!sk || udmMeta.owned[id]) return;
+  if (!udmStoreRevealed(sk)) return;
+  if (udmOwnedTier(sk.owner) !== sk.tier - 1) return;
+  if (udmPoints() < sk.price) return;
+  udmMeta.spent = (udmMeta.spent || 0) + sk.price;
+  udmMeta.owned[id] = true;
+  udmMeta.seen[id] = true;
+  saveUdmMeta();
+  udmInvalidateSkillEffects();
+  renderUdmStore();
+}
+
+async function resetUdmSkills() {
+  const ok = await showConfirm(
+    'UDMの恒常強化をすべてリセットします。所持ポイントと購入済みスキルが消え、'
+    + '一度でも取得したスキルの記録も消えます。本編のセーブには影響しません。よろしいですか？',
+    'リセットする'
+  );
+  if (!ok) return;
+  udmMeta = { version: 1, earned: 0, spent: 0, owned: {}, seen: {} };
+  saveUdmMeta();
+  udmInvalidateSkillEffects();
+  renderUdmStore();
+  botChat('UDMの恒常強化をリセットしました。', 'system');
+}
+
+function bindUdmSkills() {
+  document.getElementById('btn-udm-store')?.addEventListener('click', openUdmStore);
+  document.getElementById('udm-store-close')?.addEventListener('click', closeUdmStore);
+  document.getElementById('udm-store-reset')?.addEventListener('click', resetUdmSkills);
+  document.getElementById('udm-store-backdrop')?.addEventListener('click', e => {
+    if (e.target.id === 'udm-store-backdrop') closeUdmStore();
+  });
+}
 
 // Helper: Co-Workers visible in the lab (and right panel) — present === true.
 // Per spec §10.5, only attending Co-Workers appear; max labLv*2.
@@ -10463,6 +11038,9 @@ function submitSpecimenAsCoworker(cw, spec) {
 
 function aiTick() {
   if (aiPaused) return;
+  // A pick owed but blocked behind another modal: retry now that nothing is
+  // pausing the game. Cheap enough to sit on the heartbeat.
+  if (udmActive && udmDraftDue > 0 && !udmDraftOffer) udmDrainDraft();
   let changed = false;
 
   // Day clock — advance once per tick. Survives renames/refactors as long as
@@ -11322,7 +11900,9 @@ function init() {
   bindSettings();
   bindDiscoveryPopup();
   bindUdmVariantPopup();
+  loadUdmMeta();
   bindCustomEditor();
+  bindUdmSkills();
   bindEquipPopup();
   bindStoryEventPopup();
   bindLeaderboard();
@@ -11447,6 +12027,7 @@ function showUdmVariantPopup(v, spec) {
 function closeUdmVariantPopup() {
   document.getElementById('udm-variant-backdrop').classList.remove('open');
   resumeAi();
+  setTimeout(udmDrainDraft, 250);
 }
 function bindUdmVariantPopup() {
   document.getElementById('udm-var-popup-ok')?.addEventListener('click', closeUdmVariantPopup);
@@ -11543,6 +12124,17 @@ function refreshUdmSettingsSection() {
   const btn = document.getElementById('btn-udm-start');
   if (btn) btn.disabled = udmActive;
   if (btn) btn.textContent = udmActive ? 'Unlimited Discovery Mode（実行中）' : 'Unlimited Discovery Mode';
+  // The store is a between-runs screen: this run's points are not banked yet,
+  // so opening it mid-run could only mislead.
+  const store = document.getElementById('btn-udm-store');
+  if (store) {
+    store.disabled = udmActive;
+    store.textContent = `🧪 UDMスキルストア（${udmPoints().toLocaleString()} pt）`;
+  }
+  const storeHint = document.getElementById('settings-udm-store-hint');
+  if (storeHint) storeHint.textContent = udmActive
+    ? 'UDM中は開けません。終了するとこのランのスコアがポイントとして加算されます。'
+    : 'UDMで稼いだポイントで、次回以降のUDMに効く恒常強化を購入します。';
 }
 
 // =============================================================
@@ -11562,6 +12154,8 @@ function makeFreshUdmRun() {
     score: 0,
     variants: [],                 // active Discovery Variants (stage 2)
     customRecipes: [null, null, null], // 3 custom recipe slots (stage 3)
+    runSkills: [],                // skills drafted this run; lost when it ends
+    pointsAwarded: false,         // this run's score has been paid into the meta
     gameOver: false,
   };
 }
@@ -11649,6 +12243,8 @@ async function enterUdm() {
   // 2) Flip into UDM. From here, all main-save calls route to saveUdm().
   udmActive = true;
   udm = makeFreshUdmRun();
+  udmDraftDue = 0; udmDraftOffer = null;
+  udmInvalidateSkillEffects();
   try { localStorage.setItem(UDM_ACTIVE_KEY, '1'); } catch(e) {}
 
   // 3) Swap live state to the UDM configuration and persist the run.
@@ -11690,6 +12286,11 @@ function showUdmIntro() {
       <li>カードには <code>D3-V3</code> のような番号と「〇元素変異・〇プロセス変異」だけが表示されます。正解レシピは本編と同じ <b>段階ヒント（?・豆電球）</b> で絞り込みます。</li>
       <li>V1は易しく、V5ほど難解。<b>継続にはV1を素早く、得点にはV5も</b>こなす必要があります。</li>
     </ul>
+    <h4>スキル</h4>
+    <ul>
+      <li>Variantを発見するたびに、<b>3つのスキルから1つ</b>を習得します。ランが終わると失われます。</li>
+      <li>ランを終えると、そのランの<b>スコアがそのままポイント</b>になります。設定の <b>UDMスキルストア</b> で、次回以降ずっと効く恒常強化として購入できます。</li>
+    </ul>
     <h4>CUSTOMレシピ（EXP &gt; CUSTOM）</h4>
     <ul>
       <li>オリジナルの実験条件を最大3つ保存し、Co-Workerに探索させられます。Accuracyに応じて条件を間違える挙動は本編と同じです。</li>
@@ -11713,6 +12314,8 @@ function closeUdmIntro() {
 function resumeUdm() {
   udmActive = true;
   udm = makeFreshUdmRun();
+  udmDraftDue = 0; udmDraftOffer = null;
+  udmInvalidateSkillEffects();
   // Re-apply the open-everything sandbox config, then overlay the saved run.
   applyUdmStartState();
   loadUdm(); // restores day/coins/specimens/experiments/score/variants/customRecipes/staff/layout
@@ -11724,8 +12327,14 @@ function resumeUdm() {
 function exitUdm(opts) {
   opts = opts || {};
   if (!udmActive) return;
+  // Walking away pays out too. Paying only on game over would make quitting
+  // while ahead the strictly worse move, which is not a decision worth having.
+  const gained = udmAwardPoints();
+  udmDraftDue = 0; udmDraftOffer = null;
+  document.getElementById('udm-draft-backdrop')?.classList.remove('open');
   udmActive = false;
   udm = null;
+  udmInvalidateSkillEffects();
   try { localStorage.removeItem(UDM_ACTIVE_KEY); } catch(e) {}
 
   // Reload the frozen main state from disk (mirror of init's load order).
@@ -11754,6 +12363,7 @@ function exitUdm(opts) {
 
   if (opts.silent) return;
   botChat('Unlimited Discovery Mode を終了しました。本編に戻ります。', 'system');
+  if (gained > 0) botChat(`🧪 スキルポイント +${gained.toLocaleString()}（所持 ${udmPoints().toLocaleString()} pt）`, 'system');
 }
 
 // Toggle a body class + topbar widgets that signal "you are in UDM".
@@ -11783,11 +12393,13 @@ function saveUdm() {
   if (!udmActive || !udm) return;
   try {
     const data = {
-      version: 1,
+      version: 2,
       savedAt: Date.now(),
       startedAt: udm.startedAt,
       score: udm.score,
       gameOver: udm.gameOver,
+      runSkills: udm.runSkills || [],
+      pointsAwarded: !!udm.pointsAwarded,
       lastSchedDay: udm.lastSchedDay,
       vCounter: udm._vCounter || 0,
       day: gameStats.day,
@@ -11810,8 +12422,11 @@ function loadUdm() {
     const raw = localStorage.getItem(UDM_RUN_KEY);
     if (!raw) return;
     const d = JSON.parse(raw);
-    if (!d || d.version !== 1) return;
+    // Schema 2 added runSkills/pointsAwarded; a schema-1 run simply has none.
+    if (!d || (d.version !== 1 && d.version !== 2)) return;
     udm.startedAt = d.startedAt || Date.now();
+    udm.runSkills = Array.isArray(d.runSkills) ? d.runSkills.filter(id => UDM_SKILLS.has(id)) : [];
+    udm.pointsAwarded = !!d.pointsAwarded;
     udm.score = Number(d.score) || 0;
     udm.gameOver = !!d.gameOver;
     udm.lastSchedDay = (typeof d.lastSchedDay === 'number') ? d.lastSchedDay : 0;
@@ -12080,6 +12695,7 @@ function findMatchingUdmVariant(spec, claimed) {
 function achieveUdmVariant(v) {
   if (!udm) return;
   udm.score += v.score;
+  udmQueueDraft(1);
   const idx = udm.variants.indexOf(v);
   if (idx >= 0) udm.variants.splice(idx, 1);
   discoveryBadgeSet.delete(v.id);
@@ -12092,6 +12708,10 @@ function achieveUdmVariant(v) {
 function triggerUdmGameOver() {
   if (!udm || udm.gameOver) return;
   udm.gameOver = true;
+  // Close a draft still on screen: the run is over, the pick is moot.
+  udmDraftDue = 0; udmDraftOffer = null;
+  document.getElementById('udm-draft-backdrop')?.classList.remove('open');
+  const gained = udmAwardPoints();
   saveUdm();
   pauseAi();
   const score = udm.score || 0;
@@ -12100,7 +12720,9 @@ function triggerUdmGameOver() {
     body.innerHTML =
       `<div class="udm-go-score">最終スコア</div>` +
       `<div class="udm-go-num">${score.toLocaleString()}</div>` +
-      `<p>Discovery Variant のストックが上限を超えました。<br>本編に戻ります。</p>`;
+      `<p>Discovery Variant のストックが上限を超えました。<br>本編に戻ります。</p>` +
+      `<p class="udm-go-points">スキルポイント <b>+${gained.toLocaleString()}</b>（所持 ${udmPoints().toLocaleString()} pt）<br>` +
+      `<span class="udm-go-points-hint">設定 &gt; UDMスキルストア で恒常強化に使えます。</span></p>`;
   }
   const backdrop = document.getElementById('udm-gameover-backdrop');
   if (backdrop) backdrop.classList.add('open');
