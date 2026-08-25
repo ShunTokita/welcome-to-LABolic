@@ -219,6 +219,17 @@
   }
   .udm-intro-ok:hover { background: #5d3f8a; }
 
+  .cw-assign-row {
+    display: flex; align-items: center; gap: 6px; margin-top: 4px;
+  }
+  .cw-assign-label {
+    font-size: 9px; font-weight: 700; letter-spacing: .06em; color: var(--text-muted);
+  }
+  .cw-assign {
+    flex: 1; min-width: 0; font: inherit; font-size: 10px;
+    background: var(--bg-input); color: var(--text-primary);
+    border: 1px solid var(--line-light); border-radius: 2px; padding: 1px 3px;
+  }
   .cw-skill-chip {
     font-size: 9px; font-weight: 800; padding: 0 4px; border-radius: 2px; cursor: help;
     background: var(--accent-purple-bg); color: var(--accent-purple);
@@ -429,6 +440,8 @@
   .custom-editor-actions { display: flex; gap: 8px; margin-top: 12px; }
   .custom-editor-actions .udm-intro-ok,
   .custom-editor-actions .udm-gameover-skip { margin-top: 0; }
+  .ce-pbtn.lv.batch { border-color: var(--accent-purple); color: var(--accent-purple); }
+  .ce-pbtn.lv.batch.active { background: var(--accent-purple); color: #fff; }
 
   /* Toggle row (iOS-style switch) */
   .settings-slider-row {
@@ -4389,18 +4402,44 @@ function matchElements(a, b) {
 
 function matchProcessing(a, b, orderMatters) {
   if (a.length !== b.length) return false;
+  // A null param on the *recipe* side is a batch designation (システム段階4
+  // 「LABの司令塔」): the equipment is named, the level is not, so any level of
+  // that equipment satisfies the step. Only a custom recipe can carry one —
+  // Discoveries and Variants always name a concrete level — so the fast paths
+  // below are what every non-custom comparison still takes.
   if (orderMatters) {
     for (let i = 0; i < a.length; i++) {
-      if (a[i].equip !== b[i].equip || a[i].param !== b[i].param) return false;
+      if (a[i].equip !== b[i].equip) return false;
+      if (b[i].param != null && a[i].param !== b[i].param) return false;
     }
     return true;
-  } else {
+  }
+  if (!b.some(x => x.param == null)) {
     // Multiset equality: sort and compare
     const key = s => s.map(x => `${x.equip}:${x.param}`).sort();
     const ka = key(a), kb = key(b);
     for (let i = 0; i < ka.length; i++) if (ka[i] !== kb[i]) return false;
     return true;
   }
+  // Unordered with wildcards. Satisfy the exact requirements first — they are
+  // strictly more constrained than a wildcard on the same equipment, so a
+  // greedy pass in that order cannot strand a match that exists.
+  const pool = a.slice();
+  const take = pred => { const i = pool.findIndex(pred); if (i < 0) return false; pool.splice(i, 1); return true; };
+  for (const step of b) {
+    if (step.param == null) continue;
+    if (!take(x => x.equip === step.equip && x.param === step.param)) return false;
+  }
+  for (const step of b) {
+    if (step.param != null) continue;
+    if (!take(x => x.equip === step.equip)) return false;
+  }
+  return pool.length === 0;
+}
+
+// "Furn(2)" / "Furn(?)" — the latter is a batch-designated step.
+function procStepLabel(s) {
+  return `${PROC_SHORT[s.equip]}(${s.param == null ? '?' : s.param})`;
 }
 
 function comparePerStep(a, b) {
@@ -4524,7 +4563,8 @@ const LAB_LV_BONUS = { 1:1.0, 2:1.5, 3:2.5, 4:4.0 };
 function experimentReward(template) {
   const r = template.recipe;
   const elemSum = r.elements.reduce((a, e) => a + (ELEM_LV[e] || 0), 0);
-  const procSum = r.processing.reduce((a, p) => a + p.param, 0) || 1;
+  // A batch-designated step has no level yet; price it at the middle one.
+  const procSum = r.processing.reduce((a, p) => a + (p.param == null ? 2 : p.param), 0) || 1;
   const anaCoef = ANA_COEF[r.analysis] || 1.0;
   const labBonus = LAB_LV_BONUS[template.tier] || 1.0;
   return Math.round(elemSum * procSum * anaCoef * labBonus);
@@ -5866,6 +5906,50 @@ function udmUniqueActive(ownerId) {
   return !!(cw && cw.present);
 }
 
+// システム段階3「役割分担」— pin a Co-Worker to one order.
+//
+// Stored as the order's code rather than its instanceId: a repeat-toggled
+// order is re-accepted as a fresh instance with a new id every time it is
+// fulfilled, and an assignment that evaporated on each fulfilment would be
+// useless. The code survives that.
+function udmAssignedCode(cw) {
+  return udmRoleAssignUnlocked() ? (cw.assign || null) : null;
+}
+function udmExpAllowedFor(cw, exp) {
+  const code = udmAssignedCode(cw);
+  return !code || exp.code === code;
+}
+function udmSpecAllowedFor(cw, spec) {
+  const code = udmAssignedCode(cw);
+  if (!code) return true;
+  const exp = findExperiment(spec.targetExpId);
+  return !!exp && exp.code === code;
+}
+function udmSetAssign(cwId, code) {
+  const cw = coworkers.find(c => c.id === cwId);
+  if (!cw) return;
+  cw.assign = code || null;
+  saveCoworkers();
+  if (udmActive) saveUdm();
+  renderRPanel();
+}
+
+// The system track has no owner to be on shift, so it is a plain skill check.
+function udmSystemActive(tier) { return udmSkillActive(`sys:${tier}`); }
+
+// 1 オリジナルレシピ / 2 マルチタスク / 3 役割分担 / 4 LABの司令塔
+function udmCustomRecipesUnlocked() { return udmSystemActive(1); }
+function udmRoleAssignUnlocked()    { return udmSystemActive(3); }
+// The batch designation is disabled by two uniques that replace the AI's
+// judgement with their own — Smith drives the recipe himself, and Jeff+Bobby
+// deliberately give up precision. Both are checked at their owners' shift.
+function udmBatchUnlocked() {
+  if (!udmSystemActive(4)) return false;
+  if (udmUniqueActive('smith')) return false;             // 進捗報告
+  if (udmUniqueActive('jeff') && udmUniqueActive('bobby')) return false; // 失敗は成功の母
+  return true;
+}
+
 // Party-wide stat buffs. SP is deliberately absent: it gates which equipment a
 // Co-Worker may touch at all, and a lab-wide +2 there would erase the
 // distinction the three builds are made of.
@@ -6078,7 +6162,9 @@ function maxAttendance() {
 // Active Experiment slots (§5.1). Read through a function rather than the
 // literal 3 that used to sit at each of the five call sites, so システム段階2
 // 「マルチタスク」has one place to raise it.
-function maxActiveExperiments() { return 3; }
+function maxActiveExperiments() {
+  return 3 + (typeof udmSystemActive === 'function' && udmSystemActive(2) ? 1 : 0); // マルチタスク
+}
 
 // UDM Variant stock ceiling — the (limit + 1)-th arrival ends the run.
 function udmStockLimit() {
@@ -6689,8 +6775,19 @@ function renderCoWorkers() {
       </div>
       <div class="cw-stats">${stats}</div>
       <div class="cw-toggles">${toggles}</div>
+      ${udmRoleAssignUnlocked() ? `<div class="cw-assign-row">
+        <span class="cw-assign-label">担当</span>
+        <select class="cw-assign" data-assign-cw="${cw.id}">
+          <option value=""${cw.assign ? '' : ' selected'}>指定なし</option>
+          ${experiments.map(e => `<option value="${e.code}"${cw.assign === e.code ? ' selected' : ''}>[${e.code}] ${e.title}</option>`).join('')}
+          ${cw.assign && !experiments.some(e => e.code === cw.assign)
+            ? `<option value="${cw.assign}" selected>[${cw.assign}]（未受注）</option>` : ''}
+        </select>
+      </div>` : ''}
     </div>`;
   }).join('');
+  list.querySelectorAll('[data-assign-cw]').forEach(sel =>
+    sel.addEventListener('change', () => udmSetAssign(sel.dataset.assignCw, sel.value)));
   // Bind toggle clicks (S/P/A/E/W)
   list.querySelectorAll('.cw-row').forEach(row => {
     const id = row.dataset.cw;
@@ -7655,7 +7752,7 @@ function renderExpRecipe(recipe, cmp) {
   const procClass = cmp?.processing ? 'reveal matched' : 'reveal';
   const anaClass = cmp?.analysis ? 'reveal matched' : 'reveal';
   const sep = recipe.orderMatters ? ' → ' : ' + ';
-  const procStr = recipe.processing.map(s => `${PROC_SHORT[s.equip]}(${s.param})`).join(sep);
+  const procStr = recipe.processing.map(s => procStepLabel(s)).join(sep);
   return `<span class="${elClass}">[${recipe.elements.map(e => ELEM_NAME[e]).join('+')}]</span>`
        + ` / <span class="${synClass}">${SYNTH_SHORT[recipe.synthesis]}</span>`
        + ` / <span class="${procClass}">${procStr}</span>`
@@ -7673,7 +7770,7 @@ function renderBottomBar() {
     const progress = experimentProgress(exp);
     const lv4 = isLv4Recipe(exp.recipe);
     const sep = exp.recipe.orderMatters ? ' → ' : ' ';
-    const procStr = exp.recipe.processing.map(s => `${PROC_SHORT[s.equip]}(${s.param})`).join(sep);
+    const procStr = exp.recipe.processing.map(s => procStepLabel(s)).join(sep);
     const recipeText = `[${exp.recipe.elements.map(e => ELEM_NAME[e]).join(' + ')}] / ${SYNTH_SHORT[exp.recipe.synthesis]} / ${procStr} / ${ANA_SHORT[exp.recipe.analysis]}`;
     const progressText = ({
       idle: '未着手',
@@ -7761,7 +7858,7 @@ function renderExperimentsInner(el) {
   }
 
   // ----- CUSTOM group (UDM only) — same collapsible UI, above Discovery -----
-  if (udmActive) {
+  if (udmActive && udmCustomRecipesUnlocked()) {
     const slots = udm?.customRecipes || [];
     const filled = slots.filter(Boolean).length;
     const cOpen = !!expandedTiers['custom'];
@@ -7899,7 +7996,7 @@ function renderPoolExpCard(tpl, slotsRemaining) {
   const sep = tpl.recipe.orderMatters ? ' → ' : ' + ';
   const procStr = tpl.recipe.processing.length === 0
     ? '(no processing)'
-    : tpl.recipe.processing.map(s => `${PROC_SHORT[s.equip]}(${s.param})`).join(sep);
+    : tpl.recipe.processing.map(s => procStepLabel(s)).join(sep);
   const recipeText = `[${tpl.recipe.elements.map(e => ELEM_NAME[e]).join('+')}] / ${SYNTH_SHORT[tpl.recipe.synthesis]} / ${procStr} / ${ANA_SHORT[tpl.recipe.analysis]}`;
   const baseReward = experimentReward(tpl) * (isDisc ? 2 : 1);
   const firstClear = !isDisc && !cleared;
@@ -7991,7 +8088,7 @@ function renderCustomSlot(cr, slot, slotsRemaining) {
   const activeInst = experiments.find(e => e.code === customCode(slot));
   const sep = ' + ';
   const procStr = recipe.processing.length
-    ? recipe.processing.map(p => `${PROC_SHORT[p.equip]}(${p.param})`).join(sep) : '(なし)';
+    ? recipe.processing.map(p => procStepLabel(p)).join(sep) : '(なし)';
   const recipeHTML =
     `[${recipe.elements.map(e => ELEM_NAME[e]).join('+')}] / ` +
     `${SYNTH_SHORT[recipe.synthesis]} / ${procStr} / ${ANA_SHORT[recipe.analysis]}+`;
@@ -8039,6 +8136,7 @@ function makeCustomActiveExperiment(slot, cr, repeat) {
 }
 
 function acceptCustomRecipe(slot) {
+  if (!udmCustomRecipesUnlocked()) return;
   if (experiments.length >= maxActiveExperiments()) {
     botChat('受注枠が満杯です。Active から1件取り下げてください。', 'system');
     return;
@@ -8055,6 +8153,7 @@ function acceptCustomRecipe(slot) {
 
 // ---- Custom recipe editor popup ----
 function openCustomEditor(slot) {
+  if (!udmCustomRecipesUnlocked()) return;
   const existing = udm.customRecipes[slot];
   customEditState = existing
     ? { slot, name: existing.name || '', elements: existing.elements.slice(),
@@ -8148,7 +8247,8 @@ function renderCustomEditor() {
   body.querySelectorAll('[data-proc-param]').forEach(b => b.addEventListener('click', () => {
     const row = parseInt(b.dataset.row, 10);
     if (row >= st.processing.length) return; // can't set param before equip
-    st.processing[row].param = parseInt(b.dataset.procParam, 10);
+    st.processing[row].param = b.dataset.procParam === 'batch'
+      ? null : parseInt(b.dataset.procParam, 10);
     renderCustomEditor();
   }));
   body.querySelectorAll('[data-proc-del]').forEach(b => b.addEventListener('click', () => {
@@ -8180,7 +8280,11 @@ function renderProcRow(p, row) {
   const equipBtns = equips.map(([id, label]) =>
     `<button class="ce-pbtn ${curEquip===id?'active':''}" data-proc-equip="${id}" data-row="${row}">${label}</button>`).join('');
   const paramBtns = [1,2,3].map(lv =>
-    `<button class="ce-pbtn lv ${curParam===lv?'active':''}" data-proc-param="${lv}" data-row="${row}" ${curEquip?'':'disabled'}>L${lv}</button>`).join('');
+    `<button class="ce-pbtn lv ${curParam===lv?'active':''}" data-proc-param="${lv}" data-row="${row}" ${curEquip?'':'disabled'}>L${lv}</button>`).join('')
+    // システム段階4「LABの司令塔」— name the equipment, leave the level open.
+    + (udmBatchUnlocked()
+      ? `<button class="ce-pbtn lv batch ${p && curParam==null?'active':''}" data-proc-param="batch" data-row="${row}" ${curEquip?'':'disabled'} title="条件を指定しない（バッチ指定）">？</button>`
+      : '');
   const delBtn = p
     ? `<button class="ce-pdel" data-proc-del="${row}" title="この工程を削除">×</button>` : '<span class="ce-pdel-spacer"></span>';
   const placeholder = p ? '' : '<span class="ce-prow-hint">＋ 工程を追加</span>';
@@ -9915,6 +10019,7 @@ function reAcceptFulfilledExperiment(fulfilled) {
   if (!fulfilled.repeat) return null;
   if (experiments.length >= maxActiveExperiments()) return null;
   if (fulfilled.isCustom) {
+    if (!udmCustomRecipesUnlocked()) return null;
     const slot = parseInt(fulfilled.code.replace(/^C/, ''), 10) - 1;
     const cr = udm?.customRecipes?.[slot];
     if (!cr) return null;
@@ -10819,6 +10924,7 @@ function availableEquipUnits(baseId, type, cw) {
 function tryStartSynth(cw) {
   if (!cw.toggles.S) return false;
   const candidates = experiments
+    .filter(exp => udmExpAllowedFor(cw, exp))
     .map(exp => {
       const eqId = exp.recipe.synthesis;
       // Pick any available unit of this synth type (covers duplicates like phase_2)
@@ -10876,7 +10982,7 @@ function tryStartProc(cw) {
   if (!cw.toggles.P) return false;
   const candidates = specimens
     .filter(s => s.targetExpId && s.status !== 'submitted' && !s.analysis
-                 && isSpecimenFree(s, cw.id))
+                 && isSpecimenFree(s, cw.id) && udmSpecAllowedFor(cw, s))
     .sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0));
   for (const spec of candidates) {
     const exp = findExperiment(spec.targetExpId);
@@ -10890,7 +10996,11 @@ function tryStartProc(cw) {
     const eq = units[0] || null;
     if (!eq) continue;
     if (statOf(cw, 'S') < eq.lv) continue;
+    // A batch-designated step names the equipment only; the Co-Worker picks
+    // one of the three levels. Phase 6's 極意 holders will run all three at
+    // once instead of drawing one.
     let param = nextStep.param;
+    if (param == null) param = 1 + Math.floor(Math.random() * 3);
     if (rollDrift(cw)) param = driftParam(param);
     reserveSpecimen(spec.id, cw.id);
     walkAndStartTask(cw, eq, () => ({
@@ -10910,7 +11020,7 @@ function tryStartAna(cw) {
   if (statOf(cw, 'An') < 1) return false;
   const candidates = specimens
     .filter(s => s.targetExpId && s.status !== 'submitted'
-                 && isSpecimenFree(s, cw.id))
+                 && isSpecimenFree(s, cw.id) && udmSpecAllowedFor(cw, s))
     .sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0));
   for (const spec of candidates) {
     const exp = findExperiment(spec.targetExpId);
@@ -12367,6 +12477,7 @@ function applyUdmStartState() {
     cw.hired = true;
     cw.state = 'idle'; cw.stateLabel = 'Idle';
     cw._path = null; cw._onArrive = null; cw._walkAcc = 0;
+    cw.assign = null;
     cw.present = present < maxAttendance();
     if (cw.present) present++;
   }
@@ -12568,7 +12679,7 @@ function saveUdm() {
       variants: udm.variants,
       customRecipes: udm.customRecipes,
       staff: coworkers.map(c => ({ id: c.id, present: c.present,
-        toggles: { ...c.toggles }, col: c.col, row: c.row })),
+        toggles: { ...c.toggles }, col: c.col, row: c.row, assign: c.assign || null })),
       layout: equipment.map(e => ({ id: e.id, col: e.col, row: e.row })),
     };
     localStorage.setItem(UDM_RUN_KEY, JSON.stringify(data));
@@ -12617,6 +12728,7 @@ function loadUdm() {
           if (k in sv.toggles) cw.toggles[k] = sv.toggles[k] ? 1 : 0;
         if (typeof sv.col === 'number') cw.col = sv.col;
         if (typeof sv.row === 'number') cw.row = sv.row;
+        cw.assign = sv.assign || null;
       }
     }
     if (Array.isArray(d.layout)) {
