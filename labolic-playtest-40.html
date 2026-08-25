@@ -5668,8 +5668,8 @@ const UDM_SKILL_OWNERS = [
     desc:'Rolling以外の加工を行わない代わりに、バッチ指定されたRoll処理を3条件まとめて行う。Rolling Millに必要なSPを自動的に満たす。',
     flavor:'圧延は危ないからね。僕がまとめてやっておくよ' } },
   { id:'jeff', stat:'An', unique:{ name:'失敗は成功の母',
-    short:'ドリフト15回で最高報酬Variantが全判明。全員 AC −2（Bobby必要）',
-    desc:'JeffとBobbyが両方出勤しているときのみ有効。Co-Workerのドリフト回数が表示され、規定回数に達すると未発見で最も報酬の高いVariantのレシピがすべて判明してカウントが戻る。出勤中のすべてのCo-WorkerのAC −2。「LABの司令塔」を無効化する。',
+    short:'ドリフト100回で最高報酬Variantが全判明。全員 AC −2（Bobby必要）',
+    desc:'JeffとBobbyが両方出勤しているときのみ有効。Co-Workerのドリフト回数が表示され、100回に達すると未発見で最も報酬の高いVariantのレシピがすべて判明してカウントが戻る。出勤中のすべてのCo-WorkerのAC −2。「LABの司令塔」を無効化する。',
     flavor:'「数打ちゃ当たる」の極み。良い子は真似しないでね。' } },
   { id:'murphy', stat:'S', unique:{ name:'実験室の番人',
     short:'出勤者全員の EN +2',
@@ -10225,6 +10225,7 @@ function confirmSubmit() {
         // fulfil the fresh instance.
         const reAccepted = reAcceptFulfilledExperiment(fulfilled);
         if (reAccepted) reAcceptedTemplates.push(reAccepted);
+        if (udmActive) udmOnSmithRecipeSubmitted(fulfilled.code);
       }
     }
 
@@ -11470,6 +11471,7 @@ function submitSpecimenAsCoworker(cw, spec) {
       }
       experiments.splice(idx, 1);
       reAcceptFulfilledExperiment(fulfilled);
+      if (udmActive) udmOnSmithRecipeSubmitted(fulfilled.code);
       enqueueChat(cw, 'submit', `[${fulfilled.code}] ${fulfilled.title} を提出 (+${r.total}c)`);
     } else {
       enqueueChat(cw, 'submit', `Submit 完了 (+${r.total}c)`);
@@ -13276,13 +13278,12 @@ function udmTripleSynthFor(cw) {
 
 // Jeff + Bobby「失敗は成功の母」— count the drifts, cash them in for a recipe.
 //
-// 15 rather than the 30 the estimate suggested. Measured in a running lab,
-// this build drifts 15-20 times a DAY (the paper estimate was high: the AI
-// spends more of its day walking and queueing for equipment than working), so
-// 30 paid out every other DAY. At 15 the payout lands roughly once a DAY and
-// speeds up with a bigger shift, which is the intended shape — the count
-// scales with how many hands are making mistakes.
-const UDM_DRIFT_THRESHOLD = 15;
+// 100, set from play rather than from the clock. A measured lab drifts 15-20
+// times a DAY, so this is a payout every 5-6 DAY: rare enough that the build
+// has to survive on its own between them. The earlier 15 delivered a recipe a
+// DAY and made the run trivial — the count is meant to be a long gamble, not
+// a steady income.
+const UDM_DRIFT_THRESHOLD = 100;
 
 function udmDriftCounterActive() { return udmPairActive('jeff', 'bobby'); }
 
@@ -13319,10 +13320,26 @@ function udmSmithSlot() {
   return parseInt(code.slice(1), 10) - 1;
 }
 
+// The daily pass is only a floor now — it keeps a stalled run moving. The
+// real driver is udmOnSmithRecipeSubmitted: every time a specimen built to
+// his recipe comes back, Smith has a fresh result to reason from and redraws
+// the unknown half immediately. Once a DAY was far too slow to converge.
 function udmTickSmithReport() {
+  if (udm.smithReportDay === gameStats.day) return;
+  udmSmithRewrite();
+}
+
+// A specimen matching the slot Smith drives has just been written up: that is
+// exactly the moment a new guess is worth making.
+function udmOnSmithRecipeSubmitted(code) {
+  const slot = udmSmithSlot();
+  if (slot < 0 || code !== customCode(slot)) return;
+  udmSmithRewrite();
+}
+
+function udmSmithRewrite() {
   const slot = udmSmithSlot();
   if (slot < 0) return;
-  if (udm.smithReportDay === gameStats.day) return;
   // Target: the richest Variant whose elements are known — that is what makes
   // a recipe worth building at all.
   const cands = udm.variants.filter(v =>
@@ -13352,6 +13369,8 @@ function udmTickSmithReport() {
     name: `教授の見立て D${v.baseNo}-V${v.vLevel}`,
     elements, synthesis, analysis, processing,
   };
+  // Marks the daily pass as spent as well, so the floor never fires on top of
+  // a rewrite that just happened.
   udm.smithReportDay = gameStats.day;
 
   // Keep an accepted copy of the slot in step with the rewrite.
@@ -13366,10 +13385,11 @@ function udmTickSmithReport() {
   }
   const smith = coworkers.find(c => c.id === 'smith');
   const known = ['elements'].concat(['synthesis','processing','analysis'].filter(k => h[k])).length;
-  const msg = `📋 [${code}] を D${v.baseNo}-V${v.vLevel} に合わせて更新しました（判明 ${known}/4）。`;
+  const msg = `📋 [${code}] を D${v.baseNo}-V${v.vLevel} に合わせて練り直しました（判明 ${known}/4）。`;
   smith ? enqueueChat(smith, 'work', msg) : botChat(msg, 'work');
   renderExperiments();
   renderBottomBar();
+  saveUdm();
 }
 
 // --- Frank「優先順位を決めよう」: drop a Variant, once per DAY ---
