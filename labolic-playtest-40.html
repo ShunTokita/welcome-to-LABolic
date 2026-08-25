@@ -219,6 +219,16 @@
   }
   .udm-intro-ok:hover { background: #5d3f8a; }
 
+  .cw-unique {
+    margin: 3px 0 2px; padding: 3px 6px; border-radius: 2px;
+    background: var(--accent-purple-bg); border-left: 3px solid var(--accent-purple);
+    line-height: 1.45;
+  }
+  .cw-unique.idle { opacity: .62; }
+  .cw-unique-name {
+    display: block; font-size: 10.5px; font-weight: 800; color: var(--accent-purple);
+  }
+  .cw-unique-desc { display: block; font-size: 10px; color: var(--text-secondary); }
   .cw-assign-row {
     display: flex; align-items: center; gap: 6px; margin-top: 4px;
   }
@@ -5590,80 +5600,105 @@ const UDM_SKILL_TIER3_LABEL = { S:'SP', A:'AC', An:'AN', E:'EN', W:'WR' };
 // bespoke effect instead.
 const UDM_SKILL_OWNERS = [
   { id:'tom', stat:'A', unique:{ name:'一緒にやろう',
+    short:'出勤できる上限 +2',
     desc:'出勤できるCo-Workerの上限 +2。',
     flavor:'人手が足りない？友達連れてきますよ！' } },
   { id:'lisa', stat:'A', unique:{ name:'ひらめき',
+    short:'順序固定Variantは、順序以外が合えば全条件が判明',
     desc:'順序固定のVariantで、順序以外がすべて一致したとき、その場で全条件が判明する。発見にはならない。',
     flavor:'あんまりよくわかんないけど…うまくいきそうな気がする…。' } },
   { id:'ben', stat:'A', unique:{ name:'僕だけの装置',
+    short:'1DAYに1回、最高報酬Variantの元素が判明（Smith必要）',
     desc:'BenとSmithが出勤しているとき、MPSSで元素未発見のうち最も報酬の高いVariantの元素が判明する。クールタイム1DAY。',
     flavor:'せっかく作った装置、僕も使ってみようと思います。' } },
   { id:'anna', stat:'S', unique:{ name:'手順書、作りました',
+    short:'出勤者全員の作業速度 +50%',
     desc:'出勤中のすべてのCo-Workerの作業速度 +50%。',
     flavor:'マニュアル作りました。これでスムーズに実験できますね。' } },
   { id:'mike', stat:'S', unique:{ name:'整理整頓',
+    short:'出勤者全員の移動速度 +30%',
     desc:'出勤中のすべてのCo-Workerの移動速度 +30%。',
     flavor:'綺麗なデータは綺麗な実験室から。通路幅は足りてるかな？' } },
   { id:'owen', stat:'An', unique:{ name:'計画性',
+    short:'Variantのストック上限 +5',
     desc:'ストックできるVariantの上限 +5。',
     flavor:'手当たり次第にやるのも良いですが、計画は大事です。' } },
   { id:'pam', stat:'W', unique:{ name:'インフルエンサー',
+    short:'獲得ポイント +10%',
     desc:'獲得するVariantのポイント +10%。',
     flavor:'研究所のPRは任せて！あ、先生！あとで写真撮らせてくださいねー！' } },
   { id:'kate', stat:'S', unique:{ name:'顕微鏡講習',
+    short:'出勤者全員の AN +2',
     desc:'出勤中のすべてのCo-WorkerのAN +2。',
     flavor:'Chenさんに講習会してもらうことになりました！これでみんな使えるね。' } },
   { id:'sam', stat:'A', unique:{ name:'熱処理の極意',
+    short:'Furnace専任。バッチ指定を3条件まとめて処理',
     desc:'Furnace以外の加工を行わない代わりに、バッチ指定されたFurnace処理を3条件まとめて行う。Furnaceに必要なSPを自動的に満たす。',
     flavor:'ただ入れるだけなんて甘いね！配置と温度分布を味方にしてこそエキスパートさ' } },
   { id:'carol', stat:'A', unique:{ name:'月イチの勉強会',
+    short:'出勤者全員の WR +2',
     desc:'出勤中のすべてのCo-WorkerのWR +2。',
     flavor:'論文を書く前に、インプットが足りない気がする。勉強会やりましょう。' } },
   { id:'dave', stat:'A', unique:{ name:'同期の絆',
+    short:'Dave/GraceのSPが4。1DAYに1回、元素が判明（Grace必要）',
     desc:'DaveとGraceのSPが4になる。両名が出勤しているとき、元素未発見のVariantからランダムに1つ選んでその元素が判明する。クールタイム1DAY。',
     flavor:'研究室での何気ない会話も、新しいアイデアにつながったりするんだよね' } },
   { id:'eve', stat:'A', unique:{ name:'磁化の極意',
+    short:'Magnetizer専任。バッチ指定を3条件まとめて処理',
     desc:'Magnetization以外の加工を行わない代わりに、バッチ指定されたMag処理を3条件まとめて行う。Magnetizerに必要なSPを自動的に満たす。',
     flavor:'目には見えない変化だけど、試験片によってぜんぜん違うのね！' } },
   { id:'frank', stat:'An', unique:{ name:'優先順位を決めよう',
+    short:'1DAYに1回、Variantを1つ破棄できる',
     desc:'1DAYに1回、ストック中のVariantを1つ破棄できる。スコアは入らない。',
     flavor:'新しいことを始めるなら、ひとつやめて時間を作らないとね。' } },
   { id:'grace', stat:'A', unique:{ name:'同期の絆',
+    short:'Dave/Graceが試験片を3つ同時に合成（材料費3倍）',
     desc:'DaveとGraceが一度に、同じ元素の試験片を3つ合成する。元素の費用も3倍かかる。',
     flavor:'仲間と一緒なら、大量の実験もあっという間だよ' } },
   { id:'hank', stat:'An', unique:{ name:'気づきメモ',
+    short:'1項目の一致でも手がかりが得られる',
     desc:'部分一致の手がかりが、1項目の一致でも得られるようになる。',
     flavor:'実験ノート、ちゃんと書いてるかい？' } },
   { id:'iris', stat:'A', unique:{ name:'反重力の極意',
+    short:'AGT専任。バッチ指定を3条件まとめて処理。SPが4',
     desc:'AGT以外の加工を行わない代わりに、バッチ指定されたAGT処理を3条件まとめて行う。SPが4になる。',
     flavor:'わけのわからない装置だけど、結構慣れてきた気がする' } },
   { id:'joe', stat:'A', unique:{ name:'圧延の極意',
+    short:'Rolling専任。バッチ指定を3条件まとめて処理',
     desc:'Rolling以外の加工を行わない代わりに、バッチ指定されたRoll処理を3条件まとめて行う。Rolling Millに必要なSPを自動的に満たす。',
     flavor:'圧延は危ないからね。僕がまとめてやっておくよ' } },
   { id:'jeff', stat:'An', unique:{ name:'失敗は成功の母',
+    short:'ドリフト15回で最高報酬Variantが全判明。全員 AC −2（Bobby必要）',
     desc:'JeffとBobbyが両方出勤しているときのみ有効。Co-Workerのドリフト回数が表示され、規定回数に達すると未発見で最も報酬の高いVariantのレシピがすべて判明してカウントが戻る。出勤中のすべてのCo-WorkerのAC −2。「LABの司令塔」を無効化する。',
     flavor:'「数打ちゃ当たる」の極み。良い子は真似しないでね。' } },
   { id:'murphy', stat:'S', unique:{ name:'実験室の番人',
+    short:'出勤者全員の EN +2',
     desc:'出勤中のすべてのCo-WorkerのEN +2。',
     flavor:'日々の掃除とメンテナンスから叩き込んでやるよ！' } },
   { id:'chen', stat:'W', unique:{ name:'分析の極意',
+    short:'分析を3試料まとめて実行',
     desc:'分析を3試料まとめて行う。',
     flavor:'ただ写真撮ればいいってものではありません。大切なのはパッションとデータへの誠実さです。' } },
   { id:'lee', stat:'An', unique:{ name:'丁寧にいこう',
+    short:'出勤者全員の AC +2',
     desc:'出勤中のすべてのCo-WorkerのAC +2。',
     flavor:'実験は料理みたいなものです。手間暇を惜しまなければ結果は自然とついてきます。' } },
   { id:'watson', stat:'A', unique:{ name:'Reviewer 2 キラー',
+    short:'Submitで得られるコインが2倍',
     desc:'Submitで得られるコインが2倍になる。Variantのスコアには影響しない。',
     flavor:'今回の査読も手強いね。まあなんとかしますよ。' } },
   { id:'bobby', stat:'An', unique:{ name:'失敗は成功の母',
+    short:'Jeffと対。両名が出勤していないと発動しない',
     desc:'Jeffと対になるスキル。両名が出勤していないと発動しない。',
     flavor:'※これはゲームです。' } },
   { id:'ingrid', stat:'S', unique:{ name:'…分身してない？',
+    short:'分析した試験片はそのままSubmitされる',
     desc:'Ingridが分析した試験片は、そのまま同時にSubmitされる。',
     flavor:'いつも思うんですが…Ingridさん、分身してませんか？' } },
   { id:'smith', tier3:{ name:'Submit報酬コイン10%アップ', desc:'Smithの出勤中のみ有効。',
       effect:{ kind:'coin', mul:1.1 } },
     unique:{ name:'進捗報告',
+      short:'担当のカスタムレシピを毎DAY自動更新。司令塔を無効化',
     desc:'Smithにカスタムレシピが割り当てられているとき、類似する元素発見済みVariantの進捗に合わせてレシピを自動で更新していく。Smithの出勤中は「LABの司令塔」が無効化される。',
     flavor:'画面の向こうのあなた…研究、進んでますか？' } },
   // The system track is four separate unlocks rather than three upgrades and
@@ -5717,7 +5752,10 @@ const UDM_SKILLS = (() => {
         : (tier < 4 ? UDM_SKILL_PRICE_COMMON[tier] : UDM_SKILL_PRICE_UNIQUE[cw ? cw.tier : 1]);
       map.set(`${owner.id}:${tier}`, {
         id: `${owner.id}:${tier}`, owner: owner.id, ownerName, tier,
-        name: base.name, desc: base.desc, flavor: base.flavor || null, price,
+        name: base.name, desc: base.desc,
+        // One line for the Co-Worker's own card, where the full text will not fit.
+        short: base.short || base.desc,
+        flavor: base.flavor || null, price,
         effect: base.effect || (tier === 3 && !isSystem && owner.stat
           ? { kind: 'stat', stat: owner.stat, delta: 1 } : null),
         unique: tier === 4 && !isSystem,
@@ -6052,6 +6090,21 @@ function udmEffectsFor(cw) {
   let e = _udmEffCache.get(cw.id);
   if (!e) { e = computeUdmEffects(cw); _udmEffCache.set(cw.id, e); }
   return e;
+}
+
+// The unique, spelled out on the Co-Worker's own card. Which unique someone
+// holds is what a player is actually choosing between when they pick a shift,
+// so it belongs on the card rather than behind a tooltip — in the roster
+// especially, which is where the eight slots get decided. Dimmed for a
+// Co-Worker who is not in: a unique only applies while its owner is on shift.
+function udmUniqueCardHTML(cw) {
+  if (!udmActive || !cw) return '';
+  const sk = udmSkill(`${cw.id}:4`);
+  if (!sk || !udmSkillActive(sk.id)) return '';
+  return `<div class="cw-unique${cw.present ? '' : ' idle'}">`
+    + `<span class="cw-unique-name">${sk.name}</span>`
+    + `<span class="cw-unique-desc">${sk.short}</span>`
+    + `</div>`;
 }
 
 // "🧪2" on a Co-Worker's row: how far along their track this run is, with the
@@ -6850,6 +6903,7 @@ function renderCoWorkers() {
         })()}
         <span class="cw-state ${cw.state}">${cw.stateLabel}</span>
       </div>
+      ${udmUniqueCardHTML(cw)}
       <div class="cw-stats">${stats}</div>
       <div class="cw-toggles">${toggles}</div>
       ${udmRoleAssignUnlocked() ? `<div class="cw-assign-row">
@@ -7591,6 +7645,7 @@ function renderRosterRow(cw) {
       <div class="roster-status ${cw.present?'on':'off'}">${cw.present?'出勤中':'帰宅中'}</div>
       <input type="checkbox" class="roster-toggle" data-cw="${cw.id}" ${cw.present?'checked':''} ${atMax?'disabled':''}>
     </div>
+    ${udmUniqueCardHTML(cw)}
     <div class="cw-stats">${stats}</div>
   </label>`;
 }
