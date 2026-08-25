@@ -229,11 +229,15 @@
     display: block; font-size: 10.5px; font-weight: 800; color: var(--accent-purple);
   }
   .cw-unique-desc { display: block; font-size: 10px; color: var(--text-secondary); }
+  .cw-assign-check {
+    display: inline-flex; align-items: center; gap: 3px; cursor: pointer;
+    font-size: 9px; font-weight: 700; color: var(--text-muted);
+    margin-right: 2px; white-space: nowrap; user-select: none;
+  }
+  .cw-assign-check input { width: 11px; height: 11px; margin: 0; cursor: pointer; }
+  .cw-assign-check:hover { color: var(--accent-active); }
   .cw-assign-row {
     display: flex; align-items: center; gap: 6px; margin-top: 4px;
-  }
-  .cw-assign-label {
-    font-size: 9px; font-weight: 700; letter-spacing: .06em; color: var(--text-muted);
   }
   .cw-assign {
     flex: 1; min-width: 0; font: inherit; font-size: 10px;
@@ -243,7 +247,7 @@
   .cw-skill-chip {
     font-size: 9px; font-weight: 800; padding: 0 4px; border-radius: 2px; cursor: help;
     background: var(--accent-purple-bg); color: var(--accent-purple);
-    border: 1px solid var(--accent-purple); margin-left: auto; margin-right: 4px;
+    border: 1px solid var(--accent-purple); margin-right: 2px;
   }
 
   /* UDM skill draft */
@@ -6008,6 +6012,22 @@ function udmSpecAllowedFor(cw, spec) {
   const exp = findExperiment(spec.targetExpId);
   return !!exp && exp.code === code;
 }
+// Whether the assignment selector is showing for this Co-Worker. Derived
+// rather than stored: an actual assignment implies it, and the flag only has
+// to cover "checked but nothing chosen yet", which does not outlive the run.
+function udmAssignOpen(cw) { return !!(cw && (cw.assign || cw._assignOpen)); }
+
+function udmSetAssignOpen(cwId, on) {
+  const cw = coworkers.find(c => c.id === cwId);
+  if (!cw) return;
+  cw._assignOpen = !!on;
+  // Unchecking means "no assignment" — leaving a hidden one in place would be
+  // a rule the player cannot see.
+  if (!on && cw.assign) { cw.assign = null; saveCoworkers(); if (udmActive) saveUdm(); }
+  _cwPanelHeld = false;
+  renderCoWorkers();
+}
+
 function udmSetAssign(cwId, code) {
   const cw = coworkers.find(c => c.id === cwId);
   if (!cw) return;
@@ -6897,7 +6917,19 @@ function renderCharacters(lab) {
   }
 }
 
+// The CO tab is rebuilt wholesale on nearly every AI tick, which is fine for
+// text but fatal for a native <select>: an open dropdown dies with the node
+// that owns it, so the list appeared to vanish the moment a Co-Worker did
+// anything. Hold the redraw while a control here has focus, and catch up the
+// moment it is dismissed.
+let _cwPanelHeld = false;
+function holdCwPanel(on) {
+  _cwPanelHeld = on;
+  if (!on) renderCoWorkers();
+}
+
 function renderCoWorkers() {
+  if (_cwPanelHeld) return;
   const list = document.getElementById('rpanel-content');
   const present = presentCoworkers();
   if (present.length === 0) {
@@ -6915,6 +6947,10 @@ function renderCoWorkers() {
       <div class="cw-top">
         <div class="cw-avatar avatar-img" data-icon="${cw.id}" style="background-color:${cw.color};border-color:${cw.border};"></div>
         <div class="cw-name-block">${cw.nick?`<span class="nick">${cw.nick}</span>`:''}<span class="name">${cw.name}</span></div>
+        ${udmRoleAssignUnlocked() ? `<label class="cw-assign-check" title="この Co-Worker に担当の実験を指定します">
+          <input type="checkbox" data-assign-on="${cw.id}" ${udmAssignOpen(cw) ? 'checked' : ''}>
+          <span>担当実験</span>
+        </label>` : ''}
         ${(() => {
           const t = udmActive ? udmOwnerTier(cw.id) : 0;
           return t ? `<span class="cw-skill-chip" title="${udmSkillSummary(cw.id).replace(/"/g, '&quot;')}">🧪${t}</span>` : '';
@@ -6924,8 +6960,7 @@ function renderCoWorkers() {
       ${udmUniqueCardHTML(cw)}
       <div class="cw-stats">${stats}</div>
       <div class="cw-toggles">${toggles}</div>
-      ${udmRoleAssignUnlocked() ? `<div class="cw-assign-row">
-        <span class="cw-assign-label">担当</span>
+      ${udmRoleAssignUnlocked() && udmAssignOpen(cw) ? `<div class="cw-assign-row">
         <select class="cw-assign" data-assign-cw="${cw.id}">
           <option value=""${cw.assign ? '' : ' selected'}>指定なし</option>
           ${experiments.map(e => `<option value="${e.code}"${cw.assign === e.code ? ' selected' : ''}>[${e.code}] ${e.title}</option>`).join('')}
@@ -6935,8 +6970,13 @@ function renderCoWorkers() {
       </div>` : ''}
     </div>`;
   }).join('');
-  list.querySelectorAll('[data-assign-cw]').forEach(sel =>
-    sel.addEventListener('change', () => udmSetAssign(sel.dataset.assignCw, sel.value)));
+  list.querySelectorAll('[data-assign-cw]').forEach(sel => {
+    sel.addEventListener('focus', () => holdCwPanel(true));
+    sel.addEventListener('blur',  () => holdCwPanel(false));
+    sel.addEventListener('change', () => { _cwPanelHeld = false; udmSetAssign(sel.dataset.assignCw, sel.value); });
+  });
+  list.querySelectorAll('[data-assign-on]').forEach(box =>
+    box.addEventListener('change', () => udmSetAssignOpen(box.dataset.assignOn, box.checked)));
   // Bind toggle clicks (S/P/A/E/W)
   list.querySelectorAll('.cw-row').forEach(row => {
     const id = row.dataset.cw;
