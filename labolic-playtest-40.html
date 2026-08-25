@@ -6305,10 +6305,17 @@ function bindUdmSkills() {
   document.getElementById('btn-udm-store')?.addEventListener('click', openUdmStore);
   document.getElementById('udm-store-close')?.addEventListener('click', closeUdmStore);
   document.getElementById('udm-store-reset')?.addEventListener('click', resetUdmSkills);
+  // In a published build the facility is not merely hidden: the button is
+  // taken out of the document and never wired up, so unhiding it from the
+  // console does nothing.
   const grant = document.getElementById('udm-store-grant');
   if (grant) {
-    grant.style.display = DEBUG_UNLOCK_UDM ? '' : 'none';
-    grant.addEventListener('click', udmGrantAllSkills);
+    if (DEBUG_UNLOCK_UDM) {
+      grant.style.display = '';
+      grant.addEventListener('click', udmGrantAllSkills);
+    } else {
+      grant.remove();
+    }
   }
   document.getElementById('udm-store-backdrop')?.addEventListener('click', e => {
     if (e.target.id === 'udm-store-backdrop') closeUdmStore();
