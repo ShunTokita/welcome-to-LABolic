@@ -8,6 +8,12 @@ game's own document-level tags would end up nested one level deep. Removing
 them lets the content merge into the host skeleton instead. The Google
 Analytics tag goes too: the CSP blocks it anyway, and dropping it keeps the
 console clean and preview loads out of the real property.
+
+Previews also unlock Unlimited Discovery Mode. UDM sits behind clearing the
+whole game, which makes it untestable in a preview built from a fresh save —
+so the flag is flipped here rather than in the source, and the published build
+keeps it off. The unlock opens the entrance only: posting a UDM score still
+requires a real clear, so a test run cannot reach the leaderboard.
 """
 import pathlib
 import re
@@ -29,6 +35,14 @@ def main() -> None:
     )
     if "googletagmanager" in html:
         raise SystemExit("google analytics tag survived the strip — check the pattern")
+
+    # UDM test unlock — preview builds only.
+    flag = "let DEBUG_UNLOCK_UDM = false;"
+    if html.count(flag) != 1:
+        raise SystemExit(
+            f"expected exactly one '{flag}' to flip, found {html.count(flag)}"
+        )
+    html = html.replace(flag, "let DEBUG_UNLOCK_UDM = true;")
 
     # Document-level tags only; the inner <title>/<meta>/<style> stay put.
     for pattern in (

@@ -3240,7 +3240,7 @@
         <div class="settings-section-label" id="settings-udm-section-label" style="display:none;">クリア後モード</div>
         <div id="settings-udm-section" style="display:none;">
           <button class="settings-btn udm-start-btn" id="btn-udm-start">Unlimited Discovery Mode</button>
-          <div class="settings-udm-hint">DAYと共に追加される Discovery Variant を消化し続け、ハイスコアを競う高難易度モード。本編セーブは保護されます。</div>
+          <div class="settings-udm-hint" id="settings-udm-hint">DAYと共に追加される Discovery Variant を消化し続け、ハイスコアを競う高難易度モード。本編セーブは保護されます。</div>
           <button class="settings-btn" id="btn-udm-store">🧪 UDMスキルストア</button>
           <div class="settings-udm-hint" id="settings-udm-store-hint">UDMで稼いだポイントで、次回以降のUDMに効く恒常強化を購入します。</div>
         </div>
@@ -5008,6 +5008,16 @@ let udm = null;
 const UDM_RUN_KEY    = 'labolic.udm.run.pt1';
 const UDM_ACTIVE_KEY = 'labolic.udm.active.pt1';
 const UDM_START_COINS = 50000;
+
+// UDM is a post-clear mode, which makes it untestable without first playing
+// the whole game. Preview builds flip this to true (tools/prep_artifact.py)
+// so the mode can be opened from a fresh save; the published build always
+// ships it false. It unlocks the entrance and nothing else — in particular
+// the leaderboard still requires a real clear, so a test run cannot post.
+let DEBUG_UNLOCK_UDM = false;
+
+function udmUnlocked() { return !!storyFlags['ST18'] || DEBUG_UNLOCK_UDM; }
+function udmClearedForReal() { return !!storyFlags['ST18']; }
 // All non-PC equipment unlocked in UDM (everything is open, incl. MPSS).
 const UDM_ALL_EQUIPMENT = ['casting','arc','laser','phase','mpss',
   'furnace','rolling','magnet','agt','om','sem','tem','qaa'];
@@ -12195,7 +12205,7 @@ function closeSettings() {
 function refreshUdmSettingsSection() {
   const sec = document.getElementById('settings-udm-section');
   if (!sec) return;
-  const unlocked = !!storyFlags['ST18'];
+  const unlocked = udmUnlocked();
   sec.style.display = unlocked ? '' : 'none';
   const lbl = document.getElementById('settings-udm-section-label');
   if (lbl) lbl.style.display = unlocked ? '' : 'none';
@@ -12204,6 +12214,10 @@ function refreshUdmSettingsSection() {
   if (btn) btn.textContent = udmActive ? 'Unlimited Discovery Mode（実行中）' : 'Unlimited Discovery Mode';
   // The store is a between-runs screen: this run's points are not banked yet,
   // so opening it mid-run could only mislead.
+  const hint = document.getElementById('settings-udm-hint');
+  if (hint && DEBUG_UNLOCK_UDM && !udmClearedForReal()) {
+    hint.textContent = '⚠ テストビルド：クリア前でも起動できます。この状態のスコアはリーダーボードに送信できません。';
+  }
   const store = document.getElementById('btn-udm-store');
   if (store) {
     store.disabled = udmActive;
@@ -12302,7 +12316,7 @@ function applyUdmStartState() {
 // Enter UDM from a cleared main game.
 async function enterUdm() {
   if (udmActive) return;
-  if (!storyFlags['ST18']) {
+  if (!udmUnlocked()) {
     botChat('Unlimited Discovery Mode はゲームクリア後に解放されます。', 'system');
     return;
   }
@@ -12317,6 +12331,11 @@ async function enterUdm() {
   // 1) Freeze the main game to disk (every key) before swapping globals.
   saveEconomy(); saveSpecimens(); saveExperiments(); saveEquipmentState();
   saveCoworkers(); saveLayout(); saveDiscoveries(); saveClearedCodes(); saveStoryFlags();
+
+  // The main-game tutorial has no business pointing at things inside UDM.
+  // It never came up before because UDM required a clear, but the test unlock
+  // can enter straight out of the opening tutorial.
+  try { tutClear(); } catch(e) {}
 
   // 2) Flip into UDM. From here, all main-save calls route to saveUdm().
   udmActive = true;
@@ -12802,6 +12821,12 @@ function triggerUdmGameOver() {
       `<p class="udm-go-points">スキルポイント <b>+${gained.toLocaleString()}</b>（所持 ${udmPoints().toLocaleString()} pt）<br>` +
       `<span class="udm-go-points-hint">設定 &gt; UDMスキルストア で恒常強化に使えます。</span></p>`;
   }
+  // A debug-unlocked run never reaches the leaderboard: the scores there are
+  // from real clears and have to stay comparable.
+  const okBtn = document.getElementById('udm-gameover-ok');
+  if (okBtn) okBtn.style.display = udmClearedForReal() ? '' : 'none';
+  const skipBtn = document.getElementById('udm-gameover-skip');
+  if (skipBtn) skipBtn.textContent = udmClearedForReal() ? '送信せずに本編に戻る' : '本編に戻る';
   const backdrop = document.getElementById('udm-gameover-backdrop');
   if (backdrop) backdrop.classList.add('open');
 }
@@ -13561,6 +13586,7 @@ function skipLeaderboardSubmit() {
 // Open the submit modal in UDM mode. Called from the game-over screen (or a
 // manual "submit current score" action). No one-per-reset lock applies.
 function openUdmScoreSubmit(score, dayCount) {
+  if (!udmClearedForReal()) return;   // debug-unlocked run: nothing to post
   ensureLeaderboardFontsLoaded();
   lbSubmitMode = 'udm';
   lbPendingUdmScore = Number(score) || 0;
