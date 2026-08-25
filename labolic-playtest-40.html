@@ -4896,6 +4896,72 @@ const UDM_ALL_EQUIPMENT = ['casting','arc','laser','phase','mpss',
   'furnace','rolling','magnet','agt','om','sem','tem','qaa'];
 const UDM_ALL_ELEMENTS  = ['Cu','Zn','Fe','Ni','Cr','Ti','Adam','Mit','Ori','Hii'];
 
+// UDM's own equipment layout (16×12).
+//
+// UDM is the only place where all 15 pieces — the 4×4 MPSS included — are
+// owned at once, and the only place the arrangement is generated rather than
+// arranged by the player. OPTIMAL_LAYOUT has no slot for MPSS, so the preset
+// and autoPlaceEquipment ended up fighting over the same corner and walling
+// devices into pockets nobody could walk into. This is authored instead:
+// three rows of workstations with a clear corridor under each, MPSS parked
+// bottom-left, and every user tile reachable from every other.
+//
+//   row 0   Cast Arc  Furn Roll  OM  SEM  PC   ← 1-high bodies, corridor row 1-2
+//   row 3   Laser     Mag       TEM          ← 2×2 bodies, corridor row 5
+//   row 6   MPSS  Phase   AGT     QAA        ← 3×2 bodies + MPSS, corridor row 8
+//
+// Keys are exact equipment ids: a duplicate unit (furnace_2 and friends) is
+// deliberately absent so it falls through to autoPlaceEquipment after the
+// authored pieces have taken their spots.
+const UDM_LAYOUT = {
+  casting:{col:0,  row:0}, arc:    {col:2,  row:0}, furnace:{col:5,  row:0},
+  rolling:{col:7,  row:0}, om:     {col:10, row:0}, sem:    {col:12, row:0},
+  pc2:    {col:14, row:0}, pc1:    {col:15, row:0},
+  laser:  {col:0,  row:3}, magnet: {col:5,  row:3}, tem:    {col:9,  row:3},
+  mpss:   {col:0,  row:6}, phase:  {col:5,  row:6}, agt:    {col:9,  row:6},
+  qaa:    {col:13, row:6},
+};
+
+function applyUdmLayout() {
+  const extra = [];
+  for (const eq of equipment) {
+    const pos = UDM_LAYOUT[eq.id];
+    if (pos) { eq.col = pos.col; eq.row = pos.row; }
+    else extra.push(eq);
+  }
+  // Placed last so they fill around the authored plan rather than displace it.
+  for (const eq of extra) autoPlaceEquipment(eq);
+}
+
+// Guarantee the sandbox can actually be walked: every device's user tile
+// reachable, and nobody standing on a blocked tile.
+//
+// Run for a fresh run and again after a saved one is restored — a run saved
+// before this fix still carries the layout that stranded Furnace, Rolling and
+// OM, and re-entering would otherwise resume straight back into the deadlock.
+// A player who rearranged their own lab keeps it: the layout is only replaced
+// when something is genuinely unreachable.
+function udmEnsureNavigable() {
+  const origin = findSpawnTile();
+  const stranded = equipment.some(eq => {
+    const t = userTileFor(eq, origin.col);
+    if (origin.col === t.col && origin.row === t.row) return false;
+    return bfs(origin.col, origin.row, t.col, t.row) === null;
+  });
+  if (stranded) applyUdmLayout();
+
+  // bfs() refuses to path out of a blocked tile, so a Co-Worker who starts on
+  // one fails every walk forever. Anyone never hired in the main game still
+  // carries the initial (0,0), which sits under equipment.
+  const walkable = buildWalkable();
+  for (const cw of coworkers) {
+    if (!cw.present || walkable[cw.row]?.[cw.col]) continue;
+    const spot = findSpawnTile();
+    cw.col = spot.col; cw.row = spot.row;
+    cw._path = null; cw._onArrive = null; cw._walkAcc = 0;
+  }
+}
+
 // =============================================================
 // Top-level game state
 // These values are the PLAYTEST DEFAULTS — true Lv1 fresh start.
@@ -11515,6 +11581,22 @@ function applyUdmStartState() {
   gameStats.unlockedElements = new Set(UDM_ALL_ELEMENTS);
 
   rebuildEquipmentFromOwnership();
+  // Lay the sandbox out with the curated Lv4 preset instead of whatever
+  // autoPlaceEquipment's row-major scan produces.
+  //
+  // That scan only asks "does this piece fit without overlapping?", never
+  // "can anyone still walk to it?". With all 15 pieces owned at once — which
+  // happens nowhere but here — it packs them along the top rows and seals the
+  // strip above Magnetizer and SEM into a closed pocket, leaving Furnace,
+  // Rolling and OM with user tiles that bfs cannot reach from anywhere in the
+  // lab. Furnace is the first processing step of most recipes, so the AI's
+  // whole pipeline stalled after the first synthesis: tryStartAna kept
+  // "succeeding" on a specimen whose analyser was unreachable, its walk failed
+  // instantly, and since analysis is tried before processing and synthesis,
+  // nothing else ever got a turn.
+  //
+  // UDM_LAYOUT is authored for exactly this set of pieces.
+  applyUdmLayout();
   for (const eq of equipment) {
     eq.broken = false;
     eq.reservedBy = null; eq.pendingReservedBy = null;
@@ -11528,15 +11610,21 @@ function applyUdmStartState() {
   updateDisTabBadge();
 
   // Staff: hire everyone, bring the first maxAttendance() on shift.
+  // UDM hires all 25 at once and puts the first eight on shift in array order
+  // — exactly the Tier 1 roster most players never hired in the main game, so
+  // most of the shift arrives carrying the unplaced (0,0). udmEnsureNavigable
+  // places them, once every present flag is set (findSpawnTile reads who is
+  // already on shift to avoid stacking people).
   const cap = maxAttendance();
   let present = 0;
   for (const cw of coworkers) {
     cw.hired = true;
     cw.state = 'idle'; cw.stateLabel = 'Idle';
     cw._path = null; cw._onArrive = null; cw._walkAcc = 0;
-    if (present < cap) { cw.present = true; present++; }
-    else cw.present = false;
+    cw.present = present < cap;
+    if (cw.present) present++;
   }
+  udmEnsureNavigable();
 }
 
 // Enter UDM from a cleared main game.
@@ -11628,6 +11716,7 @@ function resumeUdm() {
   // Re-apply the open-everything sandbox config, then overlay the saved run.
   applyUdmStartState();
   loadUdm(); // restores day/coins/specimens/experiments/score/variants/customRecipes/staff/layout
+  udmEnsureNavigable(); // the restored layout/positions may predate the fix
   applyUdmChrome();
 }
 
