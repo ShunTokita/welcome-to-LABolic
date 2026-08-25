@@ -353,6 +353,13 @@
   .udm-stock-row.danger { background: #fdecea; border-color: #c0392b; }
   .udm-stock-row.danger b { color: #c0392b; }
   .udm-stock-hint { font-size: 10px; color: var(--text-muted); }
+  .udm-drift-row {
+    display: flex; align-items: baseline; gap: 6px; margin: 0 0 6px;
+    padding: 3px 8px; border-radius: 3px;
+    background: var(--accent-warning-bg); border: 1px solid var(--accent-warning);
+    font-size: 11px; color: var(--text-secondary);
+  }
+  .udm-drift-row b { font-size: 13px; color: var(--accent-warning); }
 
   /* UDM variant card (purple Lv4 theme) */
   .d-card.udm-variant { border-left: 3px solid var(--accent-purple); }
@@ -5978,9 +5985,21 @@ function computeUdmEffects(cw) {
     for (const b of UDM_PARTY_STAT_BUFFS) if (udmUniqueActive(b.owner)) e[b.stat] += b.delta;
     if (udmUniqueActive('anna')) e.work *= 1.5;  // 手順書、作りました
     if (udmUniqueActive('mike')) e.walk *= 1.3;  // 整理整頓
+    // Jeff + Bobby「失敗は成功の母」— precision traded for volume. The clamp
+    // in statOf keeps this from falling out of the probability tables.
+    if (udmPairActive('jeff', 'bobby')) e.A -= 2;
   }
+  // Dave「同期の絆」sets SP to 4 rather than adding to it, so it is a floor.
+  // Expressed as the delta that reaches it, since callers only add.
+  let floorS = 0;
+  if ((cw.id === 'dave' || cw.id === 'grace') && udmUniqueActive('dave')) floorS = 4;
+  if (floorS) e.S = Math.max(e.S, floorS - (cw.stats.S || 0));
   return e;
 }
+
+// Both halves of a pair skill on shift. Jeff/Bobby and Dave/Grace each hold
+// one half; neither does anything alone.
+function udmPairActive(a, b) { return udmUniqueActive(a) && udmUniqueActive(b); }
 
 // null outside UDM: the main game never sees a skill.
 function udmEffectsFor(cw) {
@@ -10712,7 +10731,9 @@ function driftParam(p) {
 // True if cw rolls a drift this attempt.
 function rollDrift(cw) {
   const p = DRIFT_PROB_BY_ACCURACY[statOf(cw, 'A')] ?? 0;
-  return Math.random() < p;
+  const drifted = Math.random() < p;
+  if (drifted) udmCountDrift();
+  return drifted;
 }
 
 // Look up an experiment by instanceId. (instanceId == targetExpId)
@@ -10963,7 +10984,10 @@ function tryStartSynth(cw) {
       elements = driftElements(elements, pick.eq.id, gameStats.labLv);
     }
   }
-  const cost = elements.reduce((s, sym) => s + (ELEM_COST[sym] || 0), 0);
+  // Grace「同期の絆」— one synthesis, three identical specimens, three times
+  // the材料費. Charged up front like any other synthesis.
+  const batch = udmTripleSynthFor(cw) ? 3 : 1;
+  const cost = elements.reduce((s, sym) => s + (ELEM_COST[sym] || 0), 0) * batch;
   if (gameStats.coins < cost) return false;
   // Pre-charge cost (so concurrent decisions see the deduction)
   gameStats.coins -= cost;
@@ -10971,6 +10995,7 @@ function tryStartSynth(cw) {
     kind: 'synth',
     expId: pick.exp.instanceId,
     elements,
+    batch,
     label: 'Synth',
     cost,          // carried so completion can show the spend, as repairs do
   }));
@@ -11115,20 +11140,26 @@ function commitTask(eq) {
   if (!task) return;
   const cw = coworkers.find(c => c.id === eq.reservedBy);
   if (task.kind === 'synth') {
-    const spec = {
-      id: newSpecimenId(),
-      createdBy: cw ? cw.id : null,
-      createdAt: Date.now(),
-      elements: task.elements,
-      synthesis: baseEquipId(eq.id),
-      processing: [],
-      analysis: null,
-      analyzedBy: null,
-      analyzedAt: null,
-      status: 'in_lab',
-      targetExpId: task.expId,
-    };
-    specimens.push(spec);
+    // task.batch is Grace's three; every other synthesis makes one. The copies
+    // are independent specimens sharing only their elements — each one goes
+    // through processing on its own, which is what the 極意 holders batch.
+    const n = Math.max(1, task.batch || 1);
+    for (let i = 0; i < n; i++) {
+      specimens.push({
+        id: newSpecimenId(),
+        createdBy: cw ? cw.id : null,
+        createdAt: Date.now(),
+        elements: task.elements.slice(),
+        synthesis: baseEquipId(eq.id),
+        processing: [],
+        analysis: null,
+        analyzedBy: null,
+        analyzedAt: null,
+        status: 'in_lab',
+        targetExpId: task.expId,
+      });
+    }
+    if (n > 1 && cw) enqueueChat(cw, 'work', `同じ試験片を${n}つまとめて合成したよ。`);
   } else if (task.kind === 'proc') {
     const spec = specimens.find(s => s.id === task.specId);
     if (spec) {
@@ -12415,6 +12446,10 @@ function makeFreshUdmRun() {
     customRecipes: [null, null, null], // 3 custom recipe slots (stage 3)
     runSkills: [],                // skills drafted this run; lost when it ends
     discardDay: null,             // DAY Frank's discard was last used
+    driftCount: 0,                // Jeff + Bobby's tally
+    benRevealDay: null,           // cooldowns for the once-a-day uniques
+    daveRevealDay: null,
+    smithReportDay: null,
     pointsAwarded: false,         // this run's score has been paid into the meta
     gameOver: false,
   };
@@ -12669,6 +12704,10 @@ function saveUdm() {
       runSkills: udm.runSkills || [],
       pointsAwarded: !!udm.pointsAwarded,
       discardDay: udm.discardDay ?? null,
+      driftCount: udm.driftCount || 0,
+      benRevealDay: udm.benRevealDay ?? null,
+      daveRevealDay: udm.daveRevealDay ?? null,
+      smithReportDay: udm.smithReportDay ?? null,
       lastSchedDay: udm.lastSchedDay,
       vCounter: udm._vCounter || 0,
       day: gameStats.day,
@@ -12697,6 +12736,10 @@ function loadUdm() {
     udm.runSkills = Array.isArray(d.runSkills) ? d.runSkills.filter(id => UDM_SKILLS.has(id)) : [];
     udm.pointsAwarded = !!d.pointsAwarded;
     udm.discardDay = (typeof d.discardDay === 'number') ? d.discardDay : null;
+    udm.driftCount = Number(d.driftCount) || 0;
+    udm.benRevealDay   = (typeof d.benRevealDay   === 'number') ? d.benRevealDay   : null;
+    udm.daveRevealDay  = (typeof d.daveRevealDay  === 'number') ? d.daveRevealDay  : null;
+    udm.smithReportDay = (typeof d.smithReportDay === 'number') ? d.smithReportDay : null;
     udm.score = Number(d.score) || 0;
     udm.gameOver = !!d.gameOver;
     udm.lastSchedDay = (typeof d.lastSchedDay === 'number') ? d.lastSchedDay : 0;
@@ -12895,6 +12938,9 @@ function udmOnDayAdvance() {
     if (udm.gameOver) break;
   }
   udm.lastSchedDay = gameStats.day;
+  // The once-a-day uniques run after the day's Variants have arrived, so a
+  // reveal can land on something that showed up this morning.
+  if (!udm.gameOver) { udmTickBenReveal(); udmTickDaveReveal(); udmTickSmithReport(); }
   if (activeRTab === 'dis') renderRPanel();
   refreshLeftVarTab();
   saveUdm();
@@ -12989,6 +13035,169 @@ function achieveUdmVariant(v) {
   updateDisTabBadge();
   refreshLeftVarTab();
   saveUdm();
+}
+
+// =============================================================
+// Pair and cooldown uniques (phase 5)
+//
+// Four of the five belong to a pair — neither half does anything alone — and
+// three of them fire on the day clock rather than on a player action. A day
+// is the natural cadence: it is the same clock the Variants arrive on, so a
+// player can reason about the race between the two.
+// =============================================================
+
+// Variants whose elements are still unknown. Elements are the hard part of a
+// Variant (they are what the mutation actually changes), which is why three
+// separate uniques exist to hand them over.
+function udmElementUnknownVariants() {
+  if (!udm) return [];
+  return udm.variants.filter(v => v.stage < 3 && !(v.hintsRevealed && v.hintsRevealed.elements));
+}
+
+function udmRevealElements(v) {
+  if (!v) return false;
+  if (v.stage < 2) v.stage = 2;
+  v.hintsRevealed = v.hintsRevealed || {};
+  if (v.hintsRevealed.elements) return false;
+  v.hintsRevealed.elements = true;
+  markUdmVariantBadge(v.id);
+  return true;
+}
+
+// Ben「僕だけの装置」— Ben and Smith both on shift. Named target: the richest
+// Variant whose elements nobody has. Once per DAY.
+function udmTickBenReveal() {
+  if (!udmPairActive('ben', 'smith')) return;
+  if (udm.benRevealDay === gameStats.day) return;
+  const cands = udmElementUnknownVariants();
+  if (!cands.length) return;
+  const v = cands.reduce((best, x) => (x.score > best.score ? x : best), cands[0]);
+  if (!udmRevealElements(v)) return;
+  udm.benRevealDay = gameStats.day;
+  const ben = coworkers.find(c => c.id === 'ben');
+  const msg = `🔬 MPSSで D${v.baseNo}-V${v.vLevel} の元素を特定しました。`;
+  ben ? enqueueChat(ben, 'discovery_hint', msg) : botChat(msg, 'discovery_hint');
+}
+
+// Dave「同期の絆」— Dave and Grace both on shift. Random target rather than
+// named: this build clears Variants by the armful and does not care which one
+// opens up. Once per DAY.
+function udmTickDaveReveal() {
+  if (!udmPairActive('dave', 'grace')) return;
+  if (udm.daveRevealDay === gameStats.day) return;
+  const cands = udmElementUnknownVariants();
+  if (!cands.length) return;
+  const v = cands[Math.floor(Math.random() * cands.length)];
+  if (!udmRevealElements(v)) return;
+  udm.daveRevealDay = gameStats.day;
+  const dave = coworkers.find(c => c.id === 'dave');
+  const msg = `💬 雑談から D${v.baseNo}-V${v.vLevel} の元素が見えてきました。`;
+  dave ? enqueueChat(dave, 'discovery_hint', msg) : botChat(msg, 'discovery_hint');
+}
+
+// Grace「同期の絆」— three specimens of the same elements per synthesis, at
+// three times the element cost. The弾 the 極意 holders' batch operations eat.
+function udmTripleSynthFor(cw) {
+  if (!cw || (cw.id !== 'dave' && cw.id !== 'grace')) return false;
+  return udmPairActive('dave', 'grace') && udmUniqueActive('grace');
+}
+
+// Jeff + Bobby「失敗は成功の母」— count the drifts, cash them in for a recipe.
+//
+// 15 rather than the 30 the estimate suggested. Measured in a running lab,
+// this build drifts 15-20 times a DAY (the paper estimate was high: the AI
+// spends more of its day walking and queueing for equipment than working), so
+// 30 paid out every other DAY. At 15 the payout lands roughly once a DAY and
+// speeds up with a bigger shift, which is the intended shape — the count
+// scales with how many hands are making mistakes.
+const UDM_DRIFT_THRESHOLD = 15;
+
+function udmDriftCounterActive() { return udmPairActive('jeff', 'bobby'); }
+
+function udmCountDrift() {
+  if (!udmActive || !udm || udm.gameOver) return;
+  if (!udmDriftCounterActive()) return;   // only counts while both are in
+  udm.driftCount = (udm.driftCount || 0) + 1;
+  if (udm.driftCount < UDM_DRIFT_THRESHOLD) return;
+  const cands = udm.variants.filter(v => v.stage < 3);
+  if (!cands.length) return;              // nothing to spend it on; hold the count
+  udm.driftCount = 0;
+  const v = cands.reduce((best, x) => (x.score > best.score ? x : best), cands[0]);
+  v.stage = 3;
+  v.hintsRevealed = {};
+  markUdmVariantBadge(v.id);
+  const jeff = coworkers.find(c => c.id === 'jeff');
+  const msg = `💡 失敗${UDM_DRIFT_THRESHOLD}回の果てに D${v.baseNo}-V${v.vLevel} の条件が全部見えた！`;
+  jeff ? enqueueChat(jeff, 'discovery', msg) : botChat(msg, 'discovery');
+  if (activeRTab === 'dis') renderRPanel();
+  refreshLeftVarTab();
+}
+
+// Smith「進捗報告」— he drives an assigned custom recipe himself, copying
+// whatever the lab has confirmed about a Variant and guessing the rest, then
+// rewriting it the next day with whatever else has since been confirmed.
+// Needs 役割分担 to point him at a slot, which is why the system track is a
+// prerequisite for this build rather than a parallel option.
+function udmSmithSlot() {
+  if (!udmUniqueActive('smith')) return -1;
+  if (!udmCustomRecipesUnlocked() || !udmRoleAssignUnlocked()) return -1;
+  const smith = coworkers.find(c => c.id === 'smith');
+  const code = smith && smith.assign;
+  if (!code || !/^C[123]$/.test(code)) return -1;
+  return parseInt(code.slice(1), 10) - 1;
+}
+
+function udmTickSmithReport() {
+  const slot = udmSmithSlot();
+  if (slot < 0) return;
+  if (udm.smithReportDay === gameStats.day) return;
+  // Target: the richest Variant whose elements are known — that is what makes
+  // a recipe worth building at all.
+  const cands = udm.variants.filter(v =>
+    v.stage < 4 && (v.stage >= 3 || (v.hintsRevealed && v.hintsRevealed.elements)));
+  if (!cands.length) return;
+  const v = cands.reduce((best, x) => (x.score > best.score ? x : best), cands[0]);
+  const h = (v.stage >= 3) ? { elements:true, synthesis:true, processing:true, analysis:true }
+                           : (v.hintsRevealed || {});
+  const r = v.recipe;
+
+  // Confirmed fields are copied; the rest are guesses that get re-rolled
+  // tomorrow. The number of processing steps is public (the card silhouettes
+  // them), so at least the shape is always right.
+  const elements = r.elements.slice();
+  const synthOpts = ['casting','arc','laser','phase'].filter(id => SYNTH_LV[id] >= elements.length);
+  const synthesis = h.synthesis ? r.synthesis
+    : (synthOpts.length ? synthOpts[Math.floor(Math.random() * synthOpts.length)] : 'phase');
+  const anaOpts = ['om','sem','tem','qaa'];
+  const analysis = h.analysis ? r.analysis : anaOpts[Math.floor(Math.random() * anaOpts.length)];
+  const perStep = h.perStep || [];
+  const processing = r.processing.map((st, i) => (h.processing || perStep[i])
+    ? { equip: st.equip, param: st.param }
+    : { equip: VARIANT_PROC_EQUIPS[Math.floor(Math.random() * VARIANT_PROC_EQUIPS.length)],
+        param: 1 + Math.floor(Math.random() * 3) });
+
+  udm.customRecipes[slot] = {
+    name: `教授の見立て D${v.baseNo}-V${v.vLevel}`,
+    elements, synthesis, analysis, processing,
+  };
+  udm.smithReportDay = gameStats.day;
+
+  // Keep an accepted copy of the slot in step with the rewrite.
+  const code = customCode(slot);
+  const idx = experiments.findIndex(e => e.code === code);
+  if (idx >= 0) {
+    const cr = udm.customRecipes[slot];
+    experiments[idx].recipe = customRecipeToRecipe(cr);
+    experiments[idx].reward = customRecipeReward(cr);
+    experiments[idx].title = cr.name;
+    saveExperiments();
+  }
+  const smith = coworkers.find(c => c.id === 'smith');
+  const known = ['elements'].concat(['synthesis','processing','analysis'].filter(k => h[k])).length;
+  const msg = `📋 [${code}] を D${v.baseNo}-V${v.vLevel} に合わせて更新しました（判明 ${known}/4）。`;
+  smith ? enqueueChat(smith, 'work', msg) : botChat(msg, 'work');
+  renderExperiments();
+  renderBottomBar();
 }
 
 // --- Frank「優先順位を決めよう」: drop a Variant, once per DAY ---
@@ -13090,7 +13299,10 @@ function renderUdmVariants(targetEl) {
     <div class="d-title">🟣 Discovery Variants</div>
     <div class="udm-score-box">SCORE <b>${(udm.score||0).toLocaleString()}</b></div>
   </div>
-  <div class="udm-stock-row ${stockCls}">ストック <b>${stock} / ${limit}</b><span class="udm-stock-hint">${limit + 1}個目でゲームオーバー。発見し続けましょう。</span></div>`;
+  <div class="udm-stock-row ${stockCls}">ストック <b>${stock} / ${limit}</b><span class="udm-stock-hint">${limit + 1}個目でゲームオーバー。発見し続けましょう。</span></div>`
+  + (udmDriftCounterActive()
+    ? `<div class="udm-drift-row">失敗カウント <b>${udm.driftCount || 0} / ${UDM_DRIFT_THRESHOLD}</b><span class="udm-stock-hint">到達で最高報酬のVariantが全て判明します。</span></div>`
+    : '');
 
   if (stock === 0) {
     html += `<div class="empty-list">現在 Variant はありません。まもなく追加されます。</div>`;
