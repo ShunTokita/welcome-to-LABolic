@@ -219,6 +219,12 @@
   }
   .udm-intro-ok:hover { background: #5d3f8a; }
 
+  .cw-skill-chip {
+    font-size: 9px; font-weight: 800; padding: 0 4px; border-radius: 2px; cursor: help;
+    background: var(--accent-purple-bg); color: var(--accent-purple);
+    border: 1px solid var(--accent-purple); margin-left: auto; margin-right: 4px;
+  }
+
   /* UDM skill draft */
   .udm-draft-panel { max-width: 560px; }
   .udm-draft-sub { font-size: 12px; color: var(--text-muted); margin: 2px 0 10px; }
@@ -5459,20 +5465,22 @@ const statIcons = { S:'SP', A:'AC', An:'AN', E:'EN', W:'WR' };
 // =============================================================
 const STAT_MIN = 1, STAT_MAX = 4;
 
-// No skills exist yet, so this is identity + clamp and every caller sees the
-// values it saw before. Phase 2 adds the tier-3 "+1 to one stat" upgrades;
-// Phase 3 the party buffs and the AC penalties.
+// Composition order: base stat, then the tier-3 "+1 to one stat" upgrade,
+// then (phase 3) the party-wide buffs and Jeff+Bobby's AC penalty — all of
+// which arrive through udmEffectsFor. Outside UDM there is nothing to add.
 function statOf(cw, key) {
   if (!cw || !cw.stats) return 0;
-  const base = cw.stats[key] || 0;
-  return Math.max(STAT_MIN, Math.min(STAT_MAX, base));
+  let v = cw.stats[key] || 0;
+  const eff = udmEffectsFor(cw);
+  if (eff) v += eff[key] || 0;
+  return Math.max(STAT_MIN, Math.min(STAT_MAX, v));
 }
 
 // Multipliers applied on top of the stat-derived rates. 1.0 is today's pace
 // for everyone; tier-1/tier-2 upgrades and Anna's / Mike's uniques raise them.
 // Work speed multiplies throughput, so it *divides* task duration.
-function workSpeedOf(cw) { return 1.0; }
-function walkSpeedOf(cw) { return 1.0; }
+function workSpeedOf(cw) { const e = udmEffectsFor(cw); return e ? e.work : 1.0; }
+function walkSpeedOf(cw) { const e = udmEffectsFor(cw); return e ? e.walk : 1.0; }
 
 
 // =============================================================
@@ -5808,11 +5816,73 @@ function udmTakeDraft(id) {
   setTimeout(udmDrainDraft, 300);
 }
 
-// Effects are read on every AI tick, so they are composed once and cached
-// until something that feeds them changes. Phase 2 fills the cache in;
-// for now the counter just needs to exist and be bumped in the right places.
+// =============================================================
+// UDM skill layer — composed effects
+//
+// statOf / workSpeedOf / walkSpeedOf are consulted several times per
+// Co-Worker on every AI tick, so the skills feeding them are composed once
+// and cached. The cache is thrown away wholesale whenever anything it depends
+// on moves — a pick, a purchase, a change of shift, entering or leaving UDM —
+// which is a handful of events per run rather than a hundred per second.
+// =============================================================
 let udmSkillEffectsVersion = 0;
-function udmInvalidateSkillEffects() { udmSkillEffectsVersion++; }
+let _udmEffCache = null;
+let _udmEffCacheVersion = -1;
+
+function udmInvalidateSkillEffects() {
+  udmSkillEffectsVersion++;
+  _udmEffCache = null;
+}
+
+// { S, A, An, E, W: stat deltas, work, walk: multipliers }
+function computeUdmEffects(cw) {
+  const e = { S:0, A:0, An:0, E:0, W:0, work:1, walk:1 };
+  const tier = udmOwnerTier(cw.id);
+  if (tier >= 1) e.work *= UDM_SKILL_TIER1.effect.mul;
+  if (tier >= 2) e.walk *= UDM_SKILL_TIER2.effect.mul;
+  if (tier >= 3) {
+    const sk = udmSkill(`${cw.id}:3`);
+    // Smith's tier 3 is a coin bonus rather than a stat, and is applied at
+    // Submit instead — see udmCoinMultiplier().
+    if (sk && sk.effect && sk.effect.kind === 'stat') e[sk.effect.stat] += sk.effect.delta;
+  }
+  return e;
+}
+
+// null outside UDM: the main game never sees a skill.
+function udmEffectsFor(cw) {
+  if (!udmActive || !cw || !cw.id) return null;
+  if (!_udmEffCache || _udmEffCacheVersion !== udmSkillEffectsVersion) {
+    _udmEffCache = new Map();
+    _udmEffCacheVersion = udmSkillEffectsVersion;
+  }
+  let e = _udmEffCache.get(cw.id);
+  if (!e) { e = computeUdmEffects(cw); _udmEffCache.set(cw.id, e); }
+  return e;
+}
+
+// "🧪2" on a Co-Worker's row: how far along their track this run is, with the
+// skills themselves in the tooltip. Without it a player has no way to see what
+// they picked ten Variants ago.
+function udmSkillSummary(ownerId) {
+  const held = [];
+  for (let t = 1; t <= 4; t++) {
+    const sk = udmSkill(`${ownerId}:${t}`);
+    if (sk && udmSkillActive(sk.id)) held.push(`段階${t} ${sk.name}｜${sk.desc}`);
+  }
+  return held.join('\n');
+}
+
+// Submit payout multiplier. Smith's「顔が広い」is +10% while he is on shift;
+// Watson's unique will multiply here too. Coins only — a Variant's score goes
+// to udm.score untouched, so the leaderboard stays comparable.
+function udmCoinMultiplier() {
+  if (!udmActive) return 1;
+  let mul = 1;
+  const smith = coworkers.find(c => c.id === 'smith');
+  if (smith && smith.present && udmSkillActive('smith:3')) mul *= 1.1;
+  return mul;
+}
 
 // =============================================================
 // UDM skill layer — points
@@ -6552,6 +6622,10 @@ function renderCoWorkers() {
       <div class="cw-top">
         <div class="cw-avatar avatar-img" data-icon="${cw.id}" style="background-color:${cw.color};border-color:${cw.border};"></div>
         <div class="cw-name-block">${cw.nick?`<span class="nick">${cw.nick}</span>`:''}<span class="name">${cw.name}</span></div>
+        ${(() => {
+          const t = udmActive ? udmOwnerTier(cw.id) : 0;
+          return t ? `<span class="cw-skill-chip" title="${udmSkillSummary(cw.id).replace(/"/g, '&quot;')}">🧪${t}</span>` : '';
+        })()}
         <span class="cw-state ${cw.state}">${cw.stateLabel}</span>
       </div>
       <div class="cw-stats">${stats}</div>
@@ -7252,6 +7326,7 @@ function renderRosterContent(popup) {
         releaseSpecimenByCw(cw.id);
         cw.present = false;
       }
+      udmInvalidateSkillEffects(); // party-wide buffs depend on who is on shift
       saveCoworkers();
       // Update count, status badges, and other rows' disabled state IN PLACE.
       // (Re-rendering the whole popup reset the scroll position — the "jump
@@ -8156,7 +8231,10 @@ function computeReward(spec, ctx) {
     }
   }
 
-  return { base, bonus, total: base + bonus, matchedExp, matchedDiscovery, matchedVariant };
+  // base/bonus stay raw so the breakdown still reads as the recipe's worth;
+  // only what is actually paid carries the skill multiplier.
+  const total = Math.round((base + bonus) * udmCoinMultiplier());
+  return { base, bonus, total, matchedExp, matchedDiscovery, matchedVariant };
 }
 
 function renderResults() {
