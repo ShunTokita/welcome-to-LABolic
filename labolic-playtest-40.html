@@ -314,6 +314,12 @@
     border-radius: 3px; padding: 5px 10px;
   }
   .udm-store-reset:hover { background: var(--accent-danger-bg); }
+  .udm-store-grant {
+    font: inherit; font-size: 11px; cursor: pointer; background: transparent;
+    color: var(--accent-purple); border: 1px dashed var(--accent-purple);
+    border-radius: 3px; padding: 5px 10px;
+  }
+  .udm-store-grant:hover { background: var(--accent-purple-bg); }
 
   /* UDM game over panel */
   .udm-gameover-panel { text-align: center; }
@@ -3426,6 +3432,7 @@
       <div class="udm-store-body" id="udm-store-body"></div>
       <div class="udm-store-actions">
         <button class="udm-store-reset" id="udm-store-reset">UDM強化をリセット</button>
+        <button class="udm-store-grant" id="udm-store-grant" style="display:none;">全スキルを解放（テスト用）</button>
         <button class="udm-intro-ok" id="udm-store-close">閉じる</button>
       </div>
     </div>
@@ -5835,7 +5842,12 @@ function udmDrainDraft() {
   const offer = udmRollDraft();
   if (!offer.length) {
     udmDraftDue = 0;
-    botChat('取得できるスキルはもうありません。', 'system');
+    // Everything is already held — permanently or this run. Worth saying, but
+    // only once: otherwise every Variant would repeat it.
+    if (!udm._draftExhaustedSaid) {
+      udm._draftExhaustedSaid = true;
+      botChat('取得できるスキルはもうありません。', 'system');
+    }
     return;
   }
   udmDraftDue--;
@@ -5993,8 +6005,29 @@ function computeUdmEffects(cw) {
   // Expressed as the delta that reaches it, since callers only add.
   let floorS = 0;
   if ((cw.id === 'dave' || cw.id === 'grace') && udmUniqueActive('dave')) floorS = 4;
+  if (cw.id === 'iris' && udmUniqueActive('iris')) floorS = 4;  // 反重力の極意
   if (floorS) e.S = Math.max(e.S, floorS - (cw.stats.S || 0));
   return e;
+}
+
+// 極意 — a Co-Worker who does one machine and nothing else, in exchange for
+// running all three levels of a batch-designated step in a single operation.
+// Being the specialist is also the qualification: the SP requirement of their
+// own machine is waived, which is what lets Eve (SP 2) work the Magnetizer
+// (Lv 3) at all.
+const UDM_MASTERY = { sam:'furnace', joe:'rolling', eve:'magnet', iris:'agt' };
+
+function udmMasteryEquip(cw) {
+  if (!cw) return null;
+  const id = UDM_MASTERY[cw.id];
+  return (id && udmUniqueActive(cw.id)) ? id : null;
+}
+
+// SP gates which machines a Co-Worker may touch. A 極意 holder is qualified
+// on theirs regardless.
+function canOperateEquip(cw, eq) {
+  if (statOf(cw, 'S') >= eq.lv) return true;
+  return udmMasteryEquip(cw) === baseEquipId(eq.id);
 }
 
 // Both halves of a pair skill on shift. Jeff/Bobby and Dave/Grace each hold
@@ -6143,6 +6176,18 @@ function udmBuySkill(id) {
   renderUdmStore();
 }
 
+// Playtest facility, preview builds only (DEBUG_UNLOCK_UDM). Owning every
+// skill is the only way to try a finished build without grinding the twenty
+// or so runs the price list is calibrated for. It grants, it does not spend:
+// the point balance is left alone so the store still reads honestly.
+function udmGrantAllSkills() {
+  for (const id of UDM_SKILLS.keys()) { udmMeta.owned[id] = true; udmMeta.seen[id] = true; }
+  saveUdmMeta();
+  udmInvalidateSkillEffects();
+  renderUdmStore();
+  botChat('🧪 テスト用に全スキルを解放しました。', 'system');
+}
+
 async function resetUdmSkills() {
   const ok = await showConfirm(
     'UDMの恒常強化をすべてリセットします。所持ポイントと購入済みスキルが消え、'
@@ -6161,6 +6206,11 @@ function bindUdmSkills() {
   document.getElementById('btn-udm-store')?.addEventListener('click', openUdmStore);
   document.getElementById('udm-store-close')?.addEventListener('click', closeUdmStore);
   document.getElementById('udm-store-reset')?.addEventListener('click', resetUdmSkills);
+  const grant = document.getElementById('udm-store-grant');
+  if (grant) {
+    grant.style.display = DEBUG_UNLOCK_UDM ? '' : 'none';
+    grant.addEventListener('click', udmGrantAllSkills);
+  }
   document.getElementById('udm-store-backdrop')?.addEventListener('click', e => {
     if (e.target.id === 'udm-store-backdrop') closeUdmStore();
   });
@@ -11003,35 +11053,63 @@ function tryStartSynth(cw) {
 }
 
 // Try to start a Processing step.
+// The next processing step a specimen is waiting for, or null.
+function nextProcStep(spec) {
+  const exp = findExperiment(spec.targetExpId);
+  if (!exp) return null;
+  const done = spec.processing.length;
+  return done < exp.recipe.processing.length ? exp.recipe.processing[done] : null;
+}
+
 function tryStartProc(cw) {
   if (!cw.toggles.P) return false;
+  const mastery = udmMasteryEquip(cw);
   const candidates = specimens
     .filter(s => s.targetExpId && s.status !== 'submitted' && !s.analysis
                  && isSpecimenFree(s, cw.id) && udmSpecAllowedFor(cw, s))
     .sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0));
   for (const spec of candidates) {
-    const exp = findExperiment(spec.targetExpId);
-    if (!exp) continue;
-    const recipe = exp.recipe;
-    const procDone = spec.processing.length;
-    if (procDone >= recipe.processing.length) continue;
-    const nextStep = recipe.processing[procDone];
+    const nextStep = nextProcStep(spec);
+    if (!nextStep) continue;
+    // 極意: this machine or nothing.
+    if (mastery && nextStep.equip !== mastery) continue;
     // Use any available unit of this proc equipment (covers duplicates)
     const units = availableEquipUnits(nextStep.equip, 'proc', cw);
     const eq = units[0] || null;
     if (!eq) continue;
-    if (statOf(cw, 'S') < eq.lv) continue;
-    // A batch-designated step names the equipment only; the Co-Worker picks
-    // one of the three levels. Phase 6's 極意 holders will run all three at
-    // once instead of drawing one.
-    let param = nextStep.param;
-    if (param == null) param = 1 + Math.floor(Math.random() * 3);
-    if (rollDrift(cw)) param = driftParam(param);
-    reserveSpecimen(spec.id, cw.id);
+    if (!canOperateEquip(cw, eq)) continue;
+
+    // A batch-designated step names the equipment but not the level. A 極意
+    // holder covers all three levels in one operation — which needs three
+    // specimens waiting on the same step, so this build lives or dies on
+    // Grace's triple synthesis. Everyone else draws one level at random.
+    const isBatch = nextStep.param == null;
+    let group = [spec];
+    if (mastery && isBatch) {
+      for (const other of candidates) {
+        if (group.length >= 3) break;
+        if (other === spec) continue;
+        const st = nextProcStep(other);
+        if (!st || st.equip !== mastery || st.param != null) continue;
+        group.push(other);
+      }
+      // All three levels or nothing: a specialist waits for a full set.
+      if (group.length < 3) continue;
+    }
+
+    // Each specimen rolls its own drift: the three levels are the target, not
+    // a guarantee, so a low-Accuracy specialist still fumbles some of them.
+    const params = group.map((_, i) => {
+      let p = isBatch ? (group.length > 1 ? i + 1 : 1 + Math.floor(Math.random() * 3))
+                      : nextStep.param;
+      if (rollDrift(cw)) p = driftParam(p);
+      return p;
+    });
+    for (const g of group) reserveSpecimen(g.id, cw.id);
     walkAndStartTask(cw, eq, () => ({
       kind: 'proc',
-      specId: spec.id,
-      param,
+      specIds: group.map(g => g.id),
+      params,
       label: eq.short,
     }));
     return true;
@@ -11059,11 +11137,28 @@ function tryStartAna(cw) {
     if (statOf(cw, 'An') < targetEq.lv) continue;
     const curLv = spec.analysis ? analysisLv(spec.analysis) : 0;
     if (curLv >= targetEq.lv) continue;
-    reserveSpecimen(spec.id, cw.id);
+
+    // Chen「分析の極意」— up to three samples in one sitting. Unlike the 極意
+    // specialists he does not wait for a full set: analysis is the pipeline's
+    // exit, and making it wait would back everything up behind it.
+    let group = [spec];
+    if (udmUniqueActive('chen') && cw.id === 'chen') {
+      for (const other of candidates) {
+        if (group.length >= 3) break;
+        if (other === spec) continue;
+        const oExp = findExperiment(other.targetExpId);
+        if (!oExp || oExp.recipe.analysis !== targetAnaId) continue;
+        if (other.processing.length < oExp.recipe.processing.length) continue;
+        const oLv = other.analysis ? analysisLv(other.analysis) : 0;
+        if (oLv >= targetEq.lv) continue;
+        group.push(other);
+      }
+    }
+    for (const g of group) reserveSpecimen(g.id, cw.id);
     walkAndStartTask(cw, targetEq, () => ({
       kind: 'ana',
-      specId: spec.id,
-      label: 'Analyze',
+      specIds: group.map(g => g.id),
+      label: group.length > 1 ? `Analyze x${group.length}` : 'Analyze',
     }));
     return true;
   }
@@ -11161,12 +11256,24 @@ function commitTask(eq) {
     }
     if (n > 1 && cw) enqueueChat(cw, 'work', `同じ試験片を${n}つまとめて合成したよ。`);
   } else if (task.kind === 'proc') {
-    const spec = specimens.find(s => s.id === task.specId);
-    if (spec) {
-      spec.processing.push({ equip: baseEquipId(eq.id), param: task.param, by: cw ? cw.id : null, at: Date.now() });
+    // specIds/params are parallel arrays: one entry per specimen in the batch,
+    // and a single entry for every ordinary processing step.
+    const ids = task.specIds || (task.specId ? [task.specId] : []);
+    const params = task.params || [task.param];
+    ids.forEach((sid, i) => {
+      const spec = specimens.find(s => s.id === sid);
+      if (!spec) return;
+      spec.processing.push({ equip: baseEquipId(eq.id), param: params[i],
+        by: cw ? cw.id : null, at: Date.now() });
+    });
+    if (ids.length > 1 && cw) {
+      enqueueChat(cw, 'work',
+        `${eq.name} を ${params.map(p => `L${p}`).join('/')} で3条件まとめて処理した。`);
     }
   } else if (task.kind === 'ana') {
-    const spec = specimens.find(s => s.id === task.specId);
+    const anaIds = task.specIds || (task.specId ? [task.specId] : []);
+    for (const sid of anaIds) {
+    const spec = specimens.find(s => s.id === sid);
     if (spec) {
       spec.analysis = baseEquipId(eq.id);
       spec.analyzedBy = cw ? cw.id : null;
@@ -11213,6 +11320,8 @@ function commitTask(eq) {
         submitSpecimenAsCoworker(cw, spec);
       }
     }
+    }
+    if (anaIds.length > 1 && cw) enqueueChat(cw, 'work', `${anaIds.length}試料をまとめて分析した。`);
   } else if (task.kind === 'submit') {
     const spec = specimens.find(s => s.id === task.specId);
     if (spec && spec.status === 'analyzed' && cw) {
