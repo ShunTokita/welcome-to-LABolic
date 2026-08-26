@@ -12565,6 +12565,12 @@ function bindDiscoveryPopup() {
 // UDM Variant discovered popup — number + mutation counts only (no material
 // name / comment, per spec). Reuses the Discovery popup's icon + animation.
 function showUdmVariantPopup(v, spec) {
+  // Same fanfare as a 本編 Discovery: a Variant is the equivalent achievement
+  // in UDM, so it gets the equivalent cue. Called from the two achievement
+  // sites only, which is why the sound lives here rather than in a separate
+  // announce* helper the way the Discovery path needs (that one has to stay
+  // clear of hint-stage badging).
+  sfx('discovery');
   celebrateDiscovery();
   const icon = document.getElementById('udm-var-popup-icon');
   if (icon && spec) icon.style.cssText = specimenIconStyle(spec.elements);
