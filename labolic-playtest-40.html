@@ -269,6 +269,11 @@
     font-size: 9px; margin-left: 6px; padding: 0 4px; border-radius: 2px;
     background: var(--accent-purple-bg); color: var(--accent-purple); font-weight: 700;
   }
+  .udm-draft-firstmark {
+    font-size: 10px; margin-left: 10px; padding: 2px 7px; border-radius: 999px;
+    background: var(--accent-purple); color: #fff; font-weight: 800;
+    letter-spacing: .06em; vertical-align: middle;
+  }
   .udm-draft-name { font-size: 14px; font-weight: 800; margin-top: 1px; }
   .udm-draft-desc { font-size: 11px; color: var(--text-secondary); line-height: 1.55; margin-top: 2px; }
   .udm-draft-flavor {
@@ -3441,7 +3446,7 @@
   <!-- UDM skill draft — one pick per Variant discovered -->
   <div class="udm-intro-backdrop" id="udm-draft-backdrop">
     <div class="udm-intro-panel udm-draft-panel">
-      <div class="udm-intro-header">🧪 スキル獲得</div>
+      <div class="udm-intro-header" id="udm-draft-header">🧪 スキル獲得</div>
       <div class="udm-draft-sub" id="udm-draft-sub"></div>
       <div class="udm-draft-cards" id="udm-draft-cards"></div>
     </div>
@@ -5747,6 +5752,21 @@ const UDM_SKILL_PRICE_SYSTEM = { 1: 15000, 2: 40000, 3: 80000, 4: 150000 };
 const UDM_DRAFT_SYSTEM_WEIGHT = 3;
 const UDM_DRAFT_CHOICES = 3;
 
+// The very first Variant of a run offers uniques instead of the tier-1 stat
+// bumps. Discovering that the upgrade track ends in a character-defining
+// skill is the thing that makes the store worth saving for, and finding that
+// out on run four is too late. It grants tier 4 alone — tiers 1-3 stay on the
+// track to be drafted or bought as usual.
+//
+// Two uniques break a run open on their own rather than shaping it, so they
+// are dealt in at a fraction of the others' rate: 'LABの司令塔' turns every
+// custom recipe into a wildcard, and '進捗報告' rewrites recipes toward the
+// nearest Variant on every Submit. Rare, not absent — pulling one should feel
+// like a jackpot, not like the default opening.
+const UDM_FIRST_PICK_WEIGHT = 12;
+const UDM_FIRST_PICK_RARE_WEIGHT = 1;
+const UDM_FIRST_PICK_RARE = ['sys:4', 'smith:4'];
+
 // id -> { id, owner, ownerName, tier, name, desc, flavor, price, effect }
 const UDM_SKILLS = (() => {
   const map = new Map();
@@ -5873,6 +5893,7 @@ function udmOwnedTier(ownerId) {
 // =============================================================
 let udmDraftDue = 0;
 let udmDraftOffer = null;
+let udmDraftIsFirst = false;   // the offer on screen is the opening unique pick
 
 function udmDraftCandidates() {
   const out = [];
@@ -5883,11 +5904,13 @@ function udmDraftCandidates() {
   return out;
 }
 
-function udmRollDraft() {
-  const cands = udmDraftCandidates();
+// Draw UDM_DRAFT_CHOICES distinct ids, each id's chance proportional to
+// weightOf(id). Duplicates are stripped from the pool as they are taken, so
+// a heavier weight buys a better chance of appearing, never a second slot.
+function udmDrawWeighted(cands, weightOf) {
   const pool = [];
   for (const id of cands) {
-    const w = id.startsWith('sys:') ? UDM_DRAFT_SYSTEM_WEIGHT : 1;
+    const w = Math.max(1, weightOf(id));
     for (let i = 0; i < w; i++) pool.push(id);
   }
   const picked = [];
@@ -5899,6 +5922,27 @@ function udmRollDraft() {
   return picked;
 }
 
+function udmRollDraft() {
+  return udmDrawWeighted(udmDraftCandidates(),
+    id => id.startsWith('sys:') ? UDM_DRAFT_SYSTEM_WEIGHT : 1);
+}
+
+// The uniques on offer for the opening pick: tier 4 of every track not
+// already held. A player who bought a unique outright will not be shown it
+// again, which is also why this can come back empty on a well-stocked
+// account — udmDrainDraft falls through to a normal roll in that case.
+function udmFirstPickCandidates() {
+  return UDM_SKILL_OWNERS
+    .map(o => `${o.id}:4`)
+    .filter(id => UDM_SKILLS.has(id) && !udmSkillActive(id));
+}
+
+function udmRollFirstPick() {
+  return udmDrawWeighted(udmFirstPickCandidates(),
+    id => UDM_FIRST_PICK_RARE.indexOf(id) >= 0
+      ? UDM_FIRST_PICK_RARE_WEIGHT : UDM_FIRST_PICK_WEIGHT);
+}
+
 function udmQueueDraft(n) { udmDraftDue += (n || 1); }
 
 // Drafts wait behind the Variant popup that owes them, so the discovery
@@ -5907,7 +5951,12 @@ function udmDrainDraft() {
   if (!udmActive || !udm || udm.gameOver) { udmDraftDue = 0; return; }
   if (udmDraftDue <= 0 || udmDraftOffer) return;
   if (document.querySelector('.udm-intro-backdrop.open, .discovery-backdrop.open, .event-backdrop.open, .popup-backdrop.open')) return;
-  const offer = udmRollDraft();
+  // The opening pick, once per run. If every unique is already held the
+  // player has nothing to be shown here, so fall through to a normal roll and
+  // do not spend the occasion on an empty panel.
+  let first = !udm.firstPickDone;
+  let offer = first ? udmRollFirstPick() : udmRollDraft();
+  if (first && !offer.length) { first = false; offer = udmRollDraft(); }
   if (!offer.length) {
     udmDraftDue = 0;
     // Everything is already held — permanently or this run. Worth saying, but
@@ -5920,6 +5969,7 @@ function udmDrainDraft() {
   }
   udmDraftDue--;
   udmDraftOffer = offer;
+  udmDraftIsFirst = first;
   renderUdmDraft();
   document.getElementById('udm-draft-backdrop')?.classList.add('open');
   pauseAi();
@@ -5929,7 +5979,13 @@ function renderUdmDraft() {
   const sub = document.getElementById('udm-draft-sub');
   const box = document.getElementById('udm-draft-cards');
   if (!box) return;
-  if (sub) sub.textContent = 'Variantを発見しました。1つ選んでください。'
+  const head = document.getElementById('udm-draft-header');
+  if (head) head.innerHTML = udmDraftIsFirst
+    ? '🧪 スキル獲得<span class="udm-draft-firstmark">初回限定</span>'
+    : '🧪 スキル獲得';
+  if (sub) sub.textContent = (udmDraftIsFirst
+    ? '初回限定：ユニークスキル（段階4）から1つ選べます。段階1〜3は別に取得が必要です。'
+    : 'Variantを発見しました。1つ選んでください。')
     + (udmDraftDue > 0 ? `（このあと あと${udmDraftDue}回）` : '');
   box.innerHTML = udmDraftOffer.map(id => {
     const sk = udmSkill(id);
@@ -5952,8 +6008,10 @@ function udmTakeDraft(id) {
   udm.runSkills = udm.runSkills || [];
   if (udm.runSkills.indexOf(id) < 0) udm.runSkills.push(id);
   udmMarkSeen(id);
+  if (udmDraftIsFirst) udm.firstPickDone = true;
   udmInvalidateSkillEffects();
   udmDraftOffer = null;
+  udmDraftIsFirst = false;
   document.getElementById('udm-draft-backdrop')?.classList.remove('open');
   resumeAi();
   saveUdm();
@@ -12732,6 +12790,7 @@ function makeFreshUdmRun() {
     daveRevealDay: null,
     smithReportDay: null,
     pointsAwarded: false,         // this run's score has been paid into the meta
+    firstPickDone: false,         // the opening unique pick has been spent
     gameOver: false,
   };
 }
@@ -12827,7 +12886,7 @@ async function enterUdm() {
   // 2) Flip into UDM. From here, all main-save calls route to saveUdm().
   udmActive = true;
   udm = makeFreshUdmRun();
-  udmDraftDue = 0; udmDraftOffer = null;
+  udmDraftDue = 0; udmDraftOffer = null; udmDraftIsFirst = false;
   udmInvalidateSkillEffects();
   try { localStorage.setItem(UDM_ACTIVE_KEY, '1'); } catch(e) {}
 
@@ -12898,7 +12957,7 @@ function closeUdmIntro() {
 function resumeUdm() {
   udmActive = true;
   udm = makeFreshUdmRun();
-  udmDraftDue = 0; udmDraftOffer = null;
+  udmDraftDue = 0; udmDraftOffer = null; udmDraftIsFirst = false;
   udmInvalidateSkillEffects();
   // Re-apply the open-everything sandbox config, then overlay the saved run.
   applyUdmStartState();
@@ -12914,7 +12973,7 @@ function exitUdm(opts) {
   // Walking away pays out too. Paying only on game over would make quitting
   // while ahead the strictly worse move, which is not a decision worth having.
   const gained = udmAwardPoints();
-  udmDraftDue = 0; udmDraftOffer = null;
+  udmDraftDue = 0; udmDraftOffer = null; udmDraftIsFirst = false;
   document.getElementById('udm-draft-backdrop')?.classList.remove('open');
   udmActive = false;
   udm = null;
@@ -12984,6 +13043,7 @@ function saveUdm() {
       gameOver: udm.gameOver,
       runSkills: udm.runSkills || [],
       pointsAwarded: !!udm.pointsAwarded,
+      firstPickDone: !!udm.firstPickDone,
       discardDay: udm.discardDay ?? null,
       driftCount: udm.driftCount || 0,
       benRevealDay: udm.benRevealDay ?? null,
@@ -13016,6 +13076,10 @@ function loadUdm() {
     udm.startedAt = d.startedAt || Date.now();
     udm.runSkills = Array.isArray(d.runSkills) ? d.runSkills.filter(id => UDM_SKILLS.has(id)) : [];
     udm.pointsAwarded = !!d.pointsAwarded;
+    // A run saved before the opening pick existed has no flag. Any run that
+    // already drafted something is past its first Variant, so treat it as
+    // spent rather than handing a mid-run save a free unique.
+    udm.firstPickDone = !!d.firstPickDone || udm.runSkills.length > 0;
     udm.discardDay = (typeof d.discardDay === 'number') ? d.discardDay : null;
     udm.driftCount = Number(d.driftCount) || 0;
     udm.benRevealDay   = (typeof d.benRevealDay   === 'number') ? d.benRevealDay   : null;
@@ -13538,7 +13602,7 @@ function triggerUdmGameOver() {
   if (!udm || udm.gameOver) return;
   udm.gameOver = true;
   // Close a draft still on screen: the run is over, the pick is moot.
-  udmDraftDue = 0; udmDraftOffer = null;
+  udmDraftDue = 0; udmDraftOffer = null; udmDraftIsFirst = false;
   document.getElementById('udm-draft-backdrop')?.classList.remove('open');
   const gained = udmAwardPoints();
   saveUdm();
