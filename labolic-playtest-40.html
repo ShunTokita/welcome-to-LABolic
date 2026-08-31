@@ -1887,6 +1887,55 @@
     15%  { opacity: 1; transform: translate(calc(-50% + var(--fx-jitter, 0px)), -6px) scale(1.06); }
     100% { opacity: 0; transform: translate(calc(-50% + var(--fx-jitter, 0px)), -34px) scale(1); }
   }
+  /* -------------------------------------------------------------
+     Head bubbles. A child of the .character node rather than a tile-
+     positioned overlay, so the bubble rides along with the walk instead of
+     being left behind at the tile the Co-Worker occupied when it fired.
+     ------------------------------------------------------------- */
+  .cw-bubble {
+    position: absolute;
+    left: 50%; bottom: 100%; margin-bottom: 7px;
+    width: 27px; height: 23px;
+    background: var(--bg-card); border: 1.5px solid var(--line-strong);
+    border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    z-index: 8;                     /* over .float-text(7), under .dragging */
+    pointer-events: none;
+    animation: cw-bubble-life 1.7s ease-out forwards;
+  }
+  /* Speech tail: a rotated square showing only its two outer edges, so the
+     bubble's fill and its outline both continue into the point. */
+  .cw-bubble::after {
+    content: ''; position: absolute;
+    left: 50%; top: 100%; margin-left: -4px; margin-top: -5px;
+    width: 8px; height: 8px;
+    background: var(--bg-card);
+    border-right: 1.5px solid var(--line-strong);
+    border-bottom: 1.5px solid var(--line-strong);
+    transform: rotate(45deg);
+  }
+  .cw-bubble svg { display: block; }
+  .cw-bubble .cw-bubble-glyph { font-size: 13px; line-height: 1; }
+  @keyframes cw-bubble-life {
+    0%   { opacity: 0; transform: translate(-50%, 5px) scale(0.4); }
+    14%  { opacity: 1; transform: translate(-50%, 0) scale(1.14); }
+    24%  { opacity: 1; transform: translate(-50%, 0) scale(1); }
+    76%  { opacity: 1; transform: translate(-50%, 0) scale(1); }
+    100% { opacity: 0; transform: translate(-50%, -7px) scale(0.92); }
+  }
+  /* Reduce-motion keeps the bubble — it is the only cue that a drift
+     happened — but drops the pop and the drift upward for a plain fade. */
+  @keyframes cw-bubble-still {
+    0%   { opacity: 0; transform: translate(-50%, 0); }
+    12%, 80% { opacity: 1; transform: translate(-50%, 0); }
+    100% { opacity: 0; transform: translate(-50%, 0); }
+  }
+  body.reduce-motion .cw-bubble { animation: cw-bubble-still 1.7s linear forwards; }
+  @media (prefers-reduced-motion: reduce) {
+    .cw-bubble { animation: cw-bubble-still 1.7s linear forwards; }
+  }
+  body.mobile-mode .cw-bubble { width: 23px; height: 20px; }
+
   body.mobile-mode .float-text { font-size: 10px; }
   /* Reward flourishes count as motion too — see the reduceMotion note in the
      settings section. Belt and braces: the JS also refuses to create these. */
@@ -5566,6 +5615,64 @@ function floatText(text, col, row, kind = 'coin') {
   const all = lab.querySelectorAll('.float-text');
   for (let i = 0; i + FLOAT_TEXT_MAX < all.length; i++) all[i].remove();
   return el;
+}
+
+// -------------------------------------------------------------
+// Head bubbles
+//
+// A drift is invisible in the log until the specimen fails to match something
+// much later, so it gets its own cue: a tangled scribble over the head of
+// whoever fumbled it, at the moment they finish the botched work rather than
+// when the roll happened — at roll time they are usually still walking to the
+// machine, and the mistake has not been made yet.
+//
+// The bulb marks the other half of the same idea: the run's progress is
+// deduction, so the moment a hint lands is worth showing on the people who
+// earned it.
+// -------------------------------------------------------------
+const BUBBLE_GLYPH = {
+  // A knot of line that crosses itself — no emoji reads as "tangled", so it
+  // is drawn. Coordinates are a 24-box; strokes stay inside 3..21.
+  tangle: '<svg width="19" height="17" viewBox="0 0 24 22" fill="none" '
+    + 'stroke="var(--accent-warning)" stroke-width="2" stroke-linecap="round">'
+    + '<path d="M3 17 C2 12 6 9 9 11 C12 13 6 16 5 12 C4 7 10 4 14 6 '
+    + 'C18 8 12 13 10 9 C8 5 15 2 19 5 C22 7 21 12 18 13"/>'
+    + '<path d="M2 8 L4 6 M21 17 L23 19"/></svg>',
+  bulb: '<span class="cw-bubble-glyph">💡</span>',
+};
+
+// One bubble per Co-Worker at a time: a batch of three specimens all landing
+// hints would otherwise stack three identical bubbles on one head.
+function showBubble(cwId, kind) {
+  if (!cwId || !BUBBLE_GLYPH[kind]) return;
+  const host = charNodes.get(cwId);
+  if (!host) return;                       // off shift, or the lab is not drawn
+  host.querySelector('.cw-bubble')?.remove();
+  const el = document.createElement('div');
+  el.className = 'cw-bubble';
+  el.dataset.kind = kind;
+  el.innerHTML = BUBBLE_GLYPH[kind];
+  // animationend rather than a timer, for the same reason float-text uses it:
+  // a hidden tab pauses the animation but not a timer.
+  el.addEventListener('animationend', () => el.remove(), { once: true });
+  host.appendChild(el);
+}
+
+// Everyone whose hands were on this specimen, plus whoever read it. Deduped,
+// so the common case (one Co-Worker did the lot) lights exactly one bubble.
+function specimenWorkerIds(spec, analyst) {
+  const ids = new Set();
+  if (analyst) ids.add(analyst.id || analyst);
+  if (spec) {
+    if (spec.analyzedBy) ids.add(spec.analyzedBy);
+    if (spec.createdBy) ids.add(spec.createdBy);
+    for (const step of spec.processing || []) if (step.by) ids.add(step.by);
+  }
+  return [...ids];
+}
+
+function showHintBubbles(spec, analyst) {
+  for (const id of specimenWorkerIds(spec, analyst)) showBubble(id, 'bulb');
 }
 
 // Coin amounts get long late in the game; keep the label narrow enough to
@@ -10979,6 +11086,7 @@ function confirmGo() {
       // Auto-discovery hint detection (§8.1) — same logic as before, but
       // the "first fired this batch" trackers are scoped to the loop so
       // batch analysis only emits one hint message regardless of size.
+      let learnt = false;   // did this specimen move any Discovery forward?
       for (const disc of discoveries) {
         const st = discoveryState[disc.id];
         if (!st || st.stage >= 4) continue;
@@ -10989,6 +11097,7 @@ function confirmGo() {
         if (exact) {
           if (st.stage < 3) {
             st.stage = 3;
+            learnt = true;
             if (!firstBulbFired) firstBulbFired = disc;
             markDiscoveryBadge(disc.id);
           }
@@ -10996,6 +11105,7 @@ function confirmGo() {
           if (st.stage < 2) {
             st.stage = 2;
             st.hintsRevealed = st.hintsRevealed || {};
+            learnt = true;
             if (!firstHintFired) firstHintFired = disc;
             markDiscoveryBadge(disc.id);
           }
@@ -11015,6 +11125,7 @@ function confirmGo() {
           }
         }
       }
+      if (learnt) showHintBubbles(spec, null);
       if (udmActive) udmAnalyzeHook(spec, null);
     }
 
@@ -11407,7 +11518,9 @@ function tryStartSynth(cw) {
   // is still gated by rollDrift so the double-drift only activates when the
   // first drift already rolled true AND they're on PSS.
   let elements = [...pick.exp.recipe.elements];
+  let drifted = false;
   if (rollDrift(cw)) {
+    drifted = true;
     elements = driftElements(elements, pick.eq.id, gameStats.labLv);
     // Second drift pass: PSS only, A:1 only, 4-element recipe only
     if (pick.eq.id === 'phase' && statOf(cw, 'A') === 1 && elements.length === 4 && rollDrift(cw)) {
@@ -11426,6 +11539,7 @@ function tryStartSynth(cw) {
     expId: pick.exp.instanceId,
     elements,
     batch,
+    drifted,       // carried so the head bubble fires when the work lands
     label: 'Synth',
     cost,          // carried so completion can show the spend, as repairs do
   }));
@@ -11479,10 +11593,11 @@ function tryStartProc(cw) {
 
     // Each specimen rolls its own drift: the three levels are the target, not
     // a guarantee, so a low-Accuracy specialist still fumbles some of them.
+    let drifted = false;
     const params = group.map((_, i) => {
       let p = isBatch ? (group.length > 1 ? i + 1 : 1 + Math.floor(Math.random() * 3))
                       : nextStep.param;
-      if (rollDrift(cw)) p = driftParam(p);
+      if (rollDrift(cw)) { p = driftParam(p); drifted = true; }
       return p;
     });
     for (const g of group) reserveSpecimen(g.id, cw.id);
@@ -11490,6 +11605,7 @@ function tryStartProc(cw) {
       kind: 'proc',
       specIds: group.map(g => g.id),
       params,
+      drifted,     // carried so the head bubble fires when the work lands
       label: eq.short,
     }));
     return true;
@@ -11661,6 +11777,7 @@ function commitTask(eq) {
       spec.status = 'analyzed';
 
       // Discovery hint/bulb detection — same logic as manual analysis path
+      let learnt = false;   // did this specimen move any Discovery forward?
       for (const disc of discoveries) {
         const st = discoveryState[disc.id];
         if (!st || st.stage >= 4) continue;
@@ -11670,6 +11787,7 @@ function commitTask(eq) {
         if (exact) {
           if (st.stage < 3) {
             st.stage = 3;
+            learnt = true;
             markDiscoveryBadge(disc.id);
             if (cw) enqueueChat(cw, 'discovery_hint', `💡 ${disc.name} の手がかり、全部揃った？`);
             else     botChat(`💡 ${disc.name} の組成・工程が全て揃いました！`, 'discovery_hint');
@@ -11678,6 +11796,7 @@ function commitTask(eq) {
           if (st.stage < 2) {
             st.stage = 2;
             st.hintsRevealed = st.hintsRevealed || {};
+            learnt = true;
             markDiscoveryBadge(disc.id);
             if (cw) enqueueChat(cw, 'discovery_hint', randomLine(cw.id, 'discovery_hint'));
           }
@@ -11690,6 +11809,7 @@ function commitTask(eq) {
           }
         }
       }
+      if (learnt) showHintBubbles(spec, cw);
       if (udmActive) udmAnalyzeHook(spec, cw);
       // Ingrid「…分身してない？」— what she analyses is written up in the same
       // breath. No walk to a PC, no queue behind it: analysis and writing are
@@ -11714,6 +11834,11 @@ function commitTask(eq) {
       enqueueChat(cw, 'work', `${eq.name} の修理完了。`);
     }
   }
+
+  // A drift is decided when the task is queued but shown here: this is the
+  // moment the Co-Worker is standing at the machine with the botched specimen
+  // in hand, which is where the player is looking.
+  if (task.drifted && cw) showBubble(cw.id, 'tangle');
 
   // Red spend cue for tasks whose cost was pre-charged when the task started
   // (repair, and co-worker synthesis). Shown on completion rather than at
@@ -13499,6 +13624,10 @@ function udmAnalyzeHook(spec, cw) {
       }
     }
   }
+  // The bulb goes over everyone who touched the specimen, not just the
+  // analyst: in a divided lab the person who ran the OM had nothing to do
+  // with choosing the elements that turned out to matter.
+  if (firstBulb || firstHint) showHintBubbles(spec, cw);
   if (firstBulb) {
     const msg = `💡 D${firstBulb.baseNo}-V${firstBulb.vLevel} の条件が全て揃いました！Submitで発見です。`;
     cw ? enqueueChat(cw, 'discovery_hint', msg) : botChat(msg, 'discovery_hint');
