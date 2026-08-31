@@ -255,17 +255,41 @@
      reaches above the header text. The panel scrolls (overflow-y: auto,
      which forces overflow-x to auto too), so anything past the padding is
      clipped rather than merely overhanging. */
-  .udm-draft-panel { max-width: 560px; padding-top: 32px; }
+  .udm-draft-panel {
+    max-width: 560px; padding-top: 32px;
+    animation: pop-in 0.42s cubic-bezier(0.22, 1, 0.36, 1);
+  }
   .udm-draft-sub { font-size: 12px; color: var(--text-muted); margin: 2px 0 10px; }
-  .udm-draft-cards { display: flex; flex-direction: column; gap: 8px; }
+  .udm-draft-cards {
+    display: flex; flex-direction: column; gap: 8px;
+    /* A raised card grows 10%, and the panel clips rather than overhangs
+       (overflow-y: auto forces overflow-x to auto), so the row starts inset
+       far enough that the grown card still lands inside the padding. */
+    padding: 6px 28px;
+  }
   .udm-draft-card {
     display: block; width: 100%; text-align: left; cursor: pointer;
     background: var(--bg-card); border: 1px solid var(--line-light);
     border-left: 3px solid var(--accent-purple); border-radius: 3px;
     padding: 10px 12px; font: inherit; color: var(--text-primary);
   }
-  .udm-draft-card:hover { background: var(--bg-card-hover); border-color: var(--accent-purple); }
+  /* Raise whatever the player is pointing at or holding down. Touch does not
+     produce :hover, and iOS only applies :active to some elements, so the
+     held state is a class driven by pointer events instead. */
+  .udm-draft-card {
+    transition: transform .13s ease-out, box-shadow .13s ease-out,
+                background .13s ease-out, border-color .13s ease-out;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .udm-draft-card:hover, .udm-draft-card.is-held {
+    background: var(--bg-card-hover); border-color: var(--accent-purple);
+    transform: scale(1.1);
+    box-shadow: 0 6px 18px rgba(0,0,0,.28);
+    position: relative; z-index: 1;
+  }
   .udm-draft-card:focus-visible { outline: 2px solid var(--accent-purple); outline-offset: 2px; }
+  body.reduce-motion .udm-draft-card { transition: none; }
+  @media (prefers-reduced-motion: reduce) { .udm-draft-card { transition: none; } }
   .udm-draft-owner {
     font-size: 10px; letter-spacing: .06em; color: var(--accent-purple); font-weight: 800;
   }
@@ -284,7 +308,7 @@
     font-size: 12px; font-weight: 900; letter-spacing: .1em;
     color: #fff8d8; text-shadow: 0 1px 1px rgba(0,0,0,.4);
     transform: rotate(-9deg);
-    animation: firstmark-flash .6s steps(1, end) infinite;
+    animation: firstmark-flash 1s ease-in-out infinite;
   }
   .udm-draft-firstmark::before {
     content: ''; position: absolute; inset: -9px -13px; z-index: -1;
@@ -294,15 +318,20 @@
       72.4% 78.1%, 71.7% 95.0%, 58.0% 85.1%, 50.0% 100.0%, 42.0% 85.1%, 28.3% 95.0%,
       27.6% 78.1%, 10.9% 81.2%, 17.6% 65.6%, 1.3% 61.1%, 14.0% 50.0%, 1.3% 38.9%,
       17.6% 34.4%, 10.9% 18.8%, 27.6% 21.9%, 28.3% 5.0%, 42.0% 14.9%);
-    animation: firstmark-burst .6s steps(1, end) infinite;
+    animation: firstmark-burst 1s ease-in-out infinite;
   }
+  /* Yellow holds for roughly two thirds of the second and red for the rest,
+     with the swap crossfaded rather than cut. A hard two-frame blink read as
+     flicker; this breathes. */
   @keyframes firstmark-flash {
-    0%   { color: #fff8d8; transform: rotate(-9deg) scale(1); }
-    50%  { color: #7a1210; transform: rotate(-9deg) scale(1.09); }
+    0%, 55%   { color: #7a1210; transform: rotate(-9deg) scale(1.04); }
+    66%, 89%  { color: #fff8d8; transform: rotate(-9deg) scale(1); }
+    100%      { color: #7a1210; transform: rotate(-9deg) scale(1.04); }
   }
   @keyframes firstmark-burst {
-    0%   { background: #d92b26; filter: none; }
-    50%  { background: #ffd21e; filter: drop-shadow(0 0 7px rgba(255,210,30,.85)); }
+    0%, 55%   { background: #ffd21e; filter: drop-shadow(0 0 7px rgba(255,210,30,.8)); }
+    66%, 89%  { background: #d92b26; filter: drop-shadow(0 0 2px rgba(217,43,38,.5)); }
+    100%      { background: #ffd21e; filter: drop-shadow(0 0 7px rgba(255,210,30,.8)); }
   }
   body.reduce-motion .udm-draft-firstmark,
   body.reduce-motion .udm-draft-firstmark::before { animation: none; }
@@ -715,9 +744,27 @@
     max-width: 380px; width: 92%;
     text-align: center;
     box-shadow: 0 0 40px rgba(169,100,255,0.35), 0 12px 32px rgba(0,0,0,0.5);
-    animation: disc-slide-up 0.35s cubic-bezier(0.22,1,0.36,1);
+    animation: pop-in 0.42s cubic-bezier(0.22, 1, 0.36, 1);
   }
   @keyframes disc-slide-up { from { transform: translateY(24px); opacity:0 } to { transform: translateY(0); opacity:1 } }
+
+  /* Modal entrance: springs out from the middle, overshoots, and settles with
+     one small bounce. Shared by the Discovery, Variant, equipment-purchase and
+     skill-draft panels, all of which are flex-centred so the default
+     transform-origin is already the screen centre. */
+  @keyframes pop-in {
+    0%   { transform: scale(0.30); opacity: 0; }
+    45%  { transform: scale(1.08); opacity: 1; }
+    66%  { transform: scale(0.965); }
+    84%  { transform: scale(1.025); }
+    100% { transform: scale(1); }
+  }
+  body.reduce-motion .discovery-panel,
+  body.reduce-motion .equippop-panel,
+  body.reduce-motion .udm-draft-panel { animation: disc-fade-in 0.2s ease; }
+  @media (prefers-reduced-motion: reduce) {
+    .discovery-panel, .equippop-panel, .udm-draft-panel { animation: disc-fade-in 0.2s ease; }
+  }
 
   .discovery-fanfare {
     font-size: 13px; font-weight: 800; color: var(--accent-purple);
@@ -778,7 +825,7 @@
     max-width: 360px; width: 92%;
     text-align: center;
     box-shadow: 0 0 36px rgba(33,150,243,0.30), 0 12px 32px rgba(0,0,0,0.5);
-    animation: disc-slide-up 0.35s cubic-bezier(0.22,1,0.36,1);
+    animation: pop-in 0.42s cubic-bezier(0.22, 1, 0.36, 1);
   }
   .equippop-fanfare {
     font-size: 12px; font-weight: 800; color: #2196f3;
@@ -1128,6 +1175,27 @@
     width: 100vw; height: 100vh;
     z-index: 900;
     pointer-events: none;
+  }
+
+  .tap-fx {
+    position: fixed; inset: 0; z-index: 9000; pointer-events: none;
+    overflow: hidden;
+  }
+  /* The ring has to read on the cream panels and on the dark lab floor alike,
+     so it carries a white halo outside the purple stroke rather than relying
+     on the stroke colour to carry against both. */
+  .tap-ring {
+    position: absolute; border-radius: 50%;
+    border: 2.5px solid var(--accent-purple);
+    box-shadow: 0 0 0 1.5px rgba(255,255,255,.55), 0 0 6px rgba(169,100,255,.5);
+    transform: translate(-50%, -50%) scale(0.2);
+    opacity: 1;
+    animation: tap-ring-out .45s ease-out forwards;
+  }
+  @keyframes tap-ring-out {
+    from { transform: translate(-50%, -50%) scale(0.2); opacity: 1; }
+    60%  { opacity: .7; }
+    to   { transform: translate(-50%, -50%) scale(1);   opacity: 0; }
   }
 
   .chat-avatar {
@@ -3248,6 +3316,11 @@
      none so it never blocks interaction. -->
 <canvas id="fx-canvas" class="fx-canvas"></canvas>
 
+<!-- Tap/click ripples. Same reasoning as the canvas above: top level so it
+     covers the modal backdrops, and pointer-events:none so it can never
+     swallow the very click it is drawing. -->
+<div id="tap-fx" class="tap-fx"></div>
+
 <!-- Title screen. Covers the game until the player taps; see the attract-mode
      simulator near the end of the script for what fills the background. -->
 <div class="title-screen" id="title-screen" role="button" tabindex="0"
@@ -5244,6 +5317,45 @@ const gameStats = {
 };
 
 // =============================================================
+// =============================================================
+// Tap ripple
+//
+// Three rings expanding from wherever the player pressed, staggered so they
+// read as one ripple rather than three separate circles. Bound on the
+// document at capture so it fires whatever the target is and whatever that
+// target does with the event, and drawn in its own pointer-events:none layer
+// so it can never intercept the click it is reporting.
+// =============================================================
+const TAP_RING_COUNT = 3;
+const TAP_RING_LIFE_MS = 460;   // must outlast the .45s animation
+
+function spawnTapRipple(x, y) {
+  if (userSettings.reduceMotion) return;
+  const layer = document.getElementById('tap-fx');
+  if (!layer) return;
+  for (let i = 0; i < TAP_RING_COUNT; i++) {
+    const ring = document.createElement('div');
+    ring.className = 'tap-ring';
+    const size = 18 + i * 13;
+    ring.style.left = x + 'px';
+    ring.style.top = y + 'px';
+    ring.style.width = size + 'px';
+    ring.style.height = size + 'px';
+    ring.style.animationDelay = (i * 60) + 'ms';
+    layer.appendChild(ring);
+    setTimeout(() => ring.remove(), TAP_RING_LIFE_MS + i * 60);
+  }
+}
+
+function bindTapRipple() {
+  document.addEventListener('pointerdown', e => {
+    // Mouse: primary button only. A right-click or a middle-click is not the
+    // gesture this is meant to acknowledge.
+    if (e.pointerType === 'mouse' && e.button !== 0) return;
+    spawnTapRipple(e.clientX, e.clientY);
+  }, { capture: true, passive: true });
+}
+
 // Celebration particles (Session E)
 //
 // A single 2D canvas over the viewport, used only for the big moments
@@ -6032,8 +6144,15 @@ function renderUdmDraft() {
       ${sk.flavor ? `<div class="udm-draft-flavor">${sk.flavor}</div>` : ''}
     </button>`;
   }).join('');
-  box.querySelectorAll('[data-skill]').forEach(el =>
-    el.addEventListener('click', () => udmTakeDraft(el.dataset.skill)));
+  box.querySelectorAll('[data-skill]').forEach(el => {
+    el.addEventListener('click', () => udmTakeDraft(el.dataset.skill));
+    // Held-state for touch: :hover never fires there and iOS is unreliable
+    // about :active, so drive the raised look from pointer events.
+    const hold = on => el.classList.toggle('is-held', on);
+    el.addEventListener('pointerdown', () => hold(true));
+    for (const ev of ['pointerup', 'pointercancel', 'pointerleave'])
+      el.addEventListener(ev, () => hold(false));
+  });
 }
 
 function udmTakeDraft(id) {
@@ -12560,6 +12679,7 @@ function init() {
   bindEquipPopup();
   bindStoryEventPopup();
   bindLeaderboard();
+  bindTapRipple();
   // Resume an in-progress UDM run if one was active at last page unload.
   // Must run after the main state is fully loaded + bound; UDM overlays on top.
   try {
