@@ -304,8 +304,8 @@
      motion, so reduce-motion holds it on the red frame. */
   .udm-draft-firstmark {
     position: relative; z-index: 0; display: inline-block; vertical-align: middle;
-    margin-left: 12px; padding: 9px 15px;
-    font-size: 12px; font-weight: 900; letter-spacing: .1em;
+    margin-left: 10px; padding: 7px 12px;
+    font-size: 10.5px; font-weight: 900; letter-spacing: .08em;
     color: #fff8d8; text-shadow: 0 1px 1px rgba(0,0,0,.4);
     transform: rotate(-9deg);
     animation: firstmark-flash 1s ease-in-out infinite;
@@ -5782,8 +5782,8 @@ const UDM_SKILL_OWNERS = [
     desc:'順序固定のVariantで、順序以外がすべて一致したとき、その場で全条件が判明する。発見にはならない。',
     flavor:'あんまりよくわかんないけど…うまくいきそうな気がする…。' } },
   { id:'ben', stat:'A', unique:{ name:'僕だけの装置',
-    short:'1DAYに1回、最高報酬Variantの元素が判明（Smith必要）',
-    desc:'BenとSmithが出勤しているとき、MPSSで元素未発見のうち最も報酬の高いVariantの元素が判明する。クールタイム1DAY。',
+    short:'2DAYに1回、最高報酬Variantの元素が判明',
+    desc:'MPSSで元素未発見のうち最も報酬の高いVariantの元素が判明する。クールタイム2DAY。Leeが出勤しているとクールタイムが1DAYになる。',
     flavor:'せっかく作った装置、僕も使ってみようと思います。' } },
   { id:'anna', stat:'S', unique:{ name:'手順書、作りました',
     short:'出勤者全員の作業速度 +50%',
@@ -5814,8 +5814,8 @@ const UDM_SKILL_OWNERS = [
     desc:'出勤中のすべてのCo-WorkerのWR +2。',
     flavor:'論文を書く前に、インプットが足りない気がする。勉強会やりましょう。' } },
   { id:'dave', stat:'A', unique:{ name:'同期の絆',
-    short:'Dave/GraceのSPが4。1DAYに1回、元素が判明（Grace必要）',
-    desc:'DaveとGraceのSPが4になる。両名が出勤しているとき、元素未発見のVariantからランダムに1つ選んでその元素が判明する。クールタイム1DAY。',
+    short:'Dave/GraceのSPが4。2DAYに1回、元素が判明',
+    desc:'DaveとGraceのSPが4になる。元素未発見のVariantからランダムに1つ選んでその元素が判明する。クールタイム2DAY。Graceが出勤しているとクールタイムが1DAYになる。',
     flavor:'研究室での何気ない会話も、新しいアイデアにつながったりするんだよね' } },
   { id:'eve', stat:'A', unique:{ name:'磁化の極意',
     short:'Magnetizer専任。バッチ指定を3条件まとめて処理',
@@ -5826,8 +5826,8 @@ const UDM_SKILL_OWNERS = [
     desc:'1DAYに1回、ストック中のVariantを1つ破棄できる。スコアは入らない。',
     flavor:'新しいことを始めるなら、ひとつやめて時間を作らないとね。' } },
   { id:'grace', stat:'W', unique:{ name:'同期の絆',
-    short:'Dave/Graceが試験片を3つ同時に合成（材料費3倍）',
-    desc:'DaveとGraceが一度に、同じ元素の試験片を3つ合成する。元素の費用も3倍かかる。',
+    short:'Dave/Graceが試験片を3つ同時に合成。Daveのクールタイム半減',
+    desc:'DaveとGraceが一度に、同じ元素の試験片を3つ合成する。元素の費用も3倍かかる。Daveの「同期の絆」のクールタイムが50%短くなる。',
     flavor:'仲間と一緒なら、大量の実験もあっという間だよ' } },
   { id:'hank', stat:'An', unique:{ name:'気づきメモ',
     short:'1項目の一致でも手がかりが得られる',
@@ -5854,8 +5854,8 @@ const UDM_SKILL_OWNERS = [
     desc:'分析を3試料まとめて行う。',
     flavor:'ただ写真撮ればいいってものではありません。大切なのはパッションとデータへの誠実さです。' } },
   { id:'lee', stat:'An', unique:{ name:'丁寧にいこう',
-    short:'出勤者全員の AC +2',
-    desc:'出勤中のすべてのCo-WorkerのAC +2。',
+    short:'出勤者全員の AC +2。Benのクールタイム半減',
+    desc:'出勤中のすべてのCo-WorkerのAC +2。Benの「僕だけの装置」のクールタイムが50%短くなる。',
     flavor:'実験は料理みたいなものです。手間暇を惜しまなければ結果は自然とついてきます。' } },
   { id:'watson', stat:'A', unique:{ name:'Reviewer 2 キラー',
     short:'Submitで得られるコインが2倍',
@@ -5905,14 +5905,16 @@ const UDM_DRAFT_CHOICES = 3;
 // out on run four is too late. It grants tier 4 alone — tiers 1-3 stay on the
 // track to be drafted or bought as usual.
 //
-// Two uniques break a run open on their own rather than shaping it, so they
-// are dealt in at a fraction of the others' rate: 'LABの司令塔' turns every
-// custom recipe into a wildcard, and '進捗報告' rewrites recipes toward the
-// nearest Variant on every Submit. Rare, not absent — pulling one should feel
-// like a jackpot, not like the default opening.
+// Four uniques break a run open on their own rather than shaping it, so they
+// are dealt in at a fraction of the others' rate. 'LABの司令塔' turns every
+// custom recipe into a wildcard and '進捗報告' rewrites recipes toward the
+// nearest Variant on every Submit; Ben's and Dave's reveals hand over the
+// element list, which is the single hardest thing in a run to deduce, and
+// they no longer need a partner to do it. Rare, not absent — pulling one
+// should feel like a jackpot, not like the default opening.
 const UDM_FIRST_PICK_WEIGHT = 12;
 const UDM_FIRST_PICK_RARE_WEIGHT = 1;
-const UDM_FIRST_PICK_RARE = ['sys:4', 'smith:4'];
+const UDM_FIRST_PICK_RARE = ['sys:4', 'smith:4', 'ben:4', 'dave:4'];
 
 // id -> { id, owner, ownerName, tier, name, desc, flavor, price, effect }
 const UDM_SKILLS = (() => {
@@ -6326,8 +6328,9 @@ function canOperateEquip(cw, eq) {
   return udmMasteryEquip(cw) === baseEquipId(eq.id);
 }
 
-// Both halves of a pair skill on shift. Jeff/Bobby and Dave/Grace each hold
-// one half; neither does anything alone.
+// Both halves of a pair skill on shift. Only Jeff/Bobby still work this way —
+// Ben, Dave and Grace each stand alone now, with their former partner
+// shortening a cooldown instead of switching the skill on.
 function udmPairActive(a, b) { return udmUniqueActive(a) && udmUniqueActive(b); }
 
 // null outside UDM: the main game never sees a skill.
@@ -13564,11 +13567,28 @@ function udmRevealElements(v) {
   return true;
 }
 
-// Ben「僕だけの装置」— Ben and Smith both on shift. Named target: the richest
-// Variant whose elements nobody has. Once per DAY.
+// The two element-reveal uniques fire on their own — drawing Ben without
+// Smith used to mean the skill simply did nothing, which is a miserable
+// result for a card the player only sees once or twice a run. They are slower
+// instead (2 DAY), and the former partner now halves that wait rather than
+// gating it: Grace shortens Dave's, Lee shortens Ben's.
+const UDM_REVEAL_COOLDOWN = 2;
+
+function udmRevealCooldown(halverId) {
+  return udmUniqueActive(halverId) ? UDM_REVEAL_COOLDOWN / 2 : UDM_REVEAL_COOLDOWN;
+}
+
+// A reveal is due when the cooldown has fully elapsed since the last one.
+function udmRevealReady(lastDay, cooldown) {
+  if (lastDay == null) return true;
+  return gameStats.day - lastDay >= cooldown;
+}
+
+// Ben「僕だけの装置」— named target: the richest Variant whose elements nobody
+// has. Every 2 DAY, or every 1 DAY with Lee on shift.
 function udmTickBenReveal() {
-  if (!udmPairActive('ben', 'smith')) return;
-  if (udm.benRevealDay === gameStats.day) return;
+  if (!udmUniqueActive('ben')) return;
+  if (!udmRevealReady(udm.benRevealDay, udmRevealCooldown('lee'))) return;
   const cands = udmElementUnknownVariants();
   if (!cands.length) return;
   const v = cands.reduce((best, x) => (x.score > best.score ? x : best), cands[0]);
@@ -13579,12 +13599,12 @@ function udmTickBenReveal() {
   ben ? enqueueChat(ben, 'discovery_hint', msg) : botChat(msg, 'discovery_hint');
 }
 
-// Dave「同期の絆」— Dave and Grace both on shift. Random target rather than
-// named: this build clears Variants by the armful and does not care which one
-// opens up. Once per DAY.
+// Dave「同期の絆」— random target rather than named: this build clears
+// Variants by the armful and does not care which one opens up. Every 2 DAY,
+// or every 1 DAY with Grace on shift.
 function udmTickDaveReveal() {
-  if (!udmPairActive('dave', 'grace')) return;
-  if (udm.daveRevealDay === gameStats.day) return;
+  if (!udmUniqueActive('dave')) return;
+  if (!udmRevealReady(udm.daveRevealDay, udmRevealCooldown('grace'))) return;
   const cands = udmElementUnknownVariants();
   if (!cands.length) return;
   const v = cands[Math.floor(Math.random() * cands.length)];
@@ -13599,7 +13619,7 @@ function udmTickDaveReveal() {
 // three times the element cost. The弾 the 極意 holders' batch operations eat.
 function udmTripleSynthFor(cw) {
   if (!cw || (cw.id !== 'dave' && cw.id !== 'grace')) return false;
-  return udmPairActive('dave', 'grace') && udmUniqueActive('grace');
+  return udmUniqueActive('grace');
 }
 
 // Jeff + Bobby「失敗は成功の母」— count the drifts, cash them in for a recipe.
