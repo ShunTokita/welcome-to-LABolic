@@ -5782,8 +5782,8 @@ const UDM_SKILL_OWNERS = [
     desc:'順序固定のVariantで、順序以外がすべて一致したとき、その場で全条件が判明する。発見にはならない。',
     flavor:'あんまりよくわかんないけど…うまくいきそうな気がする…。' } },
   { id:'ben', stat:'A', unique:{ name:'僕だけの装置',
-    short:'2DAYに1回、最高報酬Variantの元素が判明',
-    desc:'MPSSで元素未発見のうち最も報酬の高いVariantの元素が判明する。クールタイム2DAY。Leeが出勤しているとクールタイムが1DAYになる。',
+    short:'Smith出勤中、2DAYに1回、最高報酬Variantの元素が判明',
+    desc:'Smithが出勤しているとき、MPSSで元素未発見のうち最も報酬の高いVariantの元素が判明する（Smithのスキル段階は問わない）。クールタイム2DAY。Leeが出勤しているとクールタイムが1DAYになる。',
     flavor:'せっかく作った装置、僕も使ってみようと思います。' } },
   { id:'anna', stat:'S', unique:{ name:'手順書、作りました',
     short:'出勤者全員の作業速度 +50%',
@@ -13567,12 +13567,24 @@ function udmRevealElements(v) {
   return true;
 }
 
-// The two element-reveal uniques fire on their own — drawing Ben without
-// Smith used to mean the skill simply did nothing, which is a miserable
-// result for a card the player only sees once or twice a run. They are slower
-// instead (2 DAY), and the former partner now halves that wait rather than
-// gating it: Grace shortens Dave's, Lee shortens Ben's.
+// The element-reveal uniques no longer wait on a partner's tier 4 — drawing
+// Ben without having also drawn Smith's unique used to mean the skill simply
+// did nothing, which is a miserable result for a card the player sees once or
+// twice a run. They are slower instead (2 DAY), and the former partner now
+// halves that wait rather than gating it: Grace shortens Dave's, Lee shortens
+// Ben's.
+//
+// Ben keeps one requirement, on attendance rather than on skills: Smith has
+// to be in the lab. Ben at full strength therefore costs three of the eight
+// shift slots — Ben, Smith and Lee — and Smith and Lee are exactly the
+// Write and Analysis workhorses those slots would otherwise hold.
 const UDM_REVEAL_COOLDOWN = 2;
+
+// On shift, whatever skills they do or do not hold.
+function udmOnShift(id) {
+  const cw = coworkers.find(c => c.id === id);
+  return !!(cw && cw.present);
+}
 
 function udmRevealCooldown(halverId) {
   return udmUniqueActive(halverId) ? UDM_REVEAL_COOLDOWN / 2 : UDM_REVEAL_COOLDOWN;
@@ -13585,9 +13597,9 @@ function udmRevealReady(lastDay, cooldown) {
 }
 
 // Ben「僕だけの装置」— named target: the richest Variant whose elements nobody
-// has. Every 2 DAY, or every 1 DAY with Lee on shift.
+// has. Needs Smith on shift; every 2 DAY, or every 1 DAY with Lee too.
 function udmTickBenReveal() {
-  if (!udmUniqueActive('ben')) return;
+  if (!udmUniqueActive('ben') || !udmOnShift('smith')) return;
   if (!udmRevealReady(udm.benRevealDay, udmRevealCooldown('lee'))) return;
   const cands = udmElementUnknownVariants();
   if (!cands.length) return;
