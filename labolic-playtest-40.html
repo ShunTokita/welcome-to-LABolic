@@ -1895,7 +1895,7 @@
   .cw-bubble {
     position: absolute;
     left: 50%; bottom: 100%; margin-bottom: 7px;
-    width: 27px; height: 23px;
+    width: 27px; height: 25px;
     background: var(--bg-card); border: 1.5px solid var(--line-strong);
     border-radius: 8px;
     display: flex; align-items: center; justify-content: center;
@@ -1903,16 +1903,26 @@
     pointer-events: none;
     animation: cw-bubble-life 1.7s ease-out forwards;
   }
-  /* Speech tail: a rotated square showing only its two outer edges, so the
-     bubble's fill and its outline both continue into the point. */
+  /* Speech tail: two stacked border-triangles, both entirely below the
+     bubble body. The earlier version was a rotated square pulled up into the
+     bubble, which painted over the glyph — ::after is a child box, so it
+     draws above the element's content, not behind it. These sit outside the
+     content box and cannot cover anything.
+       ::before  the outline triangle
+       ::after   the fill, one rim smaller and lifted just enough to swallow
+                 the bubble's own bottom border across the mouth */
+  .cw-bubble::before,
   .cw-bubble::after {
-    content: ''; position: absolute;
-    left: 50%; top: 100%; margin-left: -4px; margin-top: -5px;
-    width: 8px; height: 8px;
-    background: var(--bg-card);
-    border-right: 1.5px solid var(--line-strong);
-    border-bottom: 1.5px solid var(--line-strong);
-    transform: rotate(45deg);
+    content: ''; position: absolute; left: 50%; top: 100%;
+    width: 0; height: 0; border-style: solid; border-color: transparent;
+  }
+  .cw-bubble::before {
+    margin-left: -4.6px; border-width: 8px 4.6px 0 4.6px;
+    border-top-color: var(--line-strong);
+  }
+  .cw-bubble::after {
+    margin-left: -3.2px; margin-top: -2.6px; border-width: 6.4px 3.2px 0 3.2px;
+    border-top-color: var(--bg-card);
   }
   .cw-bubble svg { display: block; }
   .cw-bubble .cw-bubble-glyph { font-size: 13px; line-height: 1; }
@@ -5633,25 +5643,27 @@ function floatText(text, col, row, kind = 'coin') {
 const BUBBLE_GLYPH = {
   // A knot of line that crosses itself — no emoji reads as "tangled", so it
   // is drawn. Coordinates are a 24-box; strokes stay inside 3..21.
-  // A trefoil: one closed line that crosses itself three times. Anything
-  // busier than this — a coil, a ball of loops, a zigzag — turns to mush at
-  // 19px, where adjacent strokes are only a pixel or two apart. Traced from
-  // the parametric trefoil so the three lobes stay evenly spaced.
-  tangle: '<svg width="21" height="19" viewBox="0 0 24 24" fill="none" '
+  // A tornado: one line spiralling four times down a narrowing funnel, with
+  // a flick at the tip. Drawn as a helix whose radius shrinks as it descends,
+  // so the loops stay evenly spaced — at 20px the strokes are barely a pixel
+  // apart and anything uneven closes up into a blot.
+  tangle: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" '
     + 'stroke="var(--accent-warning)" stroke-width="1.7" stroke-linecap="round" '
     + 'stroke-linejoin="round"><path d="'
-    + 'M20.3 12.0 C20.3 11.3 20.0 10.4 19.5 9.8 C19.0 9.2 18.2 8.6 17.3 '
-    + '8.2 C16.4 7.8 15.2 7.6 14.1 7.6 C13.0 7.6 11.7 7.9 10.5 8.3 C9.3 '
-    + '8.7 8.2 9.4 7.2 10.2 C6.2 11.0 5.4 12.0 4.8 13.0 C4.2 14.0 3.8 '
-    + '15.1 3.7 16.1 C3.6 17.1 3.7 18.1 4.0 18.8 C4.3 19.6 4.9 20.2 5.5 '
-    + '20.6 C6.1 21.0 7.0 21.1 7.8 21.0 C8.6 20.9 9.5 20.5 10.3 19.9 '
-    + 'C11.1 19.3 11.9 18.4 12.4 17.4 C12.9 16.4 13.4 15.1 13.6 13.9 '
-    + 'C13.8 12.7 13.8 11.3 13.6 10.1 C13.4 8.9 12.9 7.6 12.4 6.6 C11.9 '
-    + '5.6 11.1 4.7 10.3 4.1 C9.5 3.5 8.6 3.1 7.8 3.0 C7.0 2.9 6.1 3.0 '
-    + '5.5 3.4 C4.9 3.8 4.3 4.5 4.0 5.2 C3.7 6.0 3.6 6.9 3.7 7.9 C3.8 8.9 '
-    + '4.2 10.0 4.8 11.0 C5.4 12.0 6.2 13.0 7.2 13.8 C8.2 14.6 9.3 15.3 '
-    + '10.5 15.7 C11.7 16.1 13.0 16.4 14.1 16.4 C15.2 16.4 16.4 16.2 17.3 '
-    + '15.8 C18.2 15.4 19.0 14.8 19.5 14.2 C20.0 13.6 20.3 12.7 20.3 12.0'
+    + 'M12.0 6.0 C10.8 5.9 6.4 5.9 5.0 5.6 C3.6 5.3 3.0 4.6 3.6 4.2 '
+    + 'C4.2 3.8 6.4 3.3 8.4 3.3 C10.4 3.3 13.6 3.5 15.5 4.0 C17.4 4.5 '
+    + '19.2 5.3 19.6 6.0 C20.0 6.7 19.2 7.6 17.9 8.2 C16.6 8.8 13.9 9.2 '
+    + '12.0 9.4 C10.1 9.6 7.6 9.4 6.5 9.2 C5.4 9.0 5.0 8.6 5.5 8.3 C6.0 '
+    + '8.1 7.7 7.7 9.2 7.7 C10.7 7.7 13.3 8.0 14.7 8.4 C16.1 8.8 17.4 '
+    + '9.4 17.7 10.0 C18.0 10.6 17.3 11.3 16.4 11.8 C15.4 12.3 13.4 '
+    + '12.7 12.0 12.9 C10.6 13.1 8.9 13.0 8.1 12.9 C7.3 12.8 7.1 12.5 '
+    + '7.4 12.4 C7.7 12.3 9.0 12.0 10.1 12.1 C11.2 12.2 12.9 12.5 13.8 '
+    + '12.8 C14.8 13.1 15.6 13.7 15.8 14.1 C16.0 14.5 15.4 15.1 14.8 '
+    + '15.5 C14.2 15.9 12.9 16.1 12.0 16.3 C11.1 16.5 10.0 16.5 9.6 '
+    + '16.5 C9.2 16.5 9.1 16.4 9.3 16.4 C9.5 16.4 10.3 16.5 10.9 16.6 '
+    + 'C11.5 16.7 12.5 16.9 13.0 17.2 C13.5 17.5 13.8 17.9 13.9 18.2 '
+    + 'C14.0 18.5 13.6 18.8 13.3 19.1 C13.0 19.4 12.6 19.4 12.0 19.8 '
+    + 'C11.4 20.2 10.0 21.3 9.6 21.6'
     + '"/></svg>',
   bulb: '<span class="cw-bubble-glyph">💡</span>',
 };
