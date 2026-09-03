@@ -766,6 +766,102 @@
     .discovery-panel, .equippop-panel, .udm-draft-panel { animation: disc-fade-in 0.2s ease; }
   }
 
+  /* -------------------------------------------------------------
+     UDM unlock announcement. Purple/pink haze: four soft radial blobs
+     drifting on long, mismatched loops behind the text, clipped to the
+     panel. Mismatched periods are the point — equal ones would visibly
+     resync every few seconds and read as a loop rather than as drift.
+     ------------------------------------------------------------- */
+  .udm-unlock-panel {
+    position: relative; overflow: hidden; isolation: isolate;
+    background: #1b0f2e;
+    border: 2px solid var(--accent-purple);
+    border-radius: 14px;
+    padding: 26px 26px 22px;
+    max-width: 400px; width: 92%;
+    text-align: center;
+    box-shadow: 0 0 46px rgba(169,100,255,0.40), 0 14px 36px rgba(0,0,0,0.55);
+    animation: pop-in 0.42s cubic-bezier(0.22, 1, 0.36, 1);
+  }
+  .udm-unlock-haze { position: absolute; inset: 0; z-index: -1; }
+  .udm-unlock-haze span {
+    position: absolute; border-radius: 50%;
+    filter: blur(26px);
+    opacity: .75;
+  }
+  .udm-unlock-haze span:nth-child(1) {
+    width: 190px; height: 190px; left: -40px; top: -50px;
+    background: radial-gradient(circle, #a964ff 0%, rgba(169,100,255,0) 70%);
+    animation: haze-a 13s ease-in-out infinite;
+  }
+  .udm-unlock-haze span:nth-child(2) {
+    width: 210px; height: 210px; right: -55px; top: -30px;
+    background: radial-gradient(circle, #ff5fc4 0%, rgba(255,95,196,0) 70%);
+    animation: haze-b 17s ease-in-out infinite;
+  }
+  .udm-unlock-haze span:nth-child(3) {
+    width: 230px; height: 230px; left: 10px; bottom: -90px;
+    background: radial-gradient(circle, #7b3fe4 0%, rgba(123,63,228,0) 70%);
+    animation: haze-c 19s ease-in-out infinite;
+  }
+  .udm-unlock-haze span:nth-child(4) {
+    width: 160px; height: 160px; right: -30px; bottom: -60px;
+    background: radial-gradient(circle, #ff8fd8 0%, rgba(255,143,216,0) 70%);
+    animation: haze-d 23s ease-in-out infinite;
+  }
+  @keyframes haze-a {
+    0%,100% { transform: translate(0,0) scale(1);        opacity:.75 }
+    33%     { transform: translate(46px,34px) scale(1.2); opacity:.95 }
+    66%     { transform: translate(18px,62px) scale(.9);  opacity:.6 }
+  }
+  @keyframes haze-b {
+    0%,100% { transform: translate(0,0) scale(1.1);        opacity:.6 }
+    40%     { transform: translate(-52px,44px) scale(.85);  opacity:.9 }
+    70%     { transform: translate(-16px,10px) scale(1.25); opacity:.7 }
+  }
+  @keyframes haze-c {
+    0%,100% { transform: translate(0,0) scale(.95);       opacity:.7 }
+    45%     { transform: translate(58px,-40px) scale(1.2); opacity:.9 }
+    75%     { transform: translate(24px,-14px) scale(1);   opacity:.55 }
+  }
+  @keyframes haze-d {
+    0%,100% { transform: translate(0,0) scale(1.05);        opacity:.65 }
+    35%     { transform: translate(-40px,-52px) scale(.9);   opacity:.85 }
+    68%     { transform: translate(-62px,-18px) scale(1.15); opacity:.7 }
+  }
+  /* The haze is ambient motion with nothing to read in it, so reduce-motion
+     stops it outright rather than substituting a gentler version. */
+  body.reduce-motion .udm-unlock-haze span,
+  body.reduce-motion .udm-unlock-panel { animation: none; }
+  @media (prefers-reduced-motion: reduce) {
+    .udm-unlock-haze span, .udm-unlock-panel { animation: none; }
+  }
+  .udm-unlock-body { position: relative; }
+  .udm-unlock-kicker {
+    font-size: 11px; font-weight: 800; letter-spacing: .18em;
+    color: #f0c8ff; opacity: .95; margin-bottom: 10px;
+  }
+  .udm-unlock-title {
+    font-size: 19px; font-weight: 800; line-height: 1.35; color: #fff;
+    text-shadow: 0 2px 12px rgba(0,0,0,.6);
+    margin-bottom: 16px;
+  }
+  /* display:table, not inline-block: shrink-to-fit and centred like an
+     inline-block, but block-level, so the OK button below it starts on a new
+     line instead of flowing alongside the last bullet. */
+  .udm-unlock-list {
+    list-style: none; margin: 0 auto 20px; padding: 0;
+    text-align: left; display: table;
+  }
+  .udm-unlock-list li {
+    font-size: 13px; line-height: 1.75; color: #efe4ff;
+    text-shadow: 0 1px 6px rgba(0,0,0,.55);
+  }
+  .udm-unlock-list li::before { content: '・'; color: #ff9fdc; }
+  .udm-unlock-ok {
+    background: var(--accent-purple); border-color: var(--accent-purple);
+  }
+
   .discovery-fanfare {
     font-size: 13px; font-weight: 800; color: var(--accent-purple);
     letter-spacing: 1px; text-transform: uppercase;
@@ -3632,6 +3728,28 @@
         <button class="udm-store-reset" id="udm-store-reset">UDM強化をリセット</button>
         <button class="udm-store-grant" id="udm-store-grant" style="display:none;">全スキルを解放（テスト用）</button>
         <button class="udm-intro-ok" id="udm-store-close">閉じる</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- UDM unlock announcement — shown once, after the ending and the
+       leaderboard flow have both finished and the player is back on the
+       ordinary screen. -->
+  <div class="discovery-backdrop" id="udm-unlock-backdrop">
+    <div class="udm-unlock-panel">
+      <div class="udm-unlock-haze" aria-hidden="true">
+        <span></span><span></span><span></span><span></span>
+      </div>
+      <div class="udm-unlock-body">
+        <div class="udm-unlock-kicker">🟣 NEW MODE 🟣</div>
+        <div class="udm-unlock-title">Unlimited Discovery Mode<br>が解放されました！</div>
+        <ul class="udm-unlock-list">
+          <li>ランダム生成されるDiscovery Variant</li>
+          <li>スキルツリーでCo-Workerを強化</li>
+          <li>ユニークスキルを使ったビルド構築</li>
+          <li>本編とは別のスコアランキング</li>
+        </ul>
+        <button class="discovery-ok udm-unlock-ok" id="udm-unlock-ok">OK</button>
       </div>
     </div>
   </div>
@@ -12828,6 +12946,7 @@ function init() {
   bindSettings();
   bindDiscoveryPopup();
   bindUdmVariantPopup();
+  bindUdmUnlock();
   loadUdmMeta();
   bindCustomEditor();
   bindUdmSkills();
@@ -12857,6 +12976,9 @@ function init() {
   // リロードで誘導アークの途中に戻った場合、適切なステップから再開する。
   // （ST01発火/モーダル表示より後になるよう十分に遅らせる）
   setTimeout(() => { try { tutResumeOnLoad(); } catch(e) {} }, 900);
+  // Anyone who cleared the game before this mode shipped never passes through
+  // the endgame chain again, so catch them on load instead.
+  setTimeout(() => { try { maybeAnnounceUdm(); } catch(e) {} }, 1600);
 }
 
 // Bind backdrop click-outside to close story event (commits flag, same as OK)
@@ -12964,6 +13086,61 @@ function closeUdmVariantPopup() {
   resumeAi();
   setTimeout(udmDrainDraft, 250);
 }
+// =============================================================
+// UDM unlock announcement
+//
+// A player who cleared the game before this mode existed has no reason to go
+// looking in the settings panel for it, so it is announced once — after the
+// ending and the leaderboard flow are both done and the ordinary screen is
+// back. Its own key, not a story flag: story flags are wiped by the story
+// reset, and someone who replays the campaign does not need telling twice.
+// =============================================================
+const UDM_ANNOUNCED_KEY = 'labolic.udm.announced.pt1';
+
+function udmAnnounced() {
+  try { return !!localStorage.getItem(UDM_ANNOUNCED_KEY); } catch(e) { return true; }
+}
+function markUdmAnnounced() {
+  try { localStorage.setItem(UDM_ANNOUNCED_KEY, '1'); } catch(e) {}
+}
+
+// Show it only when there is genuinely nothing else on screen: the endgame
+// runs a chain of modals, and landing this on top of one of them would bury
+// the mode it is trying to point at. Callers retry from their own close
+// handlers, so a deferral here is not a lost announcement.
+function maybeAnnounceUdm() {
+  if (!udmClearedForReal()) return;      // a debug unlock is not a clear
+  if (udmActive || udmAnnounced()) return;
+  if (typeof storyDialogActive !== 'undefined' && storyDialogActive) return;
+  if (document.querySelector('.discovery-backdrop.open, .event-backdrop.open, '
+      + '.popup-backdrop.open, .udm-intro-backdrop.open, .lb-backdrop.open, '
+      + '.equippop-backdrop.open')) return;
+  showUdmUnlock();
+}
+
+function showUdmUnlock() {
+  markUdmAnnounced();                     // one shot, even if they never press OK
+  document.getElementById('udm-unlock-backdrop')?.classList.add('open');
+  sfx('discovery');
+  pauseAi();
+}
+
+function closeUdmUnlock() {
+  document.getElementById('udm-unlock-backdrop')?.classList.remove('open');
+  resumeAi();
+  // Hand straight over to the pointer trail, the same way the help tutorial
+  // does: gear, then the button inside it. Entering the mode asks for
+  // confirmation of its own, so this cannot railroad anyone into a run.
+  setTimeout(() => { try { tutMaybeStartUdm(); } catch(e) {} }, 250);
+}
+
+function bindUdmUnlock() {
+  document.getElementById('udm-unlock-ok')?.addEventListener('click', closeUdmUnlock);
+  document.getElementById('udm-unlock-backdrop')?.addEventListener('click', e => {
+    if (e.target.id === 'udm-unlock-backdrop') closeUdmUnlock();
+  });
+}
+
 function bindUdmVariantPopup() {
   document.getElementById('udm-var-popup-ok')?.addEventListener('click', closeUdmVariantPopup);
   document.getElementById('udm-variant-backdrop')?.addEventListener('click', e => {
@@ -13172,6 +13349,7 @@ function applyUdmStartState() {
 // Enter UDM from a cleared main game.
 async function enterUdm() {
   if (udmActive) return;
+  try { tutOnUdmStart(); } catch(e) {}
   if (!udmUnlocked()) {
     botChat('Unlimited Discovery Mode はゲームクリア後に解放されます。', 'system');
     return;
@@ -14731,6 +14909,7 @@ function skipLeaderboardSubmit() {
   });
   closeLeaderboardSubmit();
   botChat('リーダーボードへの投稿をスキップしました。実験を続けましょう。', 'system');
+  setTimeout(() => { try { maybeAnnounceUdm(); } catch(e) {} }, 700);
 }
 
 // Open the submit modal in UDM mode. Called from the game-over screen (or a
@@ -14872,6 +15051,8 @@ function refreshLeaderboardView(highlightEntryId) {
 function closeLeaderboardView() {
   const backdrop = document.getElementById('lb-view-backdrop');
   if (backdrop) backdrop.classList.remove('open');
+  // The end of the ending: score posted, ranking read, ordinary screen back.
+  setTimeout(() => { try { maybeAnnounceUdm(); } catch(e) {} }, 700);
 }
 
 async function loadLeaderboardData() {
@@ -15417,6 +15598,17 @@ const TUT_STEPS = {
     label: '詳しい遊び方はこちら',
   },
 
+  // ---- UDM解放の案内（解放ポップアップを閉じた後） ----
+  udm_gear: {
+    sel: () => document.querySelector('#settings-btn'),
+    label: '設定を開く', hintBelow: true,
+  },
+  udm_start_btn: {
+    sel: () => document.querySelector('#btn-udm-start'),
+    scroll: () => document.querySelector('#btn-udm-start'),
+    label: 'ここから始められます',
+  },
+
   // ---- 第5チュートリアル：画面を畳んで集中する（ST_FOCUS の後） ----
   // The whole title block, not just the ▼: the label is what makes the arrow
   // legible as a control for that panel.
@@ -15852,10 +16044,26 @@ function tutMaybeStartFocus() {
   tutGoto(barHidden ? 'focus_chat' : 'focus_bottombar');
 }
 
-// 設定(歯車)を開いた時：ヘルプボタンへ誘導。
+// UDM解放の案内。歯車 → 設定内の UDM ボタン、の2ステップだけ。
+function tutMaybeStartUdm() {
+  if (typeof udmActive !== 'undefined' && udmActive) return;
+  if (storyDialogActive) return;
+  tutGoto('udm_gear');
+}
+
+// 設定(歯車)を開いた時：ヘルプボタン、または UDM ボタンへ誘導。
 function tutOnSettingsOpen() {
-  if (tutStep !== 'help_gear') return;
-  setTimeout(() => { if (tutStep === 'help_gear') tutGoto('help_help_btn'); }, 150);
+  const next = tutStep === 'help_gear' ? 'help_help_btn'
+             : tutStep === 'udm_gear'  ? 'udm_start_btn' : null;
+  if (!next) return;
+  const from = tutStep;
+  setTimeout(() => { if (tutStep === from) tutGoto(next); }, 150);
+}
+
+// UDMボタンを押した時＝案内の役目は終わり。開始するかどうかは、この後に出る
+// 確認ダイアログで本人が決めるので、押した時点で消す。
+function tutOnUdmStart() {
+  if (tutStep === 'udm_gear' || tutStep === 'udm_start_btn') tutClear();
 }
 
 // ヘルプを開いた時＝第4チュートリアル完了（以降はユーザーが任意に閉じる）。
