@@ -1641,7 +1641,10 @@
   .equip[data-id^="sem"] { --sprite-shift:4.0%; --sprite-zoom:1.15; --fx-x:63.7%; --fx-y:58.26%; --fx-w:24.0%; --fx-h:33.32%;
                                --led-x:55.3%; --led-y:75.32%;
                                --sprite-w:100.0%; --sprite-h:100.97%; }
-  .equip[data-id^="tem"] { --sprite-shift:0.8%; --fx-x:50.44%; --fx-y:79.65%; --fx-w:21.23%; --fx-h:17.18%;
+  /* TEM is shifted past its shadow line on purpose: this sheet draws a wide
+   soft shadow under a narrow column, so matching shadows left the instrument's
+   own base floating above every neighbour. Aligned on the base instead. */
+  .equip[data-id^="tem"] { --sprite-shift:5.3%; --fx-x:50.44%; --fx-y:79.65%; --fx-w:21.23%; --fx-h:17.18%;
                                --fx2-x:49.93%; --fx2-y:14.76%; --fx2-w:9.1%; --fx2-h:12.13%;
                                --sprite-w:101.07%; --sprite-h:101.07%; }
   .equip[data-id^="qaa"] { --sprite-shift:3.0%; --fx-x:25.45%; --fx-y:48.15%; --fx-w:26.47%; --fx-h:38.85%;
@@ -1692,7 +1695,7 @@
   .eq-plate:empty { display: none; }
   .equip .lv-badge {
     position: absolute;
-    bottom: 2px; right: 2px;
+    top: 2px; right: 2px;
     font-size: 8px; font-weight: 700;
     color: var(--text-muted);
     background: rgba(255, 255, 255, 0.88);
@@ -1986,14 +1989,23 @@
   .repair-hint {
     margin-top: 8px; font-size: 10px; color: var(--text-muted); line-height: 1.5;
   }
-  .equip .spec-badge {
-    position: absolute; top: -6px; left: -6px;
+  /* Deliberately hangs off the device's top-left corner — which is why it
+     cannot live inside .equip, whose overflow:hidden was eating the top and
+     left of it (only 54% of the badge was reaching the screen, hence the cut
+     digits). Positioned from the device's own grid vars as a sibling instead. */
+  .spec-badge {
+    position: absolute;
+    left: calc(var(--col) * var(--tile) - 6px);
+    top:  calc(var(--row) * var(--tile) - 6px);
     background: var(--accent-success); color: #fff; font-size: 9px;
     border-radius: 8px; padding: 1px 5px; min-width: 14px; text-align: center;
     border: 1.5px solid #2a4a18; font-weight: 700;
-    z-index: 6;
+    line-height: 1.35;
+    pointer-events: none;
+    z-index: 5;                     /* above .equip(3) and the name plate(4),
+                                       below .float-text(7) */
   }
-  .equip.lv4 .spec-badge { background: var(--accent-purple); border-color: #4a2a6a; }
+  .spec-badge.lv4 { background: var(--accent-purple); border-color: #4a2a6a; }
   .equip.target-glow { box-shadow: 0 0 0 3px var(--accent-success); }
 
   /* -------------------------------------------------------------
@@ -7211,7 +7223,7 @@ const DEV_ELEMENTS = [
 //     to style/textContent are cheap but can still restart transitions.
 // -------------------------------------------------------------
 
-// eq.id -> { root, userTile, plate, nameEl, lvEl, badgeEl }
+// eq.id -> { root, userTile, plate, badge, nameEl, lvEl, badgeEl }
 const equipNodes = new Map();
 // 'player' | cw.id -> element
 const charNodes = new Map();
@@ -7228,6 +7240,7 @@ function destroyLabNodes() {
     n.root.remove();
     n.userTile.remove();
     n.plate.remove();
+    n.badge.remove();
   }
   equipNodes.clear();
   for (const el of charNodes.values()) el.remove();
@@ -7293,19 +7306,26 @@ function createEquipNode(eq, lab) {
   plate.className = 'eq-plate';
   lab.appendChild(plate);
 
+  // Same reason as the plate: this badge overhangs the device's corner, and
+  // inside .equip the clip was cutting it in half.
+  const badge = document.createElement('div');
+  badge.className = 'spec-badge';
+  badge.style.display = 'none';
+  lab.appendChild(badge);
+
   root.innerHTML = '<div class="eq-sprite"></div>'
                  + '<div class="eq-fx"><i class="eq-led"></i></div>'
-                 + '<div class="lv-badge"></div>'
-                 + '<div class="spec-badge" style="display:none"></div>';
+                 + '<div class="lv-badge"></div>';
   lab.appendChild(root);
 
   return {
     root,
     userTile: ut,
     plate,
+    badge,
     nameEl:  plate,
     lvEl:    root.querySelector('.lv-badge'),
-    badgeEl: root.querySelector('.spec-badge'),
+    badgeEl: badge,
   };
 }
 
@@ -7323,10 +7343,11 @@ function renderLab() {
     // an orphan. Cheaper and safer than asking 22 call sites to classify
     // themselves as "diff" vs "rebuild".
     if (node && (!node.root.isConnected || !node.userTile.isConnected
-                 || !node.plate.isConnected)) {
+                 || !node.plate.isConnected || !node.badge.isConnected)) {
       node.root.remove();
       node.userTile.remove();
       node.plate.remove();
+      node.badge.remove();
       equipNodes.delete(eq.id);
       node = null;
     }
@@ -7347,6 +7368,10 @@ function renderLab() {
     setVar(node.plate, '--row', t.userRow);
     setVar(node.plate, '--w',   t.dims.w);
 
+    // stack badge: the device's own top-left corner
+    setVar(node.badge, '--col', eq.col);
+    setVar(node.badge, '--row', eq.row);
+
     // body geometry
     setVar(node.root, '--col', eq.col);
     setVar(node.root, '--row', eq.row);
@@ -7363,6 +7388,7 @@ function renderLab() {
     node.plate.classList.toggle('lv4',  eq.lv >= 4);
     node.plate.classList.toggle('mpss', eq.type === 'mpss');
     node.plate.classList.toggle('pc',   eq.type === 'pc');
+    node.badge.classList.toggle('lv4',  eq.lv >= 4);
     node.root.classList.toggle('busy',   busy);
     node.root.classList.toggle('broken', !!eq.broken);
 
@@ -7414,6 +7440,7 @@ function renderLab() {
     node.root.remove();
     node.userTile.remove();
     node.plate.remove();
+    node.badge.remove();
     equipNodes.delete(id);
   }
 
