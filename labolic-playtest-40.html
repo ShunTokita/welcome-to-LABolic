@@ -1633,14 +1633,14 @@
     top: 2px; left: 50%; transform: translateX(-50%);
     background: rgba(34, 24, 44, 0.78);
     color: #f5e9c8;
-    padding: 1px 4px;
+    padding: 1px 5px;
     border-radius: 3px;
     font-weight: 700;
     /* Capped by the device's own width, so a one-tile device (Cast, Furn, OM,
        PC) keeps its whole short name instead of ellipsizing to "C…" — a
        single letter is no help at all. Wide devices are unaffected and take
        the full size. */
-    font-size: min(calc(11px * var(--label-zoom, 1)),
+    font-size: min(calc(9px * var(--label-zoom, 1)),
                    calc(var(--w) * var(--tile) * 0.28));
     line-height: 1.15;
     letter-spacing: 0.2px;
@@ -1660,9 +1660,7 @@
   .equip .lv-badge {
     position: absolute;
     bottom: 2px; right: 2px;
-    font-size: min(calc(8px * var(--label-zoom, 1)),
-                   calc(var(--w) * var(--tile) * 0.20));
-    font-weight: 700;
+    font-size: 8px; font-weight: 700;
     color: var(--text-muted);
     background: rgba(255, 255, 255, 0.88);
     padding: 0 3px;
@@ -1673,12 +1671,11 @@
   }
   /* On small mobile tiles (Lv1 = 32px), shrink the name badge further so it still fits. */
   body.mobile-mode .equip .name {
-    font-size: min(calc(9px * var(--label-zoom, 1)),
+    font-size: min(calc(8px * var(--label-zoom, 1)),
                    calc(var(--w) * var(--tile) * 0.28));
     padding: 0 3px;
   }
-  body.mobile-mode .equip .lv-badge { font-size: min(calc(7px * var(--label-zoom, 1)),
-      calc(var(--w) * var(--tile) * 0.20)); padding: 0 2px; }
+  body.mobile-mode .equip .lv-badge { font-size: 7px; padding: 0 2px; }
   .equip.lv4 { background-color: var(--accent-purple-bg); border-color: var(--accent-purple); box-shadow: 0 0 8px var(--accent-purple-glow); }
   .equip.lv4 .name { color: #f0e0ff; background: rgba(60, 30, 100, 0.85); }
   .equip.lv4 .lv-badge { color: var(--accent-purple); background: rgba(255,255,255,0.85); }
@@ -2188,7 +2185,7 @@
   }
   .character .label {
     position: absolute; top: 100%; left: 50%; transform: translateX(-50%);
-    font-size: calc(12px * var(--label-zoom, 1));
+    font-size: calc(10px * var(--label-zoom, 1));
     color: var(--text-primary); white-space: nowrap; pointer-events: none;
     font-weight: 600; background: var(--bg-card); padding: 0 4px; border-radius: 2px;
     border: 1px solid var(--line-medium); margin-top: 2px;
@@ -2936,12 +2933,11 @@
   body.mobile-mode .zoom-btn { width: 22px; height: 22px; font-size: 11px; }
   body.mobile-mode .layout-confirm-bar { gap: 3px; }
   body.mobile-mode .equip .name {
-    font-size: min(calc(9px * var(--label-zoom, 1)),
+    font-size: min(calc(8px * var(--label-zoom, 1)),
                    calc(var(--w) * var(--tile) * 0.28));
   }
-  body.mobile-mode .equip .lv-badge { font-size: min(calc(7px * var(--label-zoom, 1)),
-      calc(var(--w) * var(--tile) * 0.20)); padding: 0 2px; }
-  body.mobile-mode .character .label { font-size: calc(10px * var(--label-zoom, 1)); }
+  body.mobile-mode .equip .lv-badge { font-size: 7px; padding: 0 2px; }
+  body.mobile-mode .character .label { font-size: calc(9px * var(--label-zoom, 1)); }
   body.mobile-mode .door { width: calc(var(--tile) * 0.6); }
 
   body.mobile-mode .tab { padding: 7px 2px; font-size: 9px; letter-spacing: 0.3px; }
@@ -4270,7 +4266,7 @@ let panX = 0, panY = 0;
 // Capped, and only ever a boost: past 1.0 the lab is zoomed in and the labels
 // can grow with it, and without a ceiling a heavily zoomed-out lab would wear
 // name badges wider than the devices under them.
-const LABEL_ZOOM_MAX = 2.0;
+const LABEL_ZOOM_MAX = 1.35;
 
 function updateLabelZoom() {
   const boost = zoomLevel > 0 ? Math.min(LABEL_ZOOM_MAX, Math.max(1, 1 / zoomLevel)) : 1;
