@@ -1488,6 +1488,8 @@
 
   /* Equipment body */
   .equip {
+    /* Default. Five sheets carry more headroom than this and are raised
+       individually below; the rest top out here. */
     --sprite-zoom: 1.10;
     position: absolute;
     left: calc(var(--col) * var(--tile));
@@ -1611,24 +1613,24 @@
      element percentage — these stay correct at any tile size and for all
      three aspect ratios in use (1:1, 2:1, 1.48:1).
      ------------------------------------------------------------- */
-  .equip[data-id^="furnace"] { --fx-x:56.1%; --fx-y:52.46%; --fx-w:30.32%; --fx-h:30.32%;
+  .equip[data-id^="furnace"] { --sprite-zoom:1.30; --fx-x:56.1%; --fx-y:52.46%; --fx-w:30.32%; --fx-h:30.32%;
                                --led-x:65.6%; --led-y:32.75%;
                                --sprite-w:101.07%; --sprite-h:101.07%; }
-  .equip[data-id^="casting"] { --fx-x:52.25%; --fx-y:64.59%; --fx-w:42.45%; --fx-h:28.3%;
+  .equip[data-id^="casting"] { --sprite-zoom:1.28; --fx-x:52.25%; --fx-y:64.59%; --fx-w:42.45%; --fx-h:28.3%;
                                --sprite-w:101.07%; --sprite-h:101.07%; }
   .equip[data-id^="arc"] { --fx-x:32.2%; --fx-y:56.64%; --fx-w:11.0%; --fx-h:20.19%;
                                --sprite-w:100.0%; --sprite-h:100.97%; }
   .equip[data-id^="laser"] { --fx-x:50.03%; --fx-y:51.04%; --fx-w:2.22%; --fx-h:13.14%;
                                --fx2-x:50.03%; --fx2-y:57.81%; --fx2-w:9.1%; --fx2-h:6.06%;
                                --sprite-w:101.07%; --sprite-h:101.07%; }
-  .equip[data-id^="magnet"] { --fx-x:52.56%; --fx-y:48.92%; --fx-w:11.12%; --fx-h:11.12%;
+  .equip[data-id^="magnet"] { --sprite-zoom:1.26; --fx-x:52.56%; --fx-y:48.92%; --fx-w:11.12%; --fx-h:11.12%;
                                --fx2-x:52.56%; --fx2-y:48.92%; --fx2-w:11.12%; --fx2-h:11.12%;
                                --sprite-w:101.07%; --sprite-h:101.07%; }
   .equip[data-id^="phase"] { --fx-x:50.09%; --fx-y:49.79%; --fx-w:28.51%; --fx-h:57.25%;
                                --sprite-w:101.82%; --sprite-h:102.24%; }
   .equip[data-id^="mpss"] { --fx-x:49.48%; --fx-y:45.6%; --fx-w:34.62%; --fx-h:57.25%;
                                --sprite-w:101.82%; --sprite-h:102.24%; }
-  .equip[data-id^="sem"] { --fx-x:63.7%; --fx-y:58.26%; --fx-w:24.0%; --fx-h:33.32%;
+  .equip[data-id^="sem"] { --sprite-zoom:1.15; --fx-x:63.7%; --fx-y:58.26%; --fx-w:24.0%; --fx-h:33.32%;
                                --led-x:55.3%; --led-y:75.32%;
                                --sprite-w:100.0%; --sprite-h:100.97%; }
   .equip[data-id^="tem"] { --fx-x:50.44%; --fx-y:79.65%; --fx-w:21.23%; --fx-h:17.18%;
@@ -1639,6 +1641,9 @@
                                --sprite-w:101.82%; --sprite-h:102.24%; }
   .equip[data-id^="agt"] { --fx-x:50.13%; --fx-y:50.05%; --fx-w:22.42%; --fx-h:26.61%;
                                --sprite-w:101.9%; --sprite-h:102.36%; }
+  /* Rolling has no effect anchors of its own — only the shake — so this rule
+     exists purely to carry its zoom. */
+  .equip[data-id^="rolling"] { --sprite-zoom:1.20; }
   .equip[data-id^="om"] { --led-x:61.15%; --led-y:67.42%;
                                --sprite-w:101.07%; --sprite-h:101.07%; }
   .equip[data-id^="pc"] { --fx-x:45.79%; --fx-y:48.11%; --fx-w:13.14%; --fx-h:14.15%;
