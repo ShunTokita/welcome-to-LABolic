@@ -1628,15 +1628,17 @@
                                --sprite-w:101.07%; --sprite-h:101.07%; }
   .equip[data-id^="arc"] { --sprite-shift:7.0%; --fx-x:32.2%; --fx-y:56.64%; --fx-w:11.0%; --fx-h:20.19%;
                                --sprite-w:100.0%; --sprite-h:100.97%; }
-  .equip[data-id^="laser"] { --sprite-shift:0.8%; --fx-x:50.03%; --fx-y:51.04%; --fx-w:2.22%; --fx-h:13.14%;
+  /* Same story as TEM: a broad soft shadow under a boxy chamber, so the shadow
+   line and the cabinet's feet are not the same line. Aligned on the feet. */
+  .equip[data-id^="laser"] { --sprite-shift:3.9%; --fx-x:50.03%; --fx-y:51.04%; --fx-w:2.22%; --fx-h:13.14%;
                                --fx2-x:50.03%; --fx2-y:57.81%; --fx2-w:9.1%; --fx2-h:6.06%;
                                --sprite-w:101.07%; --sprite-h:101.07%; }
   .equip[data-id^="magnet"] { --sprite-shift:17.2%; --sprite-zoom:1.26; --fx-x:52.56%; --fx-y:48.92%; --fx-w:11.12%; --fx-h:11.12%;
                                --fx2-x:52.56%; --fx2-y:48.92%; --fx2-w:11.12%; --fx2-h:11.12%;
                                --sprite-w:101.07%; --sprite-h:101.07%; }
-  .equip[data-id^="phase"] { --sprite-shift:2.8%; --fx-x:50.09%; --fx-y:49.79%; --fx-w:28.51%; --fx-h:57.25%;
+  .equip[data-id^="phase"] { --sprite-shift:8.1%; --fx-x:50.09%; --fx-y:49.79%; --fx-w:28.51%; --fx-h:57.25%;
                                --sprite-w:101.82%; --sprite-h:102.24%; }
-  .equip[data-id^="mpss"] { --sprite-shift:2.5%; --fx-x:49.48%; --fx-y:45.6%; --fx-w:34.62%; --fx-h:57.25%;
+  .equip[data-id^="mpss"] { --sprite-shift:8.1%; --fx-x:49.48%; --fx-y:45.6%; --fx-w:34.62%; --fx-h:57.25%;
                                --sprite-w:101.82%; --sprite-h:102.24%; }
   .equip[data-id^="sem"] { --sprite-shift:4.0%; --sprite-zoom:1.15; --fx-x:63.7%; --fx-y:58.26%; --fx-w:24.0%; --fx-h:33.32%;
                                --led-x:55.3%; --led-y:75.32%;
@@ -1657,7 +1659,10 @@
   .equip[data-id^="rolling"] { --sprite-shift:11.7%; --sprite-zoom:1.20; }
   .equip[data-id^="om"] { --sprite-shift:8.3%; --led-x:61.15%; --led-y:67.42%;
                                --sprite-w:101.07%; --sprite-h:101.07%; }
-  .equip[data-id^="pc"] { --sprite-shift:2.0%; --fx-x:45.79%; --fx-y:48.11%; --fx-w:13.14%; --fx-h:14.15%;
+  /* The laptop sits highest of all the sheets, and the shift can only use the
+   overflow the zoom puts above — 1.10 did not leave enough of it, so the zoom
+   goes up a little purely to buy the room. */
+  .equip[data-id^="pc"] { --sprite-zoom:1.30; --sprite-shift:28.2%; --fx-x:45.79%; --fx-y:48.11%; --fx-w:13.14%; --fx-h:14.15%;
                                --sprite-w:101.07%; --sprite-h:101.07%; }
   /* MPSS keeps its gradient (image aspect mismatches the 4x4 footprint). */
   .equip:hover {
