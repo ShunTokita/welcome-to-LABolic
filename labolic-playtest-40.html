@@ -1469,10 +1469,14 @@
     border-top: none;
     z-index: 2;
     display: flex; align-items: center; justify-content: center;
-    overflow: hidden;
+    /* Was hidden; the only child it ever had is the 6x8 centred marker below,
+       which cannot overflow. Visible now so the name plate may be wider than
+       the device it belongs to. */
+    overflow: visible;
   }
+  /* Nudged toward the bottom of the tile so the name plate above it has room. */
   .user-tile::before {
-    content: ''; width: 6px; height: 8px;
+    content: ''; width: 6px; height: 8px; margin-top: 40%;
     background: rgba(93,74,50,0.45);
     clip-path: polygon(50% 0%, 100% 30%, 75% 100%, 25% 100%, 0% 30%);
   }
@@ -1628,35 +1632,35 @@
     box-shadow: 0 0 0 2px var(--accent-active);
     z-index: 5;
   }
-  .equip .name {
+  /* Name plate: sits astride the device's bottom edge, in the work space, the
+     way a real instrument wears its nameplate. Nothing clips it, so the whole
+     name shows at whatever size is legible and the artwork stays clear. */
+  .eq-plate {
     position: absolute;
-    top: 2px; left: 50%; transform: translateX(-50%);
-    background: rgba(34, 24, 44, 0.78);
+    /* Centred on the work tile's footprint and seated at its top edge, so the
+       plate reads as belonging to the device directly above it. z-index 4
+       clears both the device (3) and the door (3), which was painting over
+       the plate of the device beside it. */
+    left: calc((var(--col) + var(--w) / 2) * var(--tile));
+    top: calc(var(--row) * var(--tile) + 1px);
+    transform: translateX(-50%);
+    background: rgba(34, 24, 44, 0.88);
     color: #f5e9c8;
-    padding: 1px 5px;
+    padding: 1px 6px;
+    border: 1px solid rgba(245, 233, 200, 0.30);
     border-radius: 3px;
     font-weight: 700;
-    /* Capped by the device's own width, so a one-tile device (Cast, Furn, OM,
-       PC) keeps its whole short name instead of ellipsizing to "C…" — a
-       single letter is no help at all. Wide devices are unaffected and take
-       the full size. */
-    font-size: min(calc(9px * var(--label-zoom, 1)),
-                   calc(var(--w) * var(--tile) * 0.28));
-    line-height: 1.15;
+    font-size: calc(9px * var(--label-zoom, 1));
+    line-height: 1.2;
     letter-spacing: 0.2px;
     white-space: nowrap;
     pointer-events: none;
-    /* Above .eq-fx (2) so effect glows never wash out the label. */
-    z-index: 3;
-    /* The badge cannot escape its device: .equip is overflow:hidden, and that
-       clip is load-bearing — it hides the white band baked into the right and
-       bottom edges of the sprite PNGs (verified by pixel-diffing the lab with
-       and without it). So the name is clamped and ellipsized rather than
-       allowed to overhang, which would just be cut mid-glyph instead. */
-    max-width: calc(100% - 4px);
-    overflow: hidden;
-    text-overflow: ellipsis;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.35);
+    z-index: 4;
   }
+  /* Never draw an empty plate — the title-screen demo builds device nodes
+     without naming them. */
+  .eq-plate:empty { display: none; }
   .equip .lv-badge {
     position: absolute;
     bottom: 2px; right: 2px;
@@ -1670,19 +1674,17 @@
     z-index: 3;
   }
   /* On small mobile tiles (Lv1 = 32px), shrink the name badge further so it still fits. */
-  body.mobile-mode .equip .name {
-    font-size: min(calc(8px * var(--label-zoom, 1)),
-                   calc(var(--w) * var(--tile) * 0.28));
-    padding: 0 3px;
+  body.mobile-mode .eq-plate {
+    font-size: calc(8px * var(--label-zoom, 1)); padding: 0 4px;
   }
   body.mobile-mode .equip .lv-badge { font-size: 7px; padding: 0 2px; }
   .equip.lv4 { background-color: var(--accent-purple-bg); border-color: var(--accent-purple); box-shadow: 0 0 8px var(--accent-purple-glow); }
-  .equip.lv4 .name { color: #f0e0ff; background: rgba(60, 30, 100, 0.85); }
+  .eq-plate.lv4 { color: #f0e0ff; background: rgba(60, 30, 100, 0.9); }
   .equip.lv4 .lv-badge { color: var(--accent-purple); background: rgba(255,255,255,0.85); }
   /* MPSS — distinctive oversized synth. Background image is set via [data-id^="mpss"] above;
      background-color provides a fallback color in case the image fails or device-art is disabled. */
   .equip.mpss { background-color: #1a237e; border-color: #7c4dff; box-shadow: 0 0 12px rgba(124,77,255,0.4); }
-  .equip.mpss .name { color: #fff; background: rgba(30, 10, 70, 0.85); }
+  .eq-plate.mpss { color: #fff; background: rgba(30, 10, 70, 0.9); }
   .equip.mpss .lv-badge { color: #7c4dff; background: rgba(255,255,255,0.85); }
   /* -------------------------------------------------------------
      Effect profiles. All of them animate only `opacity`, `transform` or
@@ -2067,7 +2069,7 @@
     background-color: var(--accent-active-bg);
     border-color: var(--accent-active);
   }
-  .equip.pc .name { color: #fff; background: rgba(20, 80, 140, 0.85); }
+  .eq-plate.pc { color: #fff; background: rgba(20, 80, 140, 0.9); }
   .equip.pc .lv-badge { color: var(--accent-active); background: rgba(255,255,255,0.88); }
 
   /* Layout-mode ghost (drag preview) */
@@ -2932,10 +2934,7 @@
   body.mobile-mode .layout-btn { padding: 3px 8px; font-size: 9px; letter-spacing: 0.5px; }
   body.mobile-mode .zoom-btn { width: 22px; height: 22px; font-size: 11px; }
   body.mobile-mode .layout-confirm-bar { gap: 3px; }
-  body.mobile-mode .equip .name {
-    font-size: min(calc(8px * var(--label-zoom, 1)),
-                   calc(var(--w) * var(--tile) * 0.28));
-  }
+  body.mobile-mode .eq-plate { font-size: calc(8px * var(--label-zoom, 1)); }
   body.mobile-mode .equip .lv-badge { font-size: 7px; padding: 0 2px; }
   body.mobile-mode .character .label { font-size: calc(9px * var(--label-zoom, 1)); }
   body.mobile-mode .door { width: calc(var(--tile) * 0.6); }
@@ -3395,7 +3394,7 @@
   /* Name plates and Lv badges are noise behind the logo — but only drop them
      while the sprites are there to identify the devices. With device art off
      the label is all a device has. */
-  body:not(.no-device-art) .title-lab .equip > .name,
+  body:not(.no-device-art) .title-lab .eq-plate,
   body:not(.no-device-art) .title-lab .equip > .lv-badge { display: none; }
 
   /* Scrim: darkens the floor so the logo and the prompt stay legible over
@@ -7181,7 +7180,7 @@ const DEV_ELEMENTS = [
 //     to style/textContent are cheap but can still restart transitions.
 // -------------------------------------------------------------
 
-// eq.id -> { root, userTile, nameEl, lvEl, badgeEl }
+// eq.id -> { root, userTile, plate, nameEl, lvEl, badgeEl }
 const equipNodes = new Map();
 // 'player' | cw.id -> element
 const charNodes = new Map();
@@ -7197,6 +7196,7 @@ function destroyLabNodes() {
   for (const n of equipNodes.values()) {
     n.root.remove();
     n.userTile.remove();
+    n.plate.remove();
   }
   equipNodes.clear();
   for (const el of charNodes.values()) el.remove();
@@ -7253,16 +7253,26 @@ function createEquipNode(eq, lab) {
   root.dataset.fx = fxProfileFor(eq.id);
   // Built once; children are patched by textContent afterwards so that the
   // node identity (and any running animation) survives every later render.
+  // The name plate is its own node in the lab, sitting in the work space just
+  // under the device like a plate bolted to the front. It cannot live inside
+  // .equip (that box's clip is load-bearing — it hides the white band baked
+  // into the sprite PNGs) and it cannot live inside .user-tile either, whose
+  // z-index traps it under the door. As a sibling it answers to neither.
+  const plate = document.createElement('div');
+  plate.className = 'eq-plate';
+  lab.appendChild(plate);
+
   root.innerHTML = '<div class="eq-sprite"></div>'
                  + '<div class="eq-fx"><i class="eq-led"></i></div>'
-                 + '<div class="name"></div><div class="lv-badge"></div>'
+                 + '<div class="lv-badge"></div>'
                  + '<div class="spec-badge" style="display:none"></div>';
   lab.appendChild(root);
 
   return {
     root,
     userTile: ut,
-    nameEl:  root.querySelector('.name'),
+    plate,
+    nameEl:  plate,
     lvEl:    root.querySelector('.lv-badge'),
     badgeEl: root.querySelector('.spec-badge'),
   };
@@ -7281,9 +7291,11 @@ function renderLab() {
     // drop the stale entry and rebuild rather than silently rendering into
     // an orphan. Cheaper and safer than asking 22 call sites to classify
     // themselves as "diff" vs "rebuild".
-    if (node && (!node.root.isConnected || !node.userTile.isConnected)) {
+    if (node && (!node.root.isConnected || !node.userTile.isConnected
+                 || !node.plate.isConnected)) {
       node.root.remove();
       node.userTile.remove();
+      node.plate.remove();
       equipNodes.delete(eq.id);
       node = null;
     }
@@ -7299,6 +7311,11 @@ function renderLab() {
     setVar(node.userTile, '--row', t.userRow);
     setVar(node.userTile, '--w',   t.dims.w);
 
+    // name plate: same footprint as the work tile, centred on it
+    setVar(node.plate, '--col', eq.col);
+    setVar(node.plate, '--row', t.userRow);
+    setVar(node.plate, '--w',   t.dims.w);
+
     // body geometry
     setVar(node.root, '--col', eq.col);
     setVar(node.root, '--row', eq.row);
@@ -7310,6 +7327,11 @@ function renderLab() {
     node.root.classList.toggle('lv4',    eq.lv >= 4);
     node.root.classList.toggle('mpss',   eq.type === 'mpss');
     node.root.classList.toggle('pc',     eq.type === 'pc');
+    // The plate is no longer a descendant of .equip, so the per-device tints
+    // have to be mirrored onto it.
+    node.plate.classList.toggle('lv4',  eq.lv >= 4);
+    node.plate.classList.toggle('mpss', eq.type === 'mpss');
+    node.plate.classList.toggle('pc',   eq.type === 'pc');
     node.root.classList.toggle('busy',   busy);
     node.root.classList.toggle('broken', !!eq.broken);
 
@@ -7360,6 +7382,7 @@ function renderLab() {
     if (seen.has(id)) continue;
     node.root.remove();
     node.userTile.remove();
+    node.plate.remove();
     equipNodes.delete(id);
   }
 
