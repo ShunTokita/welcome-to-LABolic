@@ -1488,6 +1488,7 @@
 
   /* Equipment body */
   .equip {
+    --sprite-zoom: 1.10;
     position: absolute;
     left: calc(var(--col) * var(--tile));
     top: calc(var(--row) * var(--tile));
@@ -1543,6 +1544,21 @@
     pointer-events: none;
     overflow: hidden;
     z-index: 2;
+  }
+  /* The name plate used to sit inside the device, so the art was drawn with
+     room above it — 13-25% of every sprite's height is empty at the top. With
+     the plate moved below the device that space is dead, so the art is scaled
+     up to use it.
+     
+     The effect layer takes the identical transform. Every glow, beam and lamp
+     is anchored as a percentage of .eq-fx, so scaling that box by the same
+     factor about the same origin moves them with the artwork and no anchor
+     needs recalibrating. Growth is from the bottom centre: devices read as
+     standing on the floor, so the base is what must stay put. .equip's clip
+     takes care of the overflow. */
+  .eq-sprite, .eq-fx {
+    transform: scale(var(--sprite-zoom, 1));
+    transform-origin: 50% 100%;
   }
   /* Both slots exist for every device but stay invisible until a profile
      rule gives them a background and an animation. */
@@ -1724,12 +1740,14 @@
   .equip.busy:not(.broken)[data-fx="shake"] .eq-sprite {
     animation: fx-shake 1s steps(1,end) infinite;
   }
+  /* Carries the zoom through: transform is one property, so a keyframe that
+     only translated would drop the scale for as long as the shake ran. */
   @keyframes fx-shake {
-    0%   { transform: translate3d(0, -0.8px, 0); }
-    25%  { transform: translate3d(0,  0.8px, 0); }
-    50%  { transform: translate3d(0, -0.5px, 0); }
-    75%  { transform: translate3d(0,  0.5px, 0); }
-    100% { transform: translate3d(0, -0.8px, 0); }
+    0%   { transform: translate3d(0, -0.8px, 0) scale(var(--sprite-zoom, 1)); }
+    25%  { transform: translate3d(0,  0.8px, 0) scale(var(--sprite-zoom, 1)); }
+    50%  { transform: translate3d(0, -0.5px, 0) scale(var(--sprite-zoom, 1)); }
+    75%  { transform: translate3d(0,  0.5px, 0) scale(var(--sprite-zoom, 1)); }
+    100% { transform: translate3d(0, -0.8px, 0) scale(var(--sprite-zoom, 1)); }
   }
 
   /* beam — laser deposition. Beam line plus a hot spot where it lands. */
