@@ -390,6 +390,28 @@
   .udm-store-buy:disabled { background: var(--bg-input); color: var(--text-muted); border-color: var(--line-light); cursor: default; }
   .udm-store-have { font-size: 10px; font-weight: 800; color: var(--accent-purple); text-align: center; }
   .udm-store-actions { display: flex; gap: 8px; align-items: center; margin-top: 10px; }
+  /* Hover card for the skills whose name does not already say what they do:
+     the four system unlocks and every Co-Worker's unique. The tier 1-3 names
+     ("移動速度30%アップ") are their own description and get nothing. */
+  .udm-store-tip {
+    position: fixed; z-index: 2300; pointer-events: none;
+    max-width: 300px; padding: 9px 11px;
+    background: var(--bg-panel); color: var(--text-primary);
+    border: 1.5px solid var(--accent-purple); border-radius: 6px;
+    box-shadow: 0 6px 20px rgba(0,0,0,.35);
+    font-size: 11px; line-height: 1.6;
+  }
+  .udm-store-tip .t-name {
+    font-size: 12px; font-weight: 800; color: var(--accent-purple); margin-bottom: 3px;
+  }
+  .udm-store-tip .t-desc { color: var(--text-primary); }
+  .udm-store-tip .t-flavor {
+    margin-top: 6px; padding-left: 7px; border-left: 2px solid var(--line-light);
+    color: var(--text-muted); font-size: 10.5px; line-height: 1.55;
+  }
+  .udm-store-tip .t-flavor:empty { display: none; }
+  /* The cells that carry one, so it is discoverable without hunting. */
+  .udm-store-cell[data-tip] { cursor: help; }
   .udm-store-actions .udm-intro-ok { margin-top: 0; margin-left: auto; width: auto; padding: 6px 18px; }
   .udm-store-reset {
     font: inherit; font-size: 11px; cursor: pointer; background: transparent;
@@ -3790,6 +3812,13 @@
       </div>
       <div class="udm-store-hint">UDM中に一度でも獲得したスキルを、恒常的な強化として購入できます。段階は1から順に。ポイントはUDMを終えたときにスコアがそのまま加算されます。</div>
       <div class="udm-store-body" id="udm-store-body"></div>
+      <!-- Lives outside .udm-store-body on purpose: that box scrolls on both
+           axes, so a tip parented inside it would be clipped at the edges. -->
+      <div class="udm-store-tip" id="udm-store-tip" hidden>
+        <div class="t-name"></div>
+        <div class="t-desc"></div>
+        <div class="t-flavor"></div>
+      </div>
       <div class="udm-store-actions">
         <button class="udm-store-reset" id="udm-store-reset">UDM強化をリセット</button>
         <button class="udm-store-grant" id="udm-store-grant" style="display:none;">全スキルを解放（テスト用）</button>
@@ -6762,6 +6791,7 @@ function openUdmStore() {
 }
 function closeUdmStore() {
   document.getElementById('udm-store-backdrop')?.classList.remove('open');
+  udmStoreHideTip();
 }
 
 function renderUdmStore() {
@@ -6790,7 +6820,13 @@ function renderUdmStore() {
       const inOrder = ownedTier === tier - 1;
       const cls = 'udm-store-cell' + (owned ? ' owned' : (revealed ? '' : ' masked'));
       const label = revealed ? sk.name : '???';
-      const title = revealed ? `${sk.name} — ${sk.desc}` : 'UDM中に一度獲得すると内容が表示されます';
+      // A hover card for the ones whose name is not self-explanatory — the
+      // system unlocks and the uniques — but only once they are out of ???.
+      // Those cells drop the native title: two tooltips for one cell is worse
+      // than either alone, and the browser's is slow and cannot be styled.
+      const tip = revealed && (owner.id === 'sys' || tier === 4);
+      const title = tip ? ''
+        : (revealed ? `${sk.name} — ${sk.desc}` : 'UDM中に一度獲得すると内容が表示されます');
       let action;
       if (owned) action = '<div class="udm-store-have">所持</div>';
       else {
@@ -6798,8 +6834,10 @@ function renderUdmStore() {
         const why = !revealed ? '未取得' : (!inOrder ? '前の段階が必要' : (!affordable ? 'ポイント不足' : '購入'));
         action = `<button class="udm-store-buy" data-buy="${sk.id}" ${can ? '' : 'disabled'}>${can ? '購入' : why}</button>`;
       }
-      html += `<div class="${cls}" title="${title.replace(/"/g, '&quot;')}">
-        <div class="nm">${label}</div>
+      html += `<div class="${cls}"${tip ? ` data-tip="${sk.id}"` : ''}`
+        + (title ? ` title="${title.replace(/"/g, '&quot;')}"` : '') + `>
+        <div class="nm">${label}</div>`
+        + `
         <div class="price">${sk.price.toLocaleString()} pt</div>
         ${action}
       </div>`;
@@ -6809,6 +6847,84 @@ function renderUdmStore() {
   body.innerHTML = html;
   body.querySelectorAll('[data-buy]').forEach(el =>
     el.addEventListener('click', () => udmBuySkill(el.dataset.buy)));
+  udmStoreHideTip();
+}
+
+// --- store hover card ---------------------------------------------------
+//
+// Delegated from the scrolling body rather than bound per cell: renderUdmStore
+// rebuilds its innerHTML on every purchase, so per-cell listeners would have
+// to be re-attached each time and any card left open would point at a node
+// that no longer exists.
+
+// The cell the open card belongs to, so a scroll can move the card with it
+// instead of leaving it stranded over whatever slid underneath.
+let _udmTipCell = null;
+
+function udmStoreHideTip() {
+  _udmTipCell = null;
+  const tip = document.getElementById('udm-store-tip');
+  if (tip) tip.hidden = true;
+}
+
+function udmStoreShowTip(cell) {
+  const tip = document.getElementById('udm-store-tip');
+  const sk = udmSkill(cell.dataset.tip);
+  if (!tip || !sk) return;
+  _udmTipCell = cell;
+  tip.querySelector('.t-name').textContent = `${sk.ownerName}「${sk.name}」`;
+  tip.querySelector('.t-desc').textContent = sk.desc || '';
+  tip.querySelector('.t-flavor').textContent = sk.flavor || '';
+  tip.hidden = false;
+
+  // Measure after it is visible, then place it above the cell, flipping below
+  // when the top of the window is in the way and clamping to both edges.
+  const c = cell.getBoundingClientRect();
+  const t = tip.getBoundingClientRect();
+  const M = 8;
+  let top = c.top - t.height - 8;
+  if (top < M) top = Math.min(c.bottom + 8, window.innerHeight - t.height - M);
+  let left = c.left + c.width / 2 - t.width / 2;
+  left = Math.max(M, Math.min(left, window.innerWidth - t.width - M));
+  tip.style.top = Math.max(M, top) + 'px';
+  tip.style.left = left + 'px';
+}
+
+function bindUdmStoreTips() {
+  const body = document.getElementById('udm-store-body');
+  if (!body) return;
+  const cellFrom = e => e.target.closest?.('.udm-store-cell[data-tip]');
+  body.addEventListener('pointerover', e => {
+    if (e.pointerType !== 'mouse') return;      // touch is handled below
+    const cell = cellFrom(e);
+    if (cell) udmStoreShowTip(cell); else udmStoreHideTip();
+  });
+  body.addEventListener('pointerout', e => {
+    if (e.pointerType !== 'mouse') return;
+    if (!e.relatedTarget || !cellFrom({ target: e.relatedTarget })) udmStoreHideTip();
+  });
+  // Touch: hold to read. Pressing Buy still buys — the card is inert
+  // (pointer-events:none) and closes as soon as the finger lifts.
+  body.addEventListener('pointerdown', e => {
+    if (e.pointerType === 'mouse') return;
+    const cell = cellFrom(e);
+    if (cell) udmStoreShowTip(cell);
+  });
+  for (const ev of ['pointerup', 'pointercancel', 'pointerleave'])
+    body.addEventListener(ev, e => { if (e.pointerType !== 'mouse') udmStoreHideTip(); });
+  // The card is placed in viewport coordinates, so a scroll would leave it
+  // hanging over whatever slid underneath. Re-place it against its own cell
+  // instead, and let go only once that cell has left the visible box.
+  // (Hiding outright was the first attempt and was wrong twice over: an
+  // incidental scroll killed a card the pointer was still resting on, and a
+  // scroll-into-view raced the pointer events that had just opened it.)
+  body.addEventListener('scroll', () => {
+    if (!_udmTipCell) return;
+    if (!_udmTipCell.isConnected) { udmStoreHideTip(); return; }
+    const c = _udmTipCell.getBoundingClientRect(), b = body.getBoundingClientRect();
+    if (c.bottom < b.top || c.top > b.bottom) { udmStoreHideTip(); return; }
+    udmStoreShowTip(_udmTipCell);
+  }, { passive: true });
 }
 
 function udmBuySkill(id) {
@@ -6870,6 +6986,7 @@ function bindUdmSkills() {
   document.getElementById('udm-store-backdrop')?.addEventListener('click', e => {
     if (e.target.id === 'udm-store-backdrop') closeUdmStore();
   });
+  bindUdmStoreTips();
 }
 
 // Helper: Co-Workers visible in the lab (and right panel) — present === true.
