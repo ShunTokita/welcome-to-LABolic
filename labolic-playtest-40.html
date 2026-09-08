@@ -412,6 +412,13 @@
   .udm-store-tip .t-flavor:empty { display: none; }
   /* The cells that carry one, so it is discoverable without hunting. */
   .udm-store-cell[data-tip] { cursor: help; }
+  /* A press-and-hold on a phone otherwise starts the browser's own text
+     selection (and its callout menu) over the card being read. */
+  .udm-store-cell {
+    -webkit-user-select: none; user-select: none;
+    -webkit-touch-callout: none;
+  }
+  .udm-store-cell.tip-open { border-color: var(--accent-purple); }
   .udm-store-actions .udm-intro-ok { margin-top: 0; margin-left: auto; width: auto; padding: 6px 18px; }
   .udm-store-reset {
     font: inherit; font-size: 11px; cursor: pointer; background: transparent;
@@ -622,7 +629,11 @@
     display: none;
     position: fixed; inset: 0;
     background: rgba(0,0,0,0.65);
-    z-index: 700;
+    /* Above every other layer, the UDM store (2200) and its hover card (2300)
+       included. At 700 it opened *behind* the store, which made the store's
+       own reset button — and now the purchase confirm — impossible to answer:
+       elementFromPoint over the OK button returned a store cell. */
+    z-index: 2400;
     align-items: center; justify-content: center;
   }
   .settings-confirm-backdrop.open { display: flex; }
@@ -992,6 +1003,10 @@
   .settings-confirm-msg {
     font-size: 13px; color: var(--text-primary);
     line-height: 1.6; margin-bottom: 18px;
+    /* showConfirm writes with textContent, so the \n the callers already put
+       in their messages were collapsing to spaces — the UDM start and reset
+       prompts were written as paragraphs and rendered as one run-on line. */
+    white-space: pre-line;
   }
   .settings-confirm-btns {
     display: flex; gap: 8px; justify-content: flex-end;
@@ -6860,9 +6875,14 @@ function renderUdmStore() {
 // The cell the open card belongs to, so a scroll can move the card with it
 // instead of leaving it stranded over whatever slid underneath.
 let _udmTipCell = null;
+// A card opened by a click or a tap stays until it is dismissed. Hover alone
+// does not pin, so the mouse still sweeps across cells freely.
+let _udmTipPinned = false;
 
 function udmStoreHideTip() {
+  if (_udmTipCell) _udmTipCell.classList.remove('tip-open');
   _udmTipCell = null;
+  _udmTipPinned = false;
   const tip = document.getElementById('udm-store-tip');
   if (tip) tip.hidden = true;
 }
@@ -6871,7 +6891,9 @@ function udmStoreShowTip(cell) {
   const tip = document.getElementById('udm-store-tip');
   const sk = udmSkill(cell.dataset.tip);
   if (!tip || !sk) return;
+  if (_udmTipCell && _udmTipCell !== cell) _udmTipCell.classList.remove('tip-open');
   _udmTipCell = cell;
+  cell.classList.add('tip-open');
   tip.querySelector('.t-name').textContent = `${sk.ownerName}「${sk.name}」`;
   tip.querySelector('.t-desc').textContent = sk.desc || '';
   tip.querySelector('.t-flavor').textContent = sk.flavor || '';
@@ -6894,30 +6916,44 @@ function bindUdmStoreTips() {
   const body = document.getElementById('udm-store-body');
   if (!body) return;
   const cellFrom = e => e.target.closest?.('.udm-store-cell[data-tip]');
+  // Mouse: sweep to preview. A pinned card ignores the sweep so it cannot be
+  // wiped out by the pointer drifting one cell over on the way to it.
   body.addEventListener('pointerover', e => {
-    if (e.pointerType !== 'mouse') return;      // touch is handled below
+    if (e.pointerType !== 'mouse' || _udmTipPinned) return;
     const cell = cellFrom(e);
     if (cell) udmStoreShowTip(cell); else udmStoreHideTip();
   });
   body.addEventListener('pointerout', e => {
-    if (e.pointerType !== 'mouse') return;
+    if (e.pointerType !== 'mouse' || _udmTipPinned) return;
     if (!e.relatedTarget || !cellFrom({ target: e.relatedTarget })) udmStoreHideTip();
   });
-  // Touch: hold to read. Pressing Buy still buys — the card is inert
-  // (pointer-events:none) and closes as soon as the finger lifts.
+  // Touch: show while held, so a press-and-hold still reads. The click that
+  // follows the release pins it, which is what makes a plain tap work too.
   body.addEventListener('pointerdown', e => {
     if (e.pointerType === 'mouse') return;
     const cell = cellFrom(e);
-    if (cell) udmStoreShowTip(cell);
+    if (cell && cell !== _udmTipCell) udmStoreShowTip(cell);
   });
-  for (const ev of ['pointerup', 'pointercancel', 'pointerleave'])
-    body.addEventListener(ev, e => { if (e.pointerType !== 'mouse') udmStoreHideTip(); });
+  // Click or tap toggles. Pointer type does not matter here: the same gesture
+  // works with a mouse, which is useful for reading a long description
+  // without having to keep the cursor parked on the cell.
+  body.addEventListener('click', e => {
+    if (e.target.closest('.udm-store-buy')) return;   // buying is not reading
+    const cell = cellFrom(e);
+    if (!cell) { udmStoreHideTip(); return; }
+    if (_udmTipPinned && _udmTipCell === cell) { udmStoreHideTip(); return; }
+    udmStoreShowTip(cell);
+    _udmTipPinned = true;
+  });
   // The card is placed in viewport coordinates, so a scroll would leave it
   // hanging over whatever slid underneath. Re-place it against its own cell
   // instead, and let go only once that cell has left the visible box.
   // (Hiding outright was the first attempt and was wrong twice over: an
   // incidental scroll killed a card the pointer was still resting on, and a
   // scroll-into-view raced the pointer events that had just opened it.)
+  document.getElementById('udm-store-backdrop')?.addEventListener('pointerdown', e => {
+    if (!e.target.closest('.udm-store-cell[data-tip]')) udmStoreHideTip();
+  });
   body.addEventListener('scroll', () => {
     if (!_udmTipCell) return;
     if (!_udmTipCell.isConnected) { udmStoreHideTip(); return; }
@@ -6927,12 +6963,29 @@ function bindUdmStoreTips() {
   }, { passive: true });
 }
 
-function udmBuySkill(id) {
+// Confirmed rather than instant: the cells double as the place you go to read
+// what a skill does, and the Buy button sits inside the cell you are reaching
+// for. Spending 150,000 points on a misplaced tap is not a recoverable
+// mistake — the store has no refund.
+async function udmBuySkill(id) {
   const sk = udmSkill(id);
   if (!sk || udmMeta.owned[id]) return;
   if (!udmStoreRevealed(sk)) return;
   if (udmOwnedTier(sk.owner) !== sk.tier - 1) return;
   if (udmPoints() < sk.price) return;
+
+  udmStoreHideTip();
+  const ok = await showConfirm(
+    `${sk.ownerName}の「${sk.name}」を購入しますか？\n`
+    + `${sk.price.toLocaleString()} pt を消費します`
+    + `（残り ${(udmPoints() - sk.price).toLocaleString()} pt）。`,
+    '購入する');
+  if (!ok) return;
+  // The await hands control back to the page, so everything is re-checked.
+  if (udmMeta.owned[id]) return;
+  if (udmOwnedTier(sk.owner) !== sk.tier - 1) return;
+  if (udmPoints() < sk.price) return;
+
   udmMeta.spent = (udmMeta.spent || 0) + sk.price;
   udmMeta.owned[id] = true;
   udmMeta.seen[id] = true;
