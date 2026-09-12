@@ -48,10 +48,6 @@ def draw(height):
     door_top = seam + (3 if height == 32 else 2)
     door_bot = body_bot - 1
 
-    # flue
-    c.rect(6, flue_top, 9, body_top, ink)
-    c.rect(7, flue_top + 1, 8, body_top, P['body_lo'])
-
     # cabinet silhouette
     c.rect(1, body_top, 14, body_bot, ink)
 
@@ -68,6 +64,18 @@ def draw(height):
     c.rect(3, door_top, 12, door_bot, P['body_lo'])
     c.hline(3, 12, door_top, P['body_dk'])                # recess shadow, top...
     c.vline(3, door_top, door_bot, P['body_dk'])          # ...and left
+
+    # Flue, drawn after the top face and standing ON it. Its base sits one row
+    # short of the top face's front edge, so a strip of the top surface still
+    # reads in front of the pipe. Rising from the silhouette's upper edge
+    # instead — as the first draft did — puts the chimney behind the machine.
+    flue_base = top_face - 1
+    c.rect(6, flue_top, 9, flue_base, ink)                    # pipe silhouette
+    c.rect(7, flue_top + 1, 8, flue_base, P['met_lo'])        # bare metal, not enamel
+    c.vline(7, flue_top + 1, flue_base, P['met'])             # lit left edge
+    if height == 32:
+        c.rect(5, flue_base, 10, flue_base, ink)              # collar where it meets the top
+        c.hline(6, 9, flue_base, P['met_lo'])
 
     port_y = (door_top + door_bot) // 2 - 2
     c.stamp(PORT, {'o': ink, 'a': P['hot_a'], 'b': P['hot_b']}, ox=5, oy=port_y)

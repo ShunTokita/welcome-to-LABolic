@@ -22,19 +22,9 @@ A = {k: uri(v) for k, v in {
     'px_agt':     'assets/pixel/AGT.png',
     'og_furnace': 'assets/furnace.png',
     'og_agt':     'assets/AGT.png',
-    'og_ben':     'assets/icon/ben.png',
-    'og_grace':   'assets/icon/grace.png',
 }.items()}
 for cid in ('ben', 'grace', 'smith'):
     A['sheet_' + cid] = uri('assets/pixel/char/%s.png' % cid)
-    A['bust_' + cid] = uri('assets/pixel/portrait/%s.png' % cid)
-
-# Smith has no shipped icon — his placeholder is drawn inline in the game's
-# stylesheet, so it is reproduced here verbatim rather than re-invented.
-A['og_smith'] = ("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' "
-                 "viewBox='0 0 64 64'%3E%3Crect width='64' height='64' fill='%23c9ccd1'/%3E"
-                 "%3Ccircle cx='32' cy='24' r='11' fill='%238b9099'/%3E"
-                 "%3Cpath d='M11 60c0-12 9.5-19 21-19s21 7 21 19z' fill='%238b9099'/%3E%3C/svg%3E")
 
 AUDIT = [
     ('正面図・左右対称', 'casting, PSS, AGT, QAA, MPSS, TEM', 6),
@@ -50,34 +40,22 @@ CAST = [
 
 sheets = '\n'.join(f'''
       <article class="cast">
-        <div class="cast-art"><img class="px" src="{A['sheet_' + cid]}" alt="{name}のスプライトシート" width="288" height="384"></div>
+        <div class="cast-art"><img class="px" src="{A['sheet_' + cid]}" alt="{name}のスプライトシート" width="288" height="288"></div>
         <div class="cast-meta">
-          <h3>{name}<span class="swatch" style="background:{col}"></span><span class="tag">assets/pixel/char/{cid}.png · 48×64</span></h3>
+          <h3>{name}<span class="swatch" style="background:{col}"></span><span class="tag">assets/pixel/char/{cid}.png · 48×48</span></h3>
           <p>{note}</p>
           <dl class="kv">
-            <div><dt>セル</dt><dd>16×32（1×2タイル）</dd></div>
+            <div><dt>セル</dt><dd>16×24（足元1×1）</dd></div>
             <div><dt>列</dt><dd>正面 / 側面 / 背面</dd></div>
             <div><dt>行</dt><dd>歩行2フレーム</dd></div>
-            <div><dt>実寸</dt><dd>48×96（デスクトップ）</dd></div>
+            <div><dt>実寸</dt><dd>48×72（デスクトップ）</dd></div>
           </dl>
           <div class="ingame">
-            <figure><img class="px" src="{A['sheet_' + cid]}" alt="" style="width:144px;height:192px"><figcaption>×3 実寸</figcaption></figure>
-            <figure><img class="px" src="{A['sheet_' + cid]}" alt="" style="width:96px;height:128px"><figcaption>×2 モバイル実寸</figcaption></figure>
+            <figure><img class="px" src="{A['sheet_' + cid]}" alt="" style="width:144px;height:144px"><figcaption>×3 実寸</figcaption></figure>
+            <figure><img class="px" src="{A['sheet_' + cid]}" alt="" style="width:96px;height:96px"><figcaption>×2 モバイル実寸</figcaption></figure>
           </div>
         </div>
       </article>''' for name, cid, col, note in CAST)
-
-busts = '\n'.join(f'''
-        <figure class="bust">
-          <img class="px" src="{A['bust_' + cid]}" alt="{name}のバスト" width="128" height="128">
-          <figcaption>{name}
-            <span class="avrow">
-              <img class="av" style="--d:28px" src="{A['bust_' + cid]}" alt="">
-              <img class="av" style="--d:18px" src="{A['bust_' + cid]}" alt="">
-              <img class="av og" style="--d:28px" src="{A['og_' + cid]}" alt="">
-            </span>
-          </figcaption>
-        </figure>''' for name, cid, col, note in CAST)
 
 audit_rows = '\n'.join(
     f'<tr><td>{k}</td><td class="n">{n}</td><td class="files">{v}</td></tr>'
@@ -173,16 +151,6 @@ HTML = f'''<title>LABolic ドット絵アセット</title>
   .ingame figcaption {{ font-family:var(--mono); font-size:10px; color:var(--ink-3);
                         margin-top:5px; background:var(--panel); }}
 
-  .busts {{ display:flex; flex-wrap:wrap; gap:24px; }}
-  .bust {{ margin:0; }}
-  .bust > img {{ border:1px solid var(--line); }}
-  .bust figcaption {{ font-size:13px; margin-top:8px; display:flex; align-items:center;
-                      gap:12px; }}
-  .avrow {{ display:flex; align-items:center; gap:7px; }}
-  .av {{ width:var(--d); height:var(--d); border-radius:50%; border:2px solid var(--ink);
-         image-rendering:pixelated; display:block; }}
-  .av.og {{ image-rendering:auto; opacity:.65; }}
-
   .tablewrap {{ overflow-x:auto; }}
   table {{ border-collapse:collapse; width:100%; min-width:520px;
            font-variant-numeric:tabular-nums; }}
@@ -220,7 +188,7 @@ HTML = f'''<title>LABolic ドット絵アセット</title>
   <header class="top">
     <p class="kicker">welcome-to-LABolic / branch pixelart-trial</p>
     <h1>2Dドット絵アセット 試作</h1>
-    <p class="standfirst">投射方向を「正面＋上面・左右対称」に統一し、アート1タイル＝16pxのグリッドで描き直した第2稿。キャラクターは1×2マスの全身スプライトになりました。ゲーム本体には組み込んでいません。</p>
+    <p class="standfirst">投射方向を「正面＋上面・左右対称」に統一し、アート1タイル＝16pxのグリッドで描いた第3稿。キャラクターは足元1×1マス・グラフィックは1×1.5マスの全身スプライトです。ラボ以外の画面（会話イベント、Labo Chat、ロスター、雇用カード）のアバターは現行のイラストを踏襲するため、ドット絵化していません。ゲーム本体には組み込んでいません。</p>
     <div class="meta">
       <span><b>アートグリッド</b> 16px/タイル</span>
       <span><b>実寸</b> ×3 = 48px（デスクトップ）/ ×2 = 32px（モバイル）</span>
@@ -262,7 +230,8 @@ HTML = f'''<title>LABolic ドット絵アセット</title>
 
     <div class="device">
       <h3>Furnace<span class="tag">Lv1 · 足元1×1 · assets/pixel/furnace.png</span></h3>
-      <p>16pxが買えるのは4つだけ——箱、その上面、覗き窓のある扉、煙道。絵にあるヒンジ・奥にずれた第二の筐体・4本の脚は、ここでは予算切れです。背の高い版では余った1マス分を操作パネルと縦長の扉に使っています。</p>
+      <p>16pxが買えるのは4つだけ——箱、その上面、覗き窓のある扉、煙突。絵にあるヒンジ・奥にずれた第二の筐体・4本の脚は、ここでは予算切れです。背の高い版では余った1マス分を操作パネルと縦長の扉に使っています。</p>
+      <p>煙突は上面の上に立っています。根元は上面の手前端より1行内側に置き、パイプの手前に上面が1行残るようにしました。第1稿のようにシルエットの上端から生やすと、煙突が筐体の背後から出ているように見えます。</p>
       <div class="plates">
         <figure class="plate"><div class="art"><img class="px" src="{A['px_furnace']}" alt="Furnace 16×16" width="128" height="128"></div><figcaption>16×16 ×8</figcaption></figure>
         <figure class="plate"><div class="art"><img class="px" src="{A['px_furn_t']}" alt="Furnace 16×32" width="128" height="256"></div><figcaption>16×32 ×8（上へはみ出す版）</figcaption></figure>
@@ -282,14 +251,9 @@ HTML = f'''<title>LABolic ドット絵アセット</title>
 
   <section>
     <div class="sec-head"><h2>キャラクター — ラボ床スプライト</h2><span>1×2タイル / 3方向 × 歩行2フレーム</span></div>
-    <p class="lede">現行の <code>.character</code> は0.55タイルの円です。これを全身像に置き換えます。側面は右向きだけを描き、左向きはCSSの水平反転で作ります——左右対称の投射を選んだ利点がここで効きます。2フレームで足りるのは、タイル間の移動を既存の <code>transition: 0.15s</code> が担っているためで、脚は「歩いている」とだけ言えばよいからです。</p>
+    <p class="lede">現行の <code>.character</code> は0.55タイルの円です。これを全身像に置き換えます。足元の占有は1×1のまま、グラフィックは半マス上へはみ出します。側面は右向きだけを描き、左向きはCSSの水平反転で作ります——左右対称の投射を選んだ利点がここで効きます。2フレームで足りるのは、タイル間の移動を既存の <code>transition: 0.15s</code> が担っているためです。</p>
+    <p class="lede">プロポーションは頭8行・胴7行・脚6行。16×32だった前稿は胴に11行、頭に12行を与えていて、ずんぐりではなく引き伸ばされた人物に見えていました。この大きさでは頭は縦より横がわずかに広く、胴は頭より短いほうが収まります。</p>
     {sheets}
-  </section>
-
-  <section>
-    <div class="sec-head"><h2>キャラクター — アバター用バスト</h2><span>32×32 / 表示は円形18–28px</span></div>
-    <p class="lede">チャットログ・ロスター・雇用カードのアバター枠は円形のままなので、前回のバストアップを残しています。各名前の右は、ロスター28px・モバイル18px・現行アイコン（薄く表示）の順です。</p>
-    <div class="busts">{busts}</div>
   </section>
 
   <section>
@@ -302,7 +266,7 @@ HTML = f'''<title>LABolic ドット絵アセット</title>
           <tr><td class="n">TILE_MOBILE</td><td class="n">32</td><td class="n">32（据置）</td><td>すでに16pxの×2</td></tr>
           <tr><td class="n">zoomLevel</td><td class="n">0.3–3.0 連続</td><td class="n act">1/3刻みに丸め</td><td>連続ズームでは非整数倍が生じ、ドット幅が不揃いになる</td></tr>
           <tr><td class="n">.eq-sprite</td><td class="n">inset:0（クリップ）</td><td class="n act">上方向へ1タイル開放</td><td>装置がキャラクターと同じ背丈に立てる</td></tr>
-          <tr><td class="n">.character</td><td class="n">0.55タイルの円</td><td class="n act">1×2タイルの矩形</td><td>全身スプライトを置くため</td></tr>
+          <tr><td class="n">.character</td><td class="n">0.55タイルの円</td><td class="n act">幅1×高さ1.5タイル</td><td>全身スプライトを置く。足元の占有マスは1×1のまま</td></tr>
           <tr><td class="n">.equip .eq-sprite</td><td class="n">background-size:100% 100%</td><td class="n act">image-rendering:pixelated</td><td>拡大時に平滑補間させない</td></tr>
         </tbody>
       </table>
@@ -318,9 +282,8 @@ HTML = f'''<title>LABolic ドット絵アセット</title>
     <ul>
       <li>assets/pixel/ — furnace.png · furnace_tall.png · AGT.png</li>
       <li>assets/pixel/char/ — ben.png · grace.png · smith.png（シート）＋ *_front.png</li>
-      <li>assets/pixel/portrait/ — ben.png · grace.png · smith.png（アバター用）</li>
       <li>tools/pixelart/spec.py（投射とグリッドの規約）· pixcore.py · pixshapes.py</li>
-      <li>tools/pixelart/furnace.py · agt.py · sprites.py · portraits.py</li>
+      <li>tools/pixelart/furnace.py · agt.py · sprites.py</li>
       <li>tools/pixelart/make_scene.py（ラボ床モック）· make_preview.py（このページ）</li>
     </ul>
   </footer>

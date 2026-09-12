@@ -44,7 +44,10 @@ def cell(w_tiles, h_tiles):
 # (labolic-playtest-40.html:3991).
 FOOTPRINT = {1: (1, 1), 2: (2, 1), 3: (2, 2), 4: (3, 2), 5: (4, 4)}
 
-CHARACTER = cell(1, 2)      # 16 x 32
+# Characters occupy one tile on the floor but are drawn a tile and a half
+# tall. Two full tiles made them read as stretched — the torso especially —
+# and the extra height bought nothing the silhouette needed.
+CHARACTER = (ART_TILE, ART_TILE * 3 // 2)      # 16 x 24, footprint still 1x1
 
 
 def top_depth(width):
