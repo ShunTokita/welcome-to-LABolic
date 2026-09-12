@@ -4,7 +4,7 @@ Artifact pages sit behind a CSP that blocks every external host, so every PNG
 travels inside the file as a data URI. Output goes to build/, which is
 git-ignored — the same convention tools/preview.sh follows.
 """
-import base64, os, sys
+import base64, os
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.normpath(os.path.join(HERE, '..', '..'))
@@ -16,44 +16,72 @@ def uri(rel):
 
 
 A = {k: uri(v) for k, v in {
+    'scene':      'build/lab-scene.png',
     'px_furnace': 'assets/pixel/furnace.png',
+    'px_furn_t':  'assets/pixel/furnace_tall.png',
     'px_agt':     'assets/pixel/AGT.png',
-    'px_ben':     'assets/pixel/ben.png',
-    'px_grace':   'assets/pixel/grace.png',
-    'px_smith':   'assets/pixel/smith.png',
     'og_furnace': 'assets/furnace.png',
     'og_agt':     'assets/AGT.png',
     'og_ben':     'assets/icon/ben.png',
     'og_grace':   'assets/icon/grace.png',
 }.items()}
+for cid in ('ben', 'grace', 'smith'):
+    A['sheet_' + cid] = uri('assets/pixel/char/%s.png' % cid)
+    A['bust_' + cid] = uri('assets/pixel/portrait/%s.png' % cid)
 
-# Smith has no shipped file — his placeholder is drawn inline in the game's
+# Smith has no shipped icon — his placeholder is drawn inline in the game's
 # stylesheet, so it is reproduced here verbatim rather than re-invented.
 A['og_smith'] = ("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' "
                  "viewBox='0 0 64 64'%3E%3Crect width='64' height='64' fill='%23c9ccd1'/%3E"
                  "%3Ccircle cx='32' cy='24' r='11' fill='%238b9099'/%3E"
                  "%3Cpath d='M11 60c0-12 9.5-19 21-19s21 7 21 19z' fill='%238b9099'/%3E%3C/svg%3E")
 
-CHARS = [
-    ('Ben',   'ben',   'Tier 1 / #7e603c', '丸メガネと切りっぱなしの前髪。現行アイコンはメガネ単体のシンボル'),
-    ('Grace', 'grace', 'Tier 2 / #e8c878', '横に流れるポニーテールとスカーフ。現行アイコンは空を背にした人影'),
-    ('Smith', 'smith', 'Tier 3 / #534ab7', '白い顎髭と半縁の老眼鏡。現行は画像ファイルを持たず、HTML内のグレーのシルエット'),
+AUDIT = [
+    ('正面図・左右対称', 'casting, PSS, AGT, QAA, MPSS, TEM', 6),
+    ('斜方投射・左右に振れる', 'arcmelt, laserdeposition, furnace, rolling, magnetizer, OM, SEM', 7),
+    ('強い俯瞰', 'PC', 1),
 ]
 
-rows_chars = '\n'.join(f'''
-      <article class="char">
-        <div class="char-big"><img src="{A['px_' + cid]}" alt="{name}のドット絵" width="192" height="192"></div>
-        <div class="char-meta">
-          <h3>{name}<span class="tag">{tag}</span></h3>
+CAST = [
+    ('Ben',   'ben',   '#7e603c', '丸メガネ、切りっぱなしの前髪、大きめの白衣'),
+    ('Grace', 'grace', '#e8c878', '横に流れるポニーテール、スカーフ'),
+    ('Smith', 'smith', '#534ab7', '白い顎髭、半縁の老眼鏡、カーディガン'),
+]
+
+sheets = '\n'.join(f'''
+      <article class="cast">
+        <div class="cast-art"><img class="px" src="{A['sheet_' + cid]}" alt="{name}のスプライトシート" width="288" height="384"></div>
+        <div class="cast-meta">
+          <h3>{name}<span class="swatch" style="background:{col}"></span><span class="tag">assets/pixel/char/{cid}.png · 48×64</span></h3>
           <p>{note}</p>
-          <dl class="sizes">
-            <div><dt>ロスター 28px</dt><dd><img class="av" style="--d:28px" src="{A['px_' + cid]}" alt=""></dd></div>
-            <div><dt>雇用カード 22px</dt><dd><img class="av" style="--d:22px" src="{A['px_' + cid]}" alt=""></dd></div>
-            <div><dt>モバイル 18px</dt><dd><img class="av" style="--d:18px" src="{A['px_' + cid]}" alt=""></dd></div>
-            <div class="sep"><dt>現行</dt><dd><img class="av" style="--d:28px;image-rendering:auto" src="{A['og_' + cid]}" alt=""></dd></div>
+          <dl class="kv">
+            <div><dt>セル</dt><dd>16×32（1×2タイル）</dd></div>
+            <div><dt>列</dt><dd>正面 / 側面 / 背面</dd></div>
+            <div><dt>行</dt><dd>歩行2フレーム</dd></div>
+            <div><dt>実寸</dt><dd>48×96（デスクトップ）</dd></div>
           </dl>
+          <div class="ingame">
+            <figure><img class="px" src="{A['sheet_' + cid]}" alt="" style="width:144px;height:192px"><figcaption>×3 実寸</figcaption></figure>
+            <figure><img class="px" src="{A['sheet_' + cid]}" alt="" style="width:96px;height:128px"><figcaption>×2 モバイル実寸</figcaption></figure>
+          </div>
         </div>
-      </article>''' for name, cid, tag, note in CHARS)
+      </article>''' for name, cid, col, note in CAST)
+
+busts = '\n'.join(f'''
+        <figure class="bust">
+          <img class="px" src="{A['bust_' + cid]}" alt="{name}のバスト" width="128" height="128">
+          <figcaption>{name}
+            <span class="avrow">
+              <img class="av" style="--d:28px" src="{A['bust_' + cid]}" alt="">
+              <img class="av" style="--d:18px" src="{A['bust_' + cid]}" alt="">
+              <img class="av og" style="--d:28px" src="{A['og_' + cid]}" alt="">
+            </span>
+          </figcaption>
+        </figure>''' for name, cid, col, note in CAST)
+
+audit_rows = '\n'.join(
+    f'<tr><td>{k}</td><td class="n">{n}</td><td class="files">{v}</td></tr>'
+    for k, v, n in AUDIT)
 
 HTML = f'''<title>LABolic ドット絵アセット</title>
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -64,7 +92,7 @@ HTML = f'''<title>LABolic ドット絵アセット</title>
     --ink:#1b2039; --ink-2:#5d6484; --ink-3:#8a90aa;
     --line:#d2d7e4; --line-2:#e3e7f0;
     --accent:#b34e14; --accent-2:#5f47a0;
-    --lab:#b8ad8a; --grid:rgba(93,74,50,0.18);
+    --lab:#b8ad8a;
     --sans:"Zen Kaku Gothic New",-apple-system,"Hiragino Sans","Noto Sans JP",sans-serif;
     --serif:"Shippori Mincho B1",Georgia,"Hiragino Mincho ProN",serif;
     --mono:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
@@ -86,11 +114,10 @@ HTML = f'''<title>LABolic ドット絵アセット</title>
 
   body {{ background:var(--ground); color:var(--ink); font-family:var(--sans);
          font-size:15px; line-height:1.72; margin:0; }}
-  .wrap {{ max-width:1000px; margin:0 auto; padding-inline:20px; padding-block:48px 72px; }}
+  .wrap {{ max-width:1020px; margin:0 auto; padding-inline:20px; padding-block:48px 72px; }}
   img {{ max-width:100%; }}
   .px {{ image-rendering:pixelated; image-rendering:crisp-edges; display:block; }}
 
-  /* ---- masthead ---- */
   header.top {{ border-bottom:2px solid var(--ink); padding-bottom:20px; }}
   .kicker {{ font-family:var(--mono); font-size:11px; letter-spacing:.14em;
              text-transform:uppercase; color:var(--accent); margin:0 0 8px; }}
@@ -101,70 +128,78 @@ HTML = f'''<title>LABolic ドット絵アセット</title>
            font-family:var(--mono); font-size:12px; color:var(--ink-3); }}
   .meta b {{ color:var(--ink-2); font-weight:600; }}
 
-  /* ---- sections ---- */
   section {{ margin-top:56px; }}
-  .sec-head {{ display:flex; align-items:baseline; gap:14px; border-bottom:1px solid var(--line);
-               padding-bottom:8px; margin-bottom:28px; }}
+  .sec-head {{ display:flex; align-items:baseline; gap:14px; flex-wrap:wrap;
+               border-bottom:1px solid var(--line); padding-bottom:8px; margin-bottom:26px; }}
   .sec-head h2 {{ font-family:var(--serif); font-size:22px; margin:0; }}
   .sec-head span {{ font-family:var(--mono); font-size:11px; color:var(--ink-3);
                     letter-spacing:.08em; }}
+  .lede {{ margin:0 0 22px; color:var(--ink-2); max-width:64ch; }}
 
-  /* ---- device comparison ---- */
-  .device {{ margin-bottom:40px; }}
+  /* the lab floor mock — the headline of the sheet, so it gets the full width */
+  .scene {{ background:var(--lab); border:2px solid #6b5c3c; overflow-x:auto; }}
+  .scene img {{ width:624px; height:288px; max-width:none; }}
+  .scene-cap {{ display:flex; justify-content:space-between; gap:16px; flex-wrap:wrap;
+                font-family:var(--mono); font-size:11px; color:var(--ink-3); margin-top:8px; }}
+
+  .device {{ margin-bottom:38px; }}
   .device > h3 {{ font-size:17px; margin:0 0 4px; }}
   .device > h3 .tag {{ font-family:var(--mono); font-size:11px; color:var(--ink-3);
                        margin-left:10px; font-weight:500; }}
-  .device > p {{ margin:0 0 18px; color:var(--ink-2); max-width:62ch; font-size:14px; }}
-  .pair {{ display:grid; grid-template-columns:repeat(auto-fit,minmax(260px,1fr)); gap:18px; }}
-  .plate {{ background:var(--panel); border:1px solid var(--line); }}
+  .device > p {{ margin:0 0 16px; color:var(--ink-2); max-width:62ch; font-size:14px; }}
+  .plates {{ display:flex; flex-wrap:wrap; gap:16px; align-items:flex-end; }}
+  .plate {{ margin:0; background:var(--panel); border:1px solid var(--line); }}
+  .plate .art {{ display:grid; place-items:center; padding:12px; background:var(--lab); }}
   .plate figcaption {{ font-family:var(--mono); font-size:11px; color:var(--ink-3);
-                       padding:8px 12px; border-top:1px solid var(--line-2);
-                       display:flex; justify-content:space-between; gap:10px; }}
-  .plate .art {{ display:grid; place-items:center; padding:14px; }}
+                       padding:7px 11px; border-top:1px solid var(--line-2); }}
 
-  /* the lab floor, reproduced from the game's own .lab rule */
-  .floor {{ background:
-      linear-gradient(var(--grid) 1px,transparent 1px) 0 0/44px 44px,
-      linear-gradient(90deg,var(--grid) 1px,transparent 1px) 0 0/44px 44px,
-      var(--lab);
-      border:2px solid #6b5c3c; }}
-  .floor.m {{ background-size:32px 32px,32px 32px; }}
-  .scale-row {{ display:flex; flex-wrap:wrap; align-items:flex-end; gap:22px; margin-top:16px; }}
-  .scale-row figure {{ margin:0; }}
-  .scale-row figcaption {{ font-family:var(--mono); font-size:11px; color:var(--ink-3);
-                           margin-top:7px; }}
-  .scale-row .floor {{ padding:11px; display:grid; place-items:center; }}
+  .cast {{ display:grid; grid-template-columns:auto 1fr; gap:24px; align-items:start;
+           padding:24px 0; border-top:1px solid var(--line-2); }}
+  .cast:first-of-type {{ border-top:0; padding-top:0; }}
+  .cast-art {{ background:var(--lab); border:1px solid var(--line); padding:8px; }}
+  .cast-meta h3 {{ font-size:17px; margin:0 0 4px; display:flex; align-items:center;
+                   gap:8px; flex-wrap:wrap; }}
+  .cast-meta h3 .tag {{ font-family:var(--mono); font-size:11px; color:var(--ink-3);
+                        font-weight:500; }}
+  .swatch {{ width:11px; height:11px; border:1px solid var(--ink); display:inline-block; }}
+  .cast-meta > p {{ margin:0 0 14px; color:var(--ink-2); font-size:14px; max-width:50ch; }}
+  .kv {{ display:flex; flex-wrap:wrap; gap:4px 26px; margin:0 0 16px; }}
+  .kv > div {{ display:flex; gap:8px; align-items:baseline; }}
+  .kv dt {{ font-family:var(--mono); font-size:10px; letter-spacing:.05em;
+            color:var(--ink-3); }}
+  .kv dd {{ margin:0; font-size:13px; font-variant-numeric:tabular-nums; }}
+  .ingame {{ display:flex; gap:20px; align-items:flex-end; }}
+  .ingame figure {{ margin:0; background:var(--lab); padding:6px; border:1px solid var(--line); }}
+  .ingame figcaption {{ font-family:var(--mono); font-size:10px; color:var(--ink-3);
+                        margin-top:5px; background:var(--panel); }}
 
-  /* ---- characters ---- */
-  .char {{ display:grid; grid-template-columns:auto 1fr; gap:22px; align-items:start;
-           padding:20px 0; border-top:1px solid var(--line-2); }}
-  .char:first-of-type {{ border-top:0; padding-top:0; }}
-  .char-big {{ background:var(--panel); border:1px solid var(--line); padding:8px; }}
-  .char-big img {{ image-rendering:pixelated; display:block; }}
-  .char-meta h3 {{ font-size:17px; margin:0 0 4px; }}
-  .char-meta h3 .tag {{ font-family:var(--mono); font-size:11px; color:var(--ink-3);
-                        margin-left:10px; font-weight:500; }}
-  .char-meta p {{ margin:0 0 14px; color:var(--ink-2); font-size:14px; max-width:52ch; }}
-  .sizes {{ display:flex; flex-wrap:wrap; gap:18px; margin:0; }}
-  .sizes > div {{ display:flex; flex-direction:column; gap:7px; align-items:center; }}
-  .sizes .sep {{ border-left:1px solid var(--line); padding-left:18px; }}
-  .sizes dt {{ font-family:var(--mono); font-size:10px; color:var(--ink-3);
-               letter-spacing:.04em; order:2; }}
-  .sizes dd {{ margin:0; order:1; }}
+  .busts {{ display:flex; flex-wrap:wrap; gap:24px; }}
+  .bust {{ margin:0; }}
+  .bust > img {{ border:1px solid var(--line); }}
+  .bust figcaption {{ font-size:13px; margin-top:8px; display:flex; align-items:center;
+                      gap:12px; }}
+  .avrow {{ display:flex; align-items:center; gap:7px; }}
   .av {{ width:var(--d); height:var(--d); border-radius:50%; border:2px solid var(--ink);
          image-rendering:pixelated; display:block; }}
+  .av.og {{ image-rendering:auto; opacity:.65; }}
 
-  /* ---- findings table ---- */
   .tablewrap {{ overflow-x:auto; }}
   table {{ border-collapse:collapse; width:100%; min-width:520px;
            font-variant-numeric:tabular-nums; }}
   th, td {{ text-align:left; padding:9px 12px; border-bottom:1px solid var(--line-2);
-            font-size:13.5px; }}
+            font-size:13.5px; vertical-align:top; }}
   th {{ font-family:var(--mono); font-size:11px; letter-spacing:.06em; color:var(--ink-3);
         text-transform:uppercase; border-bottom:1px solid var(--line); font-weight:600; }}
   td.n {{ font-family:var(--mono); }}
-  td.bad {{ color:var(--accent); }}
-  td.ok {{ color:var(--accent-2); }}
+  td.files {{ font-family:var(--mono); font-size:11.5px; color:var(--ink-2); }}
+  td.act {{ color:var(--accent); }}
+
+  .rules {{ display:grid; grid-template-columns:repeat(auto-fit,minmax(230px,1fr)); gap:1px;
+            background:var(--line); border:1px solid var(--line); }}
+  .rule {{ background:var(--panel); padding:16px 18px; }}
+  .rule h4 {{ margin:0 0 6px; font-size:13px; font-family:var(--mono);
+              letter-spacing:.04em; color:var(--accent-2); }}
+  .rule p {{ margin:0; font-size:13.5px; color:var(--ink-2); }}
 
   .note {{ background:var(--panel-2); border-left:3px solid var(--accent);
            padding:16px 18px; margin-top:24px; }}
@@ -178,99 +213,115 @@ HTML = f'''<title>LABolic ドット絵アセット</title>
             font-family:var(--mono); font-size:11.5px; color:var(--ink-3); }}
   footer ul {{ margin:8px 0 0; padding-left:18px; }}
 
-  @media (max-width:560px) {{
-    .char {{ grid-template-columns:1fr; }}
-  }}
+  @media (max-width:620px) {{ .cast {{ grid-template-columns:1fr; }} }}
 </style>
 
 <div class="wrap">
   <header class="top">
     <p class="kicker">welcome-to-LABolic / branch pixelart-trial</p>
     <h1>2Dドット絵アセット 試作</h1>
-    <p class="standfirst">現行の手描きアセットを1ドット単位で描き直した試作です。装置は最も単純なFurnaceと最も複雑なAGT、キャラクターはBen・Grace・Smithの3人。ゲーム本体には組み込んでいません。</p>
+    <p class="standfirst">投射方向を「正面＋上面・左右対称」に統一し、アート1タイル＝16pxのグリッドで描き直した第2稿。キャラクターは1×2マスの全身スプライトになりました。ゲーム本体には組み込んでいません。</p>
     <div class="meta">
-      <span><b>装置</b> Furnace 64×64 / AGT 96×64</span>
-      <span><b>キャラ</b> 32×32</span>
+      <span><b>アートグリッド</b> 16px/タイル</span>
+      <span><b>実寸</b> ×3 = 48px（デスクトップ）/ ×2 = 32px（モバイル）</span>
       <span><b>生成</b> tools/pixelart/*.py</span>
     </div>
   </header>
 
   <section>
-    <div class="sec-head"><h2>装置</h2><span>現行アート ↔ ドット絵 ↔ ラボ実寸</span></div>
-
-    <div class="device">
-      <h3>Furnace<span class="tag">Lv1 · 1×1タイル · assets/pixel/furnace.png</span></h3>
-      <p>クリーム色の筐体、左奥にずれた本体、覗き窓の火。現行アートは余白が広いので、ドット絵側は画面内でゲームの <code>--sprite-zoom</code> がやっている寄せを最初から織り込んで詰めています。</p>
-      <div class="pair">
-        <figure class="plate" style="margin:0">
-          <div class="art"><img class="px" src="{A['px_furnace']}" alt="Furnaceのドット絵" width="256" height="256"></div>
-          <figcaption><span>ドット絵 ×4</span><span>64×64</span></figcaption>
-        </figure>
-        <figure class="plate" style="margin:0">
-          <div class="art"><img src="{A['og_furnace']}" alt="Furnaceの現行アート" width="256" height="256"></div>
-          <figcaption><span>現行アート</span><span>1036×1036</span></figcaption>
-        </figure>
-      </div>
-      <div class="scale-row">
-        <figure><div class="floor"><img class="px" src="{A['px_furnace']}" alt="" width="44" height="44"></div><figcaption>デスクトップ 44px</figcaption></figure>
-        <figure><div class="floor m"><img class="px" src="{A['px_furnace']}" alt="" width="32" height="32"></div><figcaption>モバイル 32px</figcaption></figure>
-        <figure><div class="floor"><img class="px" src="{A['px_furnace']}" alt="" width="132" height="132"></div><figcaption>デスクトップ ×3ズーム 132px</figcaption></figure>
-      </div>
-    </div>
-
-    <div class="device">
-      <h3>AGT<span class="tag">Lv4 · 3×2タイル · assets/pixel/AGT.png</span></h3>
-      <p>輪、その中の原子、両脇の結晶。この3つだけが96pxで生き残る要素なので、残りは足場として平たく大きく描いています。96×64はモバイルの3×2タイルと寸分たがわず一致します。</p>
-      <div class="pair">
-        <figure class="plate" style="margin:0">
-          <div class="art"><img class="px" src="{A['px_agt']}" alt="AGTのドット絵" width="384" height="256"></div>
-          <figcaption><span>ドット絵 ×4</span><span>96×64</span></figcaption>
-        </figure>
-        <figure class="plate" style="margin:0">
-          <div class="art"><img src="{A['og_agt']}" alt="AGTの現行アート" width="384" height="259"></div>
-          <figcaption><span>現行アート</span><span>1288×868</span></figcaption>
-        </figure>
-      </div>
-      <div class="scale-row">
-        <figure><div class="floor"><img class="px" src="{A['px_agt']}" alt="" width="132" height="88"></div><figcaption>デスクトップ 132×88px</figcaption></figure>
-        <figure><div class="floor m"><img class="px" src="{A['px_agt']}" alt="" width="96" height="64"></div><figcaption>モバイル 96×64px — 等倍</figcaption></figure>
-      </div>
+    <div class="sec-head"><h2>ラボ床</h2><span>×3 実寸（デスクトップ 48px/タイル）</span></div>
+    <p class="lede">左から、1×1に収めたFurnace、同じ足元のまま上へ1マスはみ出したFurnace、Ben、Smith、AGT、Grace。床とグリッドはゲームの <code>.lab</code> の値をそのまま使っています。</p>
+    <div class="scene"><img class="px" src="{A['scene']}" alt="ドット絵アセットを並べたラボ床のモック"></div>
+    <div class="scene-cap"><span>13×6タイル / アート208×96px</span><span>装置・キャラクターとも背景は透過、接地影のみ</span></div>
+    <div class="note">
+      <h4>ここで分かること — 1×1の装置はキャラクターの半分の高さになる</h4>
+      <p>キャラクターが1×2になったことで、Lv1装置を1×1の枠に収めると人の腰までしかない調理家電のように見えます。左端と、その右の背の高い版が同じ機械です。</p>
+      <p>足元の占有マスは1×1のまま、スプライトだけ上へ1マスはみ出させれば解決します。当たり判定も配置ロジックも変わりません。必要なのは <code>.equip</code> がスプライトをクリップしている現状（<code>overflow:hidden</code> 前提で <code>.eq-sprite</code> が <code>inset:0</code>）を、上方向だけ開けることです。AGTも同じ理由で3×2のままでは低く見えるので、採用するなら全装置に一律で適用するのが筋だと考えます。</p>
     </div>
   </section>
 
   <section>
-    <div class="sec-head"><h2>キャラクター</h2><span>32×32 バストアップ / 表示は円形18–28px</span></div>
-    {rows_chars}
-  </section>
-
-  <section>
-    <div class="sec-head"><h2>実寸で起きること</h2><span>labolic-playtest-40.html:4295</span></div>
+    <div class="sec-head"><h2>投射規約</h2><span>tools/pixelart/spec.py</span></div>
+    <p class="lede">現行14点は投射方向が混在していました。ドット絵では隣り合った装置が「奥」の方向について食い違うと、様式ではなく作画ミスに見えます。</p>
     <div class="tablewrap">
       <table>
-        <thead><tr><th>対象</th><th>ドット絵の原寸</th><th>ゲーム内表示</th><th>倍率</th><th>結果</th></tr></thead>
+        <thead><tr><th>現行アートの分類</th><th>点数</th><th>該当ファイル</th></tr></thead>
+        <tbody>{audit_rows}</tbody>
+      </table>
+    </div>
+    <div class="rules" style="margin-top:22px">
+      <div class="rule"><h4>PROJECTION</h4><p>正面図＋上面。垂直線は垂直、水平線は水平、消失点なし。側面は描かず、奥行きは正面の真上に積む上面だけで示す。</p></div>
+      <div class="rule"><h4>TOP_RATIO = 0.25</h4><p>上面の見かけの深さは対象の幅の1/4。幅12pxの箱なら上面3px。</p></div>
+      <div class="rule"><h4>LIGHT</h4><p>左上から固定。上面が最も明るく、正面が中間、右端と庇の下が影。materialごとに4段＋インク。</p></div>
+      <div class="rule"><h4>MIRRORING</h4><p>左右対称なので水平反転が無料。隣接する装置どうしが奥行きの向きで矛盾しない。</p></div>
+    </div>
+  </section>
+
+  <section>
+    <div class="sec-head"><h2>装置</h2><span>ドット絵 ↔ 現行アート</span></div>
+
+    <div class="device">
+      <h3>Furnace<span class="tag">Lv1 · 足元1×1 · assets/pixel/furnace.png</span></h3>
+      <p>16pxが買えるのは4つだけ——箱、その上面、覗き窓のある扉、煙道。絵にあるヒンジ・奥にずれた第二の筐体・4本の脚は、ここでは予算切れです。背の高い版では余った1マス分を操作パネルと縦長の扉に使っています。</p>
+      <div class="plates">
+        <figure class="plate"><div class="art"><img class="px" src="{A['px_furnace']}" alt="Furnace 16×16" width="128" height="128"></div><figcaption>16×16 ×8</figcaption></figure>
+        <figure class="plate"><div class="art"><img class="px" src="{A['px_furn_t']}" alt="Furnace 16×32" width="128" height="256"></div><figcaption>16×32 ×8（上へはみ出す版）</figcaption></figure>
+        <figure class="plate"><div class="art" style="background:none"><img src="{A['og_furnace']}" alt="現行アート" width="200" height="200"></div><figcaption>現行アート 1036×1036</figcaption></figure>
+      </div>
+    </div>
+
+    <div class="device">
+      <h3>AGT<span class="tag">Lv4 · 3×2 · assets/pixel/AGT.png</span></h3>
+      <p>輪は垂直な円盤なので上面を持ちません。投射を担っているのは2本の塔の台座と柱頭で、こちらは箱です。原子は3軌道ではなく直交2軌道にしました。3軌道は視野が24px程度ないと、各楕円の平らな端が7px前後の直線として量子化され、互いに癒着してアスタリスクになります。</p>
+      <div class="plates">
+        <figure class="plate"><div class="art"><img class="px" src="{A['px_agt']}" alt="AGT 48×32" width="384" height="256"></div><figcaption>48×32 ×8</figcaption></figure>
+        <figure class="plate"><div class="art" style="background:none"><img src="{A['og_agt']}" alt="現行アート" width="280" height="189"></div><figcaption>現行アート 1288×868</figcaption></figure>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="sec-head"><h2>キャラクター — ラボ床スプライト</h2><span>1×2タイル / 3方向 × 歩行2フレーム</span></div>
+    <p class="lede">現行の <code>.character</code> は0.55タイルの円です。これを全身像に置き換えます。側面は右向きだけを描き、左向きはCSSの水平反転で作ります——左右対称の投射を選んだ利点がここで効きます。2フレームで足りるのは、タイル間の移動を既存の <code>transition: 0.15s</code> が担っているためで、脚は「歩いている」とだけ言えばよいからです。</p>
+    {sheets}
+  </section>
+
+  <section>
+    <div class="sec-head"><h2>キャラクター — アバター用バスト</h2><span>32×32 / 表示は円形18–28px</span></div>
+    <p class="lede">チャットログ・ロスター・雇用カードのアバター枠は円形のままなので、前回のバストアップを残しています。各名前の右は、ロスター28px・モバイル18px・現行アイコン（薄く表示）の順です。</p>
+    <div class="busts">{busts}</div>
+  </section>
+
+  <section>
+    <div class="sec-head"><h2>組み込みに必要なゲーム側の変更</h2><span>いずれも未実施</span></div>
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th>箇所</th><th>現在</th><th>変更後</th><th>理由</th></tr></thead>
         <tbody>
-          <tr><td>Furnace（デスクトップ）</td><td class="n">64×64</td><td class="n">44×44</td><td class="n">0.69×</td><td class="bad">縮小。ドットが潰れる</td></tr>
-          <tr><td>Furnace（モバイル）</td><td class="n">64×64</td><td class="n">32×32</td><td class="n">0.50×</td><td class="ok">2:1。かろうじて保つ</td></tr>
-          <tr><td>AGT（デスクトップ）</td><td class="n">96×64</td><td class="n">132×88</td><td class="n">1.375×</td><td class="bad">ドット幅が不均一に</td></tr>
-          <tr><td>AGT（モバイル）</td><td class="n">96×64</td><td class="n">96×64</td><td class="n">1.00×</td><td class="ok">完全一致</td></tr>
-          <tr><td>アバター（ロスター）</td><td class="n">32×32</td><td class="n">28×28 円形</td><td class="n">0.88×</td><td class="bad">縮小＋角を円で切り落とし</td></tr>
-          <tr><td>アバター（モバイル）</td><td class="n">32×32</td><td class="n">18×18 円形</td><td class="n">0.56×</td><td class="bad">顔の造作が消える</td></tr>
+          <tr><td class="n">TILE_DESKTOP</td><td class="n">44</td><td class="n act">48</td><td>16pxアートが×3の整数倍になる。ラボ幅は704→768px</td></tr>
+          <tr><td class="n">TILE_MOBILE</td><td class="n">32</td><td class="n">32（据置）</td><td>すでに16pxの×2</td></tr>
+          <tr><td class="n">zoomLevel</td><td class="n">0.3–3.0 連続</td><td class="n act">1/3刻みに丸め</td><td>連続ズームでは非整数倍が生じ、ドット幅が不揃いになる</td></tr>
+          <tr><td class="n">.eq-sprite</td><td class="n">inset:0（クリップ）</td><td class="n act">上方向へ1タイル開放</td><td>装置がキャラクターと同じ背丈に立てる</td></tr>
+          <tr><td class="n">.character</td><td class="n">0.55タイルの円</td><td class="n act">1×2タイルの矩形</td><td>全身スプライトを置くため</td></tr>
+          <tr><td class="n">.equip .eq-sprite</td><td class="n">background-size:100% 100%</td><td class="n act">image-rendering:pixelated</td><td>拡大時に平滑補間させない</td></tr>
         </tbody>
       </table>
     </div>
     <div class="note">
-      <h4>ドット絵に移行するなら、先に決めるべきこと</h4>
-      <p>タイルは <code>TILE_DESKTOP = 44</code> / <code>TILE_MOBILE = 32</code> の固定値に、0.3〜3.0倍の連続ズームが掛かります。ドット絵は整数倍でないと目に見えて崩れるので、① 原寸をタイルの約数に合わせる（1×1装置なら22×22か44×44）、② ズームを整数段に丸める、③ <code>image-rendering:pixelated</code> で崩れを許容する、のいずれかが要ります。</p>
-      <p>アバターは円形に切り抜かれるうえ最小18pxです。32×32のバストアップは四隅と襟元が捨てられるので、実装するなら16×16の顔だけに寄せるか、アバター枠を角丸の正方形に変えるかの判断が先になります。</p>
+      <h4>残りの作業量</h4>
+      <p>装置は14点中2点、キャラクターは21人中3人が描けています。残りは同じ骨格とパレットの上に載るので、1点あたりの手数は今回より小さくなります。ただし装置は種類ごとに形が違うため、キャラクターほど自動化は効きません。</p>
     </div>
   </section>
 
   <footer>
     生成物と生成スクリプト
     <ul>
-      <li>assets/pixel/furnace.png · AGT.png · ben.png · grace.png · smith.png</li>
-      <li>tools/pixelart/pixcore.py（キャンバスとパレット）· pixshapes.py · furnace.py · agt.py · characters.py</li>
-      <li>tools/pixelart/make_preview.py（このページ）</li>
+      <li>assets/pixel/ — furnace.png · furnace_tall.png · AGT.png</li>
+      <li>assets/pixel/char/ — ben.png · grace.png · smith.png（シート）＋ *_front.png</li>
+      <li>assets/pixel/portrait/ — ben.png · grace.png · smith.png（アバター用）</li>
+      <li>tools/pixelart/spec.py（投射とグリッドの規約）· pixcore.py · pixshapes.py</li>
+      <li>tools/pixelart/furnace.py · agt.py · sprites.py · portraits.py</li>
+      <li>tools/pixelart/make_scene.py（ラボ床モック）· make_preview.py（このページ）</li>
     </ul>
   </footer>
 </div>

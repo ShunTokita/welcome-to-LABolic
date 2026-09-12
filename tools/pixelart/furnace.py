@@ -1,79 +1,97 @@
-"""Furnace — 64x64.
+"""Furnace — Lv1, footprint one lab tile.
 
-The painted asset's read, rebuilt on a 64px grid: a cream enamel cabinet, a
-receding body slab behind it on the left, an inset door with a glowing
-porthole, a flue on the crown, four stubby feet. Framed tighter than the
-painting, because at 64px the painting's generous margin is pixels thrown
-away — in game the same reframing is done at runtime by --sprite-zoom.
+Two sprites are emitted from one description:
 
-Draw order matters. Solids are inked as they are placed; the ground shadow
-goes down last via `shadow_ellipse`, which fills only empty cells so the
-shadow never picks up an outline of its own.
+  furnace.png       16x16 — the sprite fits inside its footprint
+  furnace_tall.png  16x32 — the same machine drawn a tile taller, overhanging
+                            upward, the way the 1x2 characters do
+
+The second exists because of what the mock floor shows: a person is 16x32 and
+a Lv1 device confined to 16x16 ends up half their height, so a furnace reads
+as a countertop appliance. Overhang costs one CSS change (.equip currently
+clips its sprite) and no change to collision, since the footprint is
+unchanged. Both are kept so the two can be judged side by side.
+
+Front elevation plus a top face, per tools/pixelart/spec.py. Transparent
+background, contact shadow only: a device carrying its own ground would tile
+visibly against the floor grid.
+
+The rule that matters at this size: ink draws the outer silhouette and nothing
+else. Every interior edge is a step in value instead, because a 1px ink line
+inside a 12px face eats an eighth of the form.
 """
 import sys, os
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 from pixcore import Canvas, P
-from pixshapes import panel, round_rect, shadow_ellipse
+from pixshapes import shadow_ellipse
 
 OUT = os.path.join(HERE, '..', '..', 'assets', 'pixel')
-c = Canvas(64, 64, bg=P['bg'])
 ink = P['ink']
 
-# --- feet, placed first so the cabinet overlaps their tops ------------
-for lx in (21, 30, 39, 47):
-    panel(c, lx, 44, lx + 5, 52, P['body_lo'], ink, r=1)
-    c.rect(lx + 1, 45, lx + 2, 51, P['body'])
-    c.hline(lx + 1, lx + 4, 51, P['body_dk'])
-panel(c, 13, 44, 18, 51, P['body_dk'], ink, r=1)        # the rear slab's foot
+PORT = ['.ooo.',
+        'oaabo',
+        'oabbo',
+        'obbbo',
+        '.ooo.']
 
-# --- flue on the crown -------------------------------------------------
-panel(c, 34, 4, 42, 13, P['body_lo'], ink, r=1)
-for x in (36, 38, 40):                                   # louvre slots
-    c.vline(x, 6, 11, P['body_dk'])
 
-# --- receding body slab, behind and to the left ------------------------
-panel(c, 11, 15, 22, 48, P['body_dk'], ink, r=3)
-c.rect(12, 18, 15, 46, P['body_lo'])                     # its lit left cheek
+def draw(height):
+    """height is 16 or 32; every landmark is measured up from the floor."""
+    c = Canvas(16, height)
+    floor = height - 1                    # the shadow row
+    body_bot = floor - 1                  # feet
+    body_top = 5 if height == 32 else 2
+    flue_top = 0
+    top_face = body_top + (3 if height == 32 else 2)   # last row of the top face
+    seam = top_face + 1
+    door_top = seam + (3 if height == 32 else 2)
+    door_bot = body_bot - 1
 
-# --- main cabinet ------------------------------------------------------
-panel(c, 19, 11, 53, 48, P['body'], ink, r=3)
-c.rect(20, 14, 21, 45, P['body_hi'])                     # light down the left edge
-c.hline(22, 50, 12, P['body_hi'])                        # light along the crown
-c.rect(50, 14, 52, 45, P['body_lo'])                     # shaded right cheek
+    # flue
+    c.rect(6, flue_top, 9, body_top, ink)
+    c.rect(7, flue_top + 1, 8, body_top, P['body_lo'])
 
-# --- inset door --------------------------------------------------------
-# The recess is one shade of shadow; the leaf sits a pixel down and right of
-# it, so the shadow survives as a hairline along the top and left.
-round_rect(c, 24, 17, 47, 42, P['body_lo'], r=3)
-panel(c, 25, 18, 48, 43, P['body_hi'], ink, r=3)
-for i in range(6):                                       # diagonal corner sheen
-    c.px(28 + i, 20, P['white']); c.px(27 + i, 21, P['white'])
+    # cabinet silhouette
+    c.rect(1, body_top, 14, body_bot, ink)
 
-for hy in (23, 35):                                      # hinges on the left stile
-    panel(c, 23, hy, 27, hy + 5, P['body'], ink, r=0)
-    c.px(25, hy + 2, P['body_dk'])
-c.rect(45, 29, 47, 33, P['body_lo'])                     # latch on the right stile
-c.frame(45, 29, 47, 33, ink)
+    # Three flat steps, brightest on top, describe the whole box: top face,
+    # front face, and the door sunk into it.
+    c.rect(2, body_top + 1, 13, top_face, P['body_hi'])
+    c.vline(13, body_top + 1, top_face, P['body'])        # the top's right edge turns away
+    c.hline(2, 13, seam, P['body_dk'])                    # front/top seam
+    c.rect(2, seam + 1, 13, body_bot - 1, P['body'])
+    c.vline(2, seam + 1, body_bot - 1, P['body_hi'])      # lit left edge
+    c.vline(13, seam + 1, body_bot - 1, P['body_dk'])     # shaded right edge
 
-# --- porthole, with the fire behind it ---------------------------------
-c.disc(36, 30, 6, ink)
-c.disc(36, 30, 5, P['met_hi'])                           # metal bezel
-c.disc(36, 31, 5, P['met'])                              # ...lit from above
-c.disc(36, 30, 4, ink)
-c.disc(36, 30, 3, P['hot_c'])
-c.disc(36, 30, 2, P['hot_b'])
-c.px(35, 29, P['hot_a']); c.px(36, 29, P['hot_a']); c.px(35, 30, P['hot_a'])
-c.px(35, 29, P['white'])
+    # door, set into the front face
+    c.rect(3, door_top, 12, door_bot, P['body_lo'])
+    c.hline(3, 12, door_top, P['body_dk'])                # recess shadow, top...
+    c.vline(3, door_top, door_bot, P['body_dk'])          # ...and left
 
-# --- indicator lamp ----------------------------------------------------
-c.disc(45, 16, 2, ink)
-c.disc(45, 16, 1, P['hot_b'])
-c.px(45, 15, P['hot_a'])
+    port_y = (door_top + door_bot) // 2 - 2
+    c.stamp(PORT, {'o': ink, 'a': P['hot_a'], 'b': P['hot_b']}, ox=5, oy=port_y)
 
-# --- ground shadow, last and never outlined ----------------------------
-shadow_ellipse(c, 32, 52, 24, 3, P['shadow'])
+    if height == 32:
+        # A control strip only earns its pixels on the tall sprite; at 16px
+        # the same four pixels read as dirt.
+        c.rect(3, seam + 1, 12, door_top - 2, P['body_dk'])
+        c.hline(4, 11, seam + 2, P['met'])
+        c.px(4, seam + 2, P['hot_b'])
+        c.px(6, seam + 2, P['met_hi'])
+        c.px(11, seam + 2, P['hot_a'])
+    else:
+        c.px(11, door_top + 1, P['hot_b'])                # indicator lamp
 
-c.save(os.path.join(OUT, 'furnace.png'))
-c.save(os.environ['SCRATCH'] + '/furnace_x8.png', scale=8)
-print('furnace ok')
+    # feet
+    c.rect(2, floor, 4, floor, ink)
+    c.rect(11, floor, 13, floor, ink)
+    shadow_ellipse(c, 7.5, floor, 7, 0.6, P['shadow'])
+    return c
+
+
+for h, name in ((16, 'furnace.png'), (32, 'furnace_tall.png')):
+    cv = draw(h)
+    cv.save(os.path.join(OUT, name))
+    cv.save(os.environ['SCRATCH'] + '/%s_x12.png' % name[:-4], scale=12)
+print('furnace 16x16 + 16x32 ok')

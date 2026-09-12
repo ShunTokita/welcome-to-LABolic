@@ -1,4 +1,8 @@
-"""Ben / Grace / Smith — 32x32 bust portraits.
+"""Ben / Grace / Smith — 32x32 bust portraits, for the avatar slots.
+
+These are the chat log, roster and hire-card avatars, which the game draws
+as circles 18-28px across. The lab floor uses tools/pixelart/sprites.py
+instead: full figures at 16x32.
 
 Built as one shared skull-and-shoulders scaffold with per-character hair,
 features and colour, rather than three independent drawings. At 32px the
@@ -17,7 +21,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 from pixcore import Canvas, P
 
-OUT = os.path.join(HERE, '..', '..', 'assets', 'pixel')
+OUT = os.path.join(HERE, '..', '..', 'assets', 'pixel', 'portrait')
 INK = P['ink']
 
 # The head is deliberately kept off the frame edge: at 32px an icon that
