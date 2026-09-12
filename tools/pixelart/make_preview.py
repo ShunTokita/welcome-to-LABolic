@@ -4,9 +4,11 @@ Artifact pages sit behind a CSP that blocks every external host, so every PNG
 travels inside the file as a data URI. Output goes to build/, which is
 git-ignored — the same convention tools/preview.sh follows.
 """
-import base64, os
+import base64, os, sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
+sys.path.insert(0, HERE)
+from pixcore import P
 ROOT = os.path.normpath(os.path.join(HERE, '..', '..'))
 
 
@@ -25,6 +27,65 @@ A = {k: uri(v) for k, v in {
 }.items()}
 for cid in ('ben', 'grace', 'smith'):
     A['sheet_' + cid] = uri('assets/pixel/char/%s.png' % cid)
+for fl in ('lv1', 'lv2', 'lv3', 'lv4_a', 'lv4_b', 'lv4_c', 'lv4_d'):
+    A['scene_' + fl] = uri('build/lab-scene-%s.png' % fl)
+    A['tile_' + fl] = uri('assets/pixel/floor/%s.png' % fl)
+
+
+# Contrast of each Lv4 candidate against the three steps of the device body
+# palette. WCAG relative luminance; these are not text ratios, but they are
+# the right instrument for "can you still see the cabinet against the floor".
+def _lum(c):
+    def f(v):
+        v /= 255
+        return v / 12.92 if v <= 0.04045 else ((v + 0.055) / 1.055) ** 2.4
+    return 0.2126 * f(c[0]) + 0.7152 * f(c[1]) + 0.0722 * f(c[2])
+
+
+def contrast(a, b):
+    la, lb = sorted((_lum(a), _lum(b)))
+    return (lb + 0.05) / (la + 0.05)
+
+
+LV4 = [('lv4_a', '#b8ad8a', (184, 173, 138), '現行'),
+       ('lv4_b', '#c5ba97', (197, 186, 151), '推奨'),
+       ('lv4_c', '#d2c7a6', (210, 199, 166), ''),
+       ('lv4_d', '#ded4b7', (222, 212, 183), '')]
+# Read the device palette rather than restating it: a second copy of these
+# three colours is a second thing to keep in step with pixcore.
+BODY = [('正面 body', P['body']), ('影 body_lo', P['body_lo']),
+        ('濃影 body_dk', P['body_dk'])]
+
+lv4_rows = []
+for key, hexv, rgb, tag in LV4:
+    cells = ''
+    for _, part in BODY:
+        r = contrast(rgb, part)
+        cls = ' class="bad"' if r < 1.15 else (' class="n"' if r < 1.3 else ' class="n ok"')
+        cells += f'<td{cls}>{r:.2f}</td>'
+    label = f'{hexv}<span class="pill">{tag}</span>' if tag else hexv
+    lv4_rows.append(f'<tr><td class="n">{label}</td>{cells}</tr>')
+lv4_rows = '\n'.join(lv4_rows)
+
+C = {key: [contrast(rgb, part) for _, part in BODY] for key, _, rgb, _ in LV4}
+
+FLOORS = [('lv1', '木造', '長尺の床板と木目。突きつけ目地は入れていない——8pxごとの横目地に16pxごとの縦目地が重なると矩形が並び、色を変えても煉瓦に見えるため'),
+          ('lv2', 'コンクリート打ちっぱなし', '骨材のまだらと、細いヒビ2本。タイル境界で途切れないよう、ヒビは32pxタイルの内側に収めている'),
+          ('lv3', '緑のラバー床', '8px間隔の丸い突起。実験室用ラバーシートの定番で、レベルが上がって予算が付いた最初の兆候'),
+          ('lv4_b', 'クリーム色シートビニル', '控えめな2色のフレック。最も長く見る床なので、模様は意図的に静かにしてある')]
+floor_blocks = '\n'.join(f'''
+      <div class="device">
+        <h3>Lv{i + 1} {label}<span class="tag">assets/pixel/floor/{key}.png · 32×32</span></h3>
+        <p>{note}</p>
+        <div class="floorrow">
+          <figure class="plate"><div class="art" style="padding:0"><img class="px" src="{A['tile_' + key]}" alt="" width="128" height="128"></div><figcaption>タイル ×4</figcaption></figure>
+          <figure class="plate"><div class="art" style="padding:0"><img class="px" src="{A['scene_' + key]}" alt="Lv{i + 1}の床に置いた装置とキャラクター" width="416" height="192"></div><figcaption>×2 配置</figcaption></figure>
+        </div>
+      </div>''' for i, (key, label, note) in enumerate(FLOORS))
+
+lv4_strip = '\n'.join(f'''
+        <figure class="plate"><div class="art" style="padding:0"><img class="px" src="{A['scene_' + key]}" alt="{hexv}の床" width="416" height="192"></div><figcaption>{key.replace('lv4_', 'Lv4-')} {hexv}{' — ' + tag if tag else ''}</figcaption></figure>'''
+    for key, hexv, rgb, tag in LV4)
 
 AUDIT = [
     ('正面図・左右対称', 'casting, PSS, AGT, QAA, MPSS, TEM', 6),
@@ -125,6 +186,12 @@ HTML = f'''<title>LABolic ドット絵アセット</title>
   .device > h3 .tag {{ font-family:var(--mono); font-size:11px; color:var(--ink-3);
                        margin-left:10px; font-weight:500; }}
   .device > p {{ margin:0 0 16px; color:var(--ink-2); max-width:62ch; font-size:14px; }}
+  .floorrow {{ display:flex; flex-wrap:wrap; gap:16px; align-items:flex-start; }}
+  .lv4strip {{ display:flex; flex-direction:column; gap:14px; }}
+  .pill {{ font-family:var(--mono); font-size:9.5px; letter-spacing:.06em; margin-left:8px;
+           padding:1px 6px; border:1px solid var(--accent-2); color:var(--accent-2); }}
+  td.ok {{ color:var(--ink-2); }}
+  td.bad {{ color:var(--accent); font-weight:600; }}
   .plates {{ display:flex; flex-wrap:wrap; gap:16px; align-items:flex-end; }}
   .plate {{ margin:0; background:var(--panel); border:1px solid var(--line); }}
   .plate .art {{ display:grid; place-items:center; padding:12px; background:var(--lab); }}
@@ -252,8 +319,37 @@ HTML = f'''<title>LABolic ドット絵アセット</title>
   <section>
     <div class="sec-head"><h2>キャラクター — ラボ床スプライト</h2><span>1×2タイル / 3方向 × 歩行2フレーム</span></div>
     <p class="lede">現行の <code>.character</code> は0.55タイルの円です。これを全身像に置き換えます。足元の占有は1×1のまま、グラフィックは半マス上へはみ出します。側面は右向きだけを描き、左向きはCSSの水平反転で作ります——左右対称の投射を選んだ利点がここで効きます。2フレームで足りるのは、タイル間の移動を既存の <code>transition: 0.15s</code> が担っているためです。</p>
-    <p class="lede">プロポーションは頭8行・胴7行・脚6行。16×32だった前稿は胴に11行、頭に12行を与えていて、ずんぐりではなく引き伸ばされた人物に見えていました。この大きさでは頭は縦より横がわずかに広く、胴は頭より短いほうが収まります。</p>
+    <p class="lede">プロポーションは頭8行・胴7行・脚6行。16×32だった稿は胴に11行、頭に12行を与えていて、ずんぐりではなく引き伸ばされた人物に見えていました。この大きさでは頭は縦より横がわずかに広く、胴は頭より短いほうが収まります。</p>
+    <p class="lede">目元には3行を充てています。首を2行から1行に詰め、頭の上端を1行上げて捻出しました。目の帯が1行しかないと眼鏡がただの黒い棒になり、BenとSmithが見分けられなくなります。いまBenは丸レンズとブリッジ、Smithは下縁のない半縁で、それぞれ3行を使っています。口は任意で、眼鏡や髭が下顔面をすでに担っているBenとSmithには置いていません——暗い2pxが増えるだけで濁るためです。</p>
     {sheets}
+  </section>
+
+  <section>
+    <div class="sec-head"><h2>床</h2><span>ラボレベル別 / 32×32タイル</span></div>
+    <p class="lede">床はプレイヤーが最も長く見る面なので、主張しないことが条件になります。レベル差は色だけでなく素材そのもので付けました。タイルを32×32（2×2マス）にしてあるのは、隣り合うマスで模様が変わり、16px周期の反復が目立たないようにするためです。32は16の倍数なのでグリッドとの整合は保たれます。</p>
+    {floor_blocks}
+    <div class="note">
+      <h4>グリッド線について</h4>
+      <p>現在ゲームは床の上に1pxのグリッドを重ねています（<code>.lab</code>、通常0.18・レイアウトモード0.4）。木目やラバーの突起の上に乗せると素材と干渉するので、通常時は切ってレイアウトモード専用にするのが良いと考えます。上の配置画像はいずれもグリッドなしです。</p>
+    </div>
+  </section>
+
+  <section>
+    <div class="sec-head"><h2>Lv4の明るさ</h2><span>4案 / 装置との弁別</span></div>
+    <p class="lede">Lv4は最も滞在時間が長いので、明るさを上げすぎると目が疲れます。加えて、上げていくと装置の筐体と床が同化します。下表は各案と筐体パレット3段とのコントラスト比（WCAG相対輝度）で、1.0が完全な同色です。</p>
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th>床</th><th>筐体 正面</th><th>筐体 影</th><th>筐体 濃影</th></tr></thead>
+        <tbody>{lv4_rows}</tbody>
+      </table>
+    </div>
+    <div class="note">
+      <h4>bを推します</h4>
+      <p><b>c は筐体の影側との比が {C['lv4_c'][1]:.2f}</b>、つまりFurnaceの陰になった右端が床と区別できません。d では正面の面そのものが {C['lv4_d'][0]:.2f} まで落ち、筐体が輪郭線だけで浮いた状態になります。b の最悪値は影側の {C['lv4_b'][1]:.2f} ですが、正面は {C['lv4_b'][0]:.2f} を保ち、濃紺の輪郭線がシルエットを担保します。</p>
+      <p>ただし表を縦に見ると、これは明るさだけの問題ではありません。現行(a)ですでに濃影が {C['lv4_a'][2]:.2f} で床とほぼ同値です。床を明るくすると濃影は分離し、代わりに影側が沈む——筐体パレットの影の段が床の輝度帯を横切っているためで、どの明るさでも3段のどれかが床に近づきます。</p>
+      <p>現行(a)より明るくしたいというご要望と、目の疲れ・弁別の両方を満たす上限が b です。これより明るくするなら、装置パレットの影側（<code>body_lo</code> / <code>body_dk</code>）を先に振り直し、床の輝度帯から離す必要があります。</p>
+    </div>
+    <div class="lv4strip">{lv4_strip}</div>
   </section>
 
   <section>
@@ -268,6 +364,8 @@ HTML = f'''<title>LABolic ドット絵アセット</title>
           <tr><td class="n">.eq-sprite</td><td class="n">inset:0（クリップ）</td><td class="n act">上方向へ1タイル開放</td><td>装置がキャラクターと同じ背丈に立てる</td></tr>
           <tr><td class="n">.character</td><td class="n">0.55タイルの円</td><td class="n act">幅1×高さ1.5タイル</td><td>全身スプライトを置く。足元の占有マスは1×1のまま</td></tr>
           <tr><td class="n">.equip .eq-sprite</td><td class="n">background-size:100% 100%</td><td class="n act">image-rendering:pixelated</td><td>拡大時に平滑補間させない</td></tr>
+          <tr><td class="n">--bg-lab</td><td class="n">#b8ad8a 単色</td><td class="n act">レベル別の32pxタイル</td><td>Lv1木造 / Lv2コンクリート / Lv3ラバー / Lv4クリーム</td></tr>
+          <tr><td class="n">.lab のグリッド</td><td class="n">常時0.18</td><td class="n act">レイアウトモードのみ</td><td>床テクスチャと干渉するため</td></tr>
         </tbody>
       </table>
     </div>
@@ -283,7 +381,8 @@ HTML = f'''<title>LABolic ドット絵アセット</title>
       <li>assets/pixel/ — furnace.png · furnace_tall.png · AGT.png</li>
       <li>assets/pixel/char/ — ben.png · grace.png · smith.png（シート）＋ *_front.png</li>
       <li>tools/pixelart/spec.py（投射とグリッドの規約）· pixcore.py · pixshapes.py</li>
-      <li>tools/pixelart/furnace.py · agt.py · sprites.py</li>
+      <li>assets/pixel/floor/ — lv1.png · lv2.png · lv3.png · lv4_a〜d.png</li>
+      <li>tools/pixelart/furnace.py · agt.py · sprites.py · floors.py</li>
       <li>tools/pixelart/make_scene.py（ラボ床モック）· make_preview.py（このページ）</li>
     </ul>
   </footer>

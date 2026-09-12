@@ -7,7 +7,7 @@ x2 the mobile one.
 The floor is the game's own — #b8ad8a with a 1px grid line at every tile
 boundary, matching the .lab rule in labolic-playtest-40.html.
 """
-import sys, os
+import os, sys
 from PIL import Image
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
@@ -16,19 +16,14 @@ import spec
 ROOT = os.path.normpath(os.path.join(HERE, '..', '..'))
 T = spec.ART_TILE
 COLS, ROWS = 13, 6
-FLOOR = (184, 173, 138)
-GRID = (152, 141, 112)
 
 
-def build():
-    scene = Image.new('RGBA', (COLS * T, ROWS * T), FLOOR + (255,))
-    px = scene.load()
-    for x in range(scene.width):          # the game's 1px grid, at every tile edge
-        for y in range(0, scene.height, T):
-            px[x, y] = GRID + (255,)
-    for y in range(scene.height):
-        for x in range(0, scene.width, T):
-            px[x, y] = GRID + (255,)
+def build(floor='assets/pixel/floor/lv4_b.png'):
+    scene = Image.new('RGBA', (COLS * T, ROWS * T))
+    tile = Image.open(os.path.join(ROOT, floor)).convert('RGBA')
+    for y in range(0, scene.height, tile.height):
+        for x in range(0, scene.width, tile.width):
+            scene.paste(tile, (x, y))
 
     def place(path, col, row):
         """Anchor by the sprite's own footprint: a sprite taller than its
@@ -47,11 +42,14 @@ def build():
     return scene
 
 
+FLOORS = ['lv1', 'lv2', 'lv3', 'lv4_a', 'lv4_b', 'lv4_c', 'lv4_d']
+
 if __name__ == '__main__':
-    out = os.path.join(ROOT, 'build', 'lab-scene.png')
-    os.makedirs(os.path.dirname(out), exist_ok=True)
-    s = build()
-    s.save(out)
-    s.resize((s.width * 3, s.height * 3), Image.NEAREST).save(
-        os.environ['SCRATCH'] + '/scene_x3.png')
-    print(out, s.size)
+    outdir = os.path.join(ROOT, 'build')
+    os.makedirs(outdir, exist_ok=True)
+    for name in FLOORS:
+        sc = build('assets/pixel/floor/%s.png' % name)
+        sc.save(os.path.join(outdir, 'lab-scene-%s.png' % name))
+    sc = build()
+    sc.save(os.path.join(outdir, 'lab-scene.png'))
+    print(outdir, sc.size, '/', len(FLOORS), 'floors')
