@@ -41,3 +41,51 @@ def shadow_ellipse(cv, cx, cy, rx, ry, col):
         for x in range(cv.w):
             if ((x - cx) / (rx + 0.5)) ** 2 + ((y - cy) / (ry + 0.5)) ** 2 <= 1.0:
                 under(cv, x, y, col)
+
+
+def box(cv, x0, y0, x1, y1, top_h, ramp, ink):
+    """A rectangular solid in the house projection: a lit top face of top_h
+    rows, a mid front face, and a shaded right edge. No side face — see
+    tools/pixelart/spec.py for why."""
+    cv.rect(x0, y0, x1, y1, ink)
+    if top_h:
+        cv.rect(x0 + 1, y0 + 1, x1 - 1, y0 + top_h, ramp['top'])
+    cv.rect(x0 + 1, y0 + top_h + 1, x1 - 1, y1 - 1, ramp['base'])
+    cv.vline(x0 + 1, y0 + top_h + 1, y1 - 1, ramp['lit'])
+    cv.vline(x1 - 1, y0 + 1, y1 - 1, ramp['shade'])
+
+
+def ramp(top, lit, base, shade):
+    return {'top': top, 'lit': lit, 'base': base, 'shade': shade}
+
+
+def drop_shadow(cv, col, dx=1, dy=1):
+    """One pixel of cast shadow down and to the right of the silhouette.
+
+    The lab floor at Lv4 is bright enough that a cream cabinet sits within a
+    hair of it in value; darkening the cabinet does not help, because the
+    floor's luminance falls inside the body ramp and moving the ramp only
+    changes which step collides. What restores the separation is depth, so
+    the devices cast.
+    """
+    add = []
+    for (x, y), c in cv.d.items():
+        if len(c) == 4 and c[3] < 255:
+            continue                       # shadows do not cast shadows
+        if (x + dx, y + dy) not in cv.d:
+            add.append((x + dx, y + dy))
+    for p in add:
+        cv.px(p[0], p[1], col)
+
+
+def contact_shadow(cv, col, reach=5, spread=1):
+    """A band on the bottom row, but only under the columns the sprite
+    actually stands in. A full-width band reads as a plinth the device does
+    not have — a microscope and a four-tile rack do not touch the floor over
+    the same span."""
+    y = cv.h - 1
+    feet = {x for (x, yy), c in cv.d.items()
+            if yy >= cv.h - reach and not (len(c) == 4 and c[3] < 255)}
+    for x in sorted(feet):
+        for dx in range(-spread, spread + 1):
+            under(cv, x + dx, y, col)

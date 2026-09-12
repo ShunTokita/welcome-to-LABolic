@@ -102,20 +102,15 @@ def vinyl(base):
     return im
 
 
-# Lv4 candidates. The current floor is #b8ad8a; the brief is "a little
-# brighter, not bright", so the ladder steps ~6% at a time and stops well
-# short of white.
-LV4 = {
-    'lv4_a': (184, 173, 138),      # #b8ad8a — the current floor, as the control
-    'lv4_b': (197, 186, 151),      # #c5ba97
-    'lv4_c': (210, 199, 166),      # #d2c7a6
-    'lv4_d': (222, 212, 183),      # #ded4b7
-}
+# Lv4 was chosen from a four-step ladder above the current #b8ad8a floor.
+# The brightest was picked; the cost is that a cream cabinet sits within a
+# hair of the floor in value, which is why every device casts a pixel of
+# shadow (see the note in tools/pixelart/devices.py).
+LV4 = (222, 212, 183)      # #ded4b7
 
 if __name__ == '__main__':
     wood().save(os.path.join(OUT, 'lv1.png'))
     concrete().save(os.path.join(OUT, 'lv2.png'))
     rubber().save(os.path.join(OUT, 'lv3.png'))
-    for name, col in LV4.items():
-        vinyl(col).save(os.path.join(OUT, name + '.png'))
-    print('floors ok:', 'lv1 lv2 lv3', ' '.join(LV4))
+    vinyl(LV4).save(os.path.join(OUT, 'lv4.png'))
+    print('floors ok: lv1 lv2 lv3 lv4')

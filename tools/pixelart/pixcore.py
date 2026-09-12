@@ -15,8 +15,12 @@ from PIL import Image
 P = {
     'bg':      (227, 198, 154),   # warm tan ground, sampled off furnace.png
     'bg2':     (248, 241, 223),   # paler cream ground (AGT-family)
-    'shadow':  (203, 172, 132),   # contact shadow on the tan ground
-    'shadow2': (228, 214, 186),   # ...and on the pale AGT ground
+    # Shadows are translucent black, not a tint: the same sprite stands on
+    # timber, concrete, rubber and vinyl, and only a multiply-like shadow
+    # reads correctly on all four.
+    'shadow':  (0, 0, 0, 74),     # contact shadow, under the footprint
+    'drop':    (0, 0, 0, 44),     # 1px cast shadow, down and to the right
+    'shadow2': (0, 0, 0, 50),
     'ink':     (43, 50, 82),      # outline navy
     'ink2':    (30, 35, 60),      # deeper navy, for cast shadow inside forms
 
@@ -54,6 +58,10 @@ P = {
     'sk_hi':   (255, 226, 196),
     'sk':      (240, 201, 160),
     'sk_lo':   (214, 166, 124),
+    'sk_md':   (206, 154, 106),   # a second and third complexion, so a lab of
+    'sk_md_lo':(172, 122, 80),    # twenty-six is not one face in six palettes
+    'sk_dk':   (156, 106, 70),
+    'sk_dk_lo':(122,  80,  52),
 
     # Coats / cloth
     'coat_hi': (253, 250, 242),
@@ -61,6 +69,13 @@ P = {
     'coat_lo': (205, 198, 180),
 
     'glass':   (206, 227, 242),   # lens tint
+    'dglass':  (52, 64, 94),      # dark chamber glass
+    'ener_a':  (208, 246, 255),   # plasma / beam, hot core
+    'ener_b':  (104, 196, 234),
+    'ener_c':  (46, 120, 178),
+    'cu_hi':   (232, 168, 112),   # copper windings
+    'cu':      (198, 124, 70),
+    'cu_lo':   (144, 84, 46),
     'white':   (255, 255, 255),
 }
 
@@ -171,14 +186,18 @@ class Canvas:
                 self.px(ox + j, oy + i, key[ch])
 
     def to_image(self):
+        """Colours may be RGB or RGBA. Translucent ones matter for shadows:
+        a sprite sits on four different lab floors, so its shadow has to be
+        the floor darkened rather than one baked-in tint."""
         im = Image.new('RGBA', (self.w, self.h), (0, 0, 0, 0))
         pxs = im.load()
+        rgba = lambda c: c if len(c) == 4 else c + (255,)
         if self.bg is not None:
             for y in range(self.h):
                 for x in range(self.w):
-                    pxs[x, y] = self.bg + (255,)
+                    pxs[x, y] = rgba(self.bg)
         for (x, y), c in self.d.items():
-            pxs[x, y] = c + (255,)
+            pxs[x, y] = rgba(c)
         return im
 
     def save(self, path, scale=1):
