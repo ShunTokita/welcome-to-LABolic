@@ -98,42 +98,77 @@ def sparkle(c, x, y):
 # =====================================================================
 @product('brass')
 def brass(c):
-    # Reference composition, house rules: bell up and to the right, valve
-    # cluster in the middle, tuning slide looping back under it. The loop is
-    # what stops three vertical casings on a tube reading as a syringe rack.
-    CY = 13
-    for i in range(10):                                   # the bell
-        x = 20 + i
-        half = 3 + (i * i) // 8
-        c.vline(x, CY - half, CY + half, INK)
-        if i:
-            c.vline(x, CY - half + 1, CY + half - 1, P['brass'])
-            c.px(x, CY - half + 1, P['brass_hi'])
-            c.px(x, CY + half - 1, P['brass_lo'])
-    c.vline(30, 1, 25, INK)                               # its rim
-    c.vline(29, 2, 24, P['brass_hi'])
-    c.vline(30, 2, 24, P['brass'])
-    c.rect(4, CY - 2, 21, CY + 2, INK)                    # the lead pipe
-    c.rect(4, CY - 1, 21, CY + 1, P['brass'])
-    c.hline(4, 21, CY - 1, P['brass_hi'])
-    c.hline(4, 21, CY + 1, P['brass_lo'])
-    for vx in (8, 12, 16):                                # three valve casings
-        c.rect(vx, 4, vx + 3, CY - 2, INK)
-        c.rect(vx + 1, 5, vx + 2, CY - 2, P['brass'])
-        c.vline(vx + 1, 5, CY - 2, P['brass_hi'])
-        c.rect(vx, 1, vx + 3, 4, INK)                     # and finger buttons
-        c.rect(vx + 1, 2, vx + 2, 3, P['brass_hi'])
-        c.px(vx + 2, 3, P['brass'])
-    c.rect(6, 17, 21, 20, INK)                            # the tuning slide,
-    c.rect(7, 18, 20, 19, P['brass'])                     # looping back under
-    c.hline(7, 20, 18, P['brass_hi'])
-    for (bx, by0) in ((6, CY + 2), (19, CY + 2)):
-        c.rect(bx, by0, bx + 2, 18, INK)
-        c.vline(bx + 1, by0, 18, P['brass'])
-    c.rect(0, CY - 4, 5, CY + 4, INK)                     # the mouthpiece
-    c.rect(1, CY - 3, 4, CY + 3, P['brass_hi'])
-    c.rect(2, CY - 2, 4, CY + 2, P['brass'])
-    c.px(1, CY - 3, P['white'])
+    # The trumpet on the diagonal, as in the reference: bell up and to the
+    # right, valves standing off the bore, slide looping back below.
+    #
+    # Two things had to be learned here. A rotated shape has to be rasterised
+    # per pixel — assembled out of 45-degree strokes it comes out as a
+    # checkerboard, because two diagonal lines a pixel apart only touch at
+    # their corners. And the parts have to be laid down in separate passes
+    # with an outline between them, or valves, bore and bell fuse into one
+    # gold blob with nothing to tell them apart.
+    OX, OY = 5.0, 27.0
+    R = math.sqrt(2) / 2
+    BORE, BELL = 15.0, 25.0
+    VALVES = (4.5, 9.0, 13.5)
+
+    def sweep(test):
+        """Paint every pixel the test accepts, in bore coordinates: u along
+        the instrument, v across it, v negative on the lit side."""
+        for y in range(32):
+            for x in range(32):
+                u = ((x - OX) - (y - OY)) * R
+                v = ((x - OX) + (y - OY)) * R
+                col = test(u, v)
+                if col is not None:
+                    c.px(x, y, col)
+
+    def shade(v, half):
+        if v < -half + 1.5:
+            return P['brass_hi']
+        if v > half - 1.1:
+            return P['brass_lo']
+        return P['brass']
+
+    def barrel(u, v):
+        if 0 <= u <= BORE:
+            half = 2.3
+        elif BORE < u <= BELL:
+            half = min(2.3 + (u - BORE) ** 2 / 8.0, 8.0)
+        elif -3.0 <= u < 0:
+            half = 1.4 - u * 0.75
+        else:
+            return None
+        return shade(v, half) if abs(v) <= half else None
+
+    sweep(barrel)
+    c.outline(INK, over=None)
+
+    def valves(u, v):
+        for vu in VALVES:
+            if abs(u - vu) <= 1.2 and -8.6 <= v <= -3.9:
+                return P['brass_hi'] if u < vu else P['brass']
+            if abs(u - vu) <= 2.0 and -10.4 <= v < -8.6:
+                return P['brass_hi']
+        return None
+
+    sweep(valves)
+    c.outline(INK, over=None)
+
+    def slide(u, v):
+        if 5.0 <= u <= 14.0 and 4.8 <= v <= 6.9:
+            return P['brass'] if v < 6.0 else P['brass_lo']
+        if (abs(u - 5.0) <= 1.0 or abs(u - 14.0) <= 1.0) and 2.6 <= v < 4.8:
+            return P['brass_lo']
+        return None
+
+    sweep(slide)
+    c.outline(INK, over=None)
+    for t in range(-8, 9):                                # a lip on the bell
+        x = int(round(OX + (BELL + t * 0.9) * R))
+        y = int(round(OY + (t * 0.9 - BELL) * R))
+        if c.d.get((x, y)) not in (None, INK):
+            c.px(x, y, P['brass_hi'])
 
 
 @product('cupronickel')
@@ -211,38 +246,40 @@ def invar(c):
 
 @product('permalloy')
 def permalloy(c):
-    # An E-I transformer read from the front: the copper sits on the centre
-    # limb with a core window either side of it. Wrapping a slab in copper
-    # bands instead just drew a crate.
-    c.rect(2, 10, 29, 27, INK)                            # the core
-    c.rect(3, 11, 28, 14, P['met_hi'])                    # its top face
-    c.hline(3, 28, 14, P['met'])
-    c.rect(3, 15, 28, 26, P['met'])
-    c.vline(3, 15, 26, P['met_hi'])
-    c.hline(3, 28, 26, P['met_lo'])
-    for y in range(16, 27, 2):                            # the laminations
-        c.hline(4, 27, y, P['met_lo'])
-    c.rect(5, 15, 11, 24, INK)                            # the two windows
-    c.rect(6, 16, 10, 23, P['ink2'])
-    c.rect(20, 15, 26, 24, INK)
-    c.rect(21, 16, 25, 23, P['ink2'])
-    c.rect(11, 6, 20, 27, INK)                            # the centre limb,
-    c.rect(12, 7, 19, 26, P['cu'])                        # wound in copper
-    for y in range(7, 27, 3):
-        c.hline(12, 19, y, P['cu_hi'])
-        c.hline(12, 19, y + 2, P['cu_lo'])
-    c.vline(12, 7, 26, P['cu_hi'])
-    c.vline(19, 7, 26, P['cu_lo'])
-    c.px(13, 8, P['white'])
-    c.rect(0, 16, 3, 21, INK)                             # the terminals
-    c.rect(1, 17, 2, 20, P['brass'])
-    c.px(1, 17, P['brass_hi'])
-    c.rect(28, 16, 31, 21, INK)
-    c.rect(29, 17, 30, 20, P['brass'])
-    c.px(29, 17, P['brass_hi'])
-    c.rect(5, 27, 9, 30, INK)                             # and the feet
-    c.rect(22, 27, 26, 30, INK)
-    c.hline(6, 8, 28, P['met_lo']); c.hline(23, 25, 28, P['met_lo'])
+    # A C-core with copper wound over about half of it. The E-I version read
+    # as a picture frame: the window and the limb are the same rectangle twice,
+    # and at 32px that is all anyone sees. A C has one unmistakable shape, and
+    # the gap in it says "magnetic circuit" without needing any detail.
+    CX, CY, RO, RI = 15.5, 16, 13, 8
+    for y in range(32):                                   # the core
+        for x in range(32):
+            dx, dy = x - CX, y - CY
+            d = math.hypot(dx, dy)
+            if not (RI <= d <= RO):
+                continue
+            if dx > 0 and abs(dy) < dx * 0.55:            # its gap, facing right
+                continue
+            if d > RO - 1.2 or d < RI + 1.2:
+                c.px(x, y, P['met_lo'])
+            elif dx + dy < -3:
+                c.px(x, y, P['met_hi'])
+            else:
+                c.px(x, y, P['met'])
+    for k in range(9):                                    # the winding, over
+        a = math.radians(104 + k * 17)                    # the left half only
+        hi = P['cu_hi'] if k % 3 == 0 else (P['cu_lo'] if k % 3 == 2 else P['cu'])
+        for t in range(-30, 31):
+            r = RI - 2.0 + (RO - RI + 4.0) * (t + 30) / 60.0
+            for w in (-0.055, 0.0, 0.055):
+                c.px(int(round(CX + r * math.cos(a + w))),
+                     int(round(CY + r * math.sin(a + w))), hi)
+    c.rect(20, 4, 25, 8, INK)                             # its two leads
+    c.rect(21, 5, 24, 7, P['cu'])
+    c.hline(21, 24, 5, P['cu_hi'])
+    c.rect(20, 24, 25, 28, INK)
+    c.rect(21, 25, 24, 27, P['cu_lo'])
+    c.hline(21, 24, 25, P['cu'])
+    c.outline(INK, over=None)
 
 
 @product('nichrome')
@@ -278,49 +315,47 @@ def nichrome(c):
 
 @product('ferritic_ss')
 def ferritic_ss(c):
-    # A sink is looked down into, so the deck is a trapezoid widening toward
-    # the viewer and the bowl walls converge to a floor; drawn as a front
-    # elevation it came out a microwave three times. The tap sits over the
-    # right of the deck and stops well short of it — carried across the full
-    # width it closed a rectangle with the deck and read as a carrying handle.
-    for i in range(17):                                   # the deck
-        y = 12 + i
-        x0 = 4 - (i * 4) // 16
-        x1 = 27 + (i * 4) // 16
+    # A shallow square sink seen from above and in front, the way the
+    # reference has it: the deck is barely a trapezoid, the bowl is a rounded
+    # square inside it, and the tap stands at the back right corner.
+    for i in range(15):                                   # the deck
+        y = 13 + i
+        x0 = 3 - (i * 3) // 14
+        x1 = 28 + (i * 3) // 14
         c.hline(x0, x1, y, INK)
         c.hline(x0 + 1, x1 - 1, y, P['sil'])
         c.px(x0 + 1, y, P['sil_hi'])
         c.px(x1 - 1, y, P['sil_lo'])
-    c.hline(5, 26, 13, P['sil_hi'])
-    c.hline(1, 30, 28, P['sil_lo'])
-    for i in range(12):                                   # the bowl
+    c.hline(4, 27, 14, P['sil_hi'])
+    c.hline(1, 30, 27, P['sil_lo'])
+    for i in range(11):                                   # the bowl
         y = 15 + i
-        x0 = 7 - (i * 2) // 11
-        x1 = 24 + (i * 2) // 11
+        x0 = 6 - (i * 2) // 10
+        x1 = 25 + (i * 2) // 10
         c.hline(x0, x1, y, INK)
         if i:
             c.hline(x0 + 1, x1 - 1, y, P['sil_lo'])
-    c.hline(7, 24, 16, P['met_lo'])                       # the far wall's shade
-    c.rect(6, 19, 25, 25, P['sil_lo'])                    # the floor
-    c.hline(6, 25, 19, P['met_lo'])
-    c.hline(5, 26, 26, P['sil'])                          # the near wall, lit
-    c.vline(5, 19, 26, P['sil'])
-    c.ellipse(12, 22, 3, 2, INK)                          # the drain, off to
-    c.ellipse(12, 22, 2, 1, P['met_lo'])                  # one side
-    c.px(9, 18, P['sil_hi']); c.px(10, 18, P['sil_hi'])
-    c.rect(22, 3, 25, 14, INK)                            # the tap's riser,
-    c.vline(23, 4, 13, P['sil_hi'])                       # kept slim: fat, it
-    c.vline(24, 4, 13, P['sil'])                          # closes a rectangle
-    c.rect(26, 5, 29, 8, INK)                             # with the deck and
-    c.px(27, 6, P['sil_hi']); c.px(28, 6, P['sil'])       # reads as a handle
-    c.px(27, 7, P['sil_lo'])
-    c.rect(16, 2, 25, 5, INK)                             # the gooseneck
-    c.hline(17, 24, 3, P['sil_hi'])
-    c.hline(17, 24, 4, P['sil'])
-    c.rect(15, 3, 18, 9, INK)                             # and the spout, well
-    c.vline(16, 4, 8, P['sil_hi'])                        # clear of the deck
-    c.vline(17, 4, 8, P['sil_lo'])
-    c.px(16, 9, P['ink2']); c.px(17, 9, P['ink2'])
+    for (x, y) in ((6, 15), (25, 15), (4, 25), (27, 25)):
+        c.d.pop((x, y), None)                             # its rounded corners
+    c.hline(6, 25, 16, P['met_lo'])                       # the far wall's shade
+    c.rect(5, 19, 26, 24, P['sil_lo'])                    # the floor
+    c.hline(5, 26, 19, P['met_lo'])
+    c.hline(4, 27, 25, P['sil'])                          # the near wall, lit
+    c.ellipse(12, 22, 3, 2, INK)                          # the drain
+    c.ellipse(12, 22, 2, 1, P['met_lo'])
+    c.px(8, 18, P['sil_hi']); c.px(9, 18, P['sil_hi'])
+    c.rect(23, 4, 26, 15, INK)                            # the tap, at the
+    c.vline(24, 5, 14, P['sil_hi'])                       # back right corner
+    c.vline(25, 5, 14, P['sil']) 
+    c.rect(27, 6, 30, 9, INK)                             # its lever
+    c.px(28, 7, P['sil_hi']); c.px(29, 7, P['sil'])
+    c.rect(17, 3, 26, 6, INK)                             # the gooseneck
+    c.hline(18, 25, 4, P['sil_hi'])
+    c.hline(18, 25, 5, P['sil'])
+    c.rect(16, 4, 19, 10, INK)                            # and the spout
+    c.vline(17, 5, 9, P['sil_hi'])
+    c.vline(18, 5, 9, P['sil_lo'])
+    c.px(17, 10, P['ink2']); c.px(18, 10, P['ink2'])
 
 
 @product('austenitic_ss')
@@ -383,27 +418,26 @@ def ti_cr_beta(c):
 
 @product('nitinol')
 def nitinol(c):
-    # Ordinary spectacles: thin rims, a bridge, and both temples. Thick rims
-    # on big lenses are goggles, and one temple is half a pair.
+    # Spectacles. The rim is one pixel: two, and the lenses stop being lenses
+    # and become the dark holes of a pair of goggles.
     for ex in (10, 22):
-        c.ring(ex, 15, 6, 5, INK)
-        c.disc(ex, 15, 4, P['glass'])
-        c.disc(ex - 1, 13, 2, P['white'])
-        c.px(ex + 2, 17, P['sil_hi'])
-    c.hline(15, 17, 11, INK)                              # the bridge
-    c.px(15, 12, INK); c.px(17, 12, INK)
-    c.px(16, 12, P['glass'])
+        ell_ring(c, ex, 15, 6, 6, INK)
+        c.disc(ex, 15, 5, P['glass'])
+        ell_ring(c, ex, 15, 6, 6, INK)
+        c.disc(ex - 2, 13, 2, P['white'])
+        c.px(ex + 3, 18, P['sil_hi'])
+    c.hline(16, 16, 11, INK)                              # the bridge
+    c.px(15, 12, INK); c.px(17, 12, INK); c.px(16, 12, P['glass'])
     c.px(16, 10, P['sil_hi'])
-    c.hline(2, 4, 11, INK)                                # left temple
-    c.hline(1, 3, 12, INK)
-    c.px(3, 11, P['sil_hi'])
-    c.px(0, 12, INK); c.px(0, 13, INK); c.px(1, 14, INK)
-    c.hline(27, 29, 11, INK)                              # right temple, bent
-    c.hline(28, 30, 12, INK)
-    c.px(28, 11, P['sil_hi'])
-    c.px(30, 10, INK); c.px(29, 9, INK)
-    c.px(28, 8, INK); c.px(27, 8, INK)
-    c.px(28, 9, P['sil_hi'])
+    c.hline(2, 3, 11, INK)                                # left temple
+    c.hline(1, 2, 12, INK)
+    c.px(0, 13, INK); c.px(0, 14, INK); c.px(1, 15, INK)
+    c.px(2, 11, P['sil_hi'])
+    c.hline(28, 29, 11, INK)                              # right temple, bent
+    c.hline(29, 30, 12, INK)
+    c.px(31, 11, INK); c.px(31, 10, INK)
+    c.px(30, 9, INK); c.px(29, 8, INK); c.px(28, 8, INK)
+    c.px(29, 11, P['sil_hi'])
     sparkle(c, 20, 26)
 
 
@@ -658,17 +692,15 @@ def azoth(c):
 
 @product('quintessence')
 def quintessence(c):
-    # An armillary sphere: gold hoops around a lit core, on a stand. The core
-    # is the blue of the reference rather than the Lv4 purple — purple is the
-    # equipment's colour in this game, and here it would read as a machine.
-    for (rx, ry, col) in ((12, 12, P['brass']),           # the meridian
-                          (4, 12, P['brass_lo']),         # a second hoop
-                          (12, 4, P['brass_hi']),         # and two latitudes
-                          (12, 8, P['brass'])):
-        ell_ring(c, 15.5, 14, rx, ry, col)
-    ell_ring(c, 15.5, 14, 12, 12, P['brass'])
-    for x in range(3, 29):                                # the equator, bright
+    # An armillary sphere: a meridian, an equator, one more hoop each way, and
+    # a lit core. Five hoops made a basket; four leave the core visible, which
+    # is the only part that says this is not furniture.
+    ell_ring(c, 15.5, 14, 12, 12, P['brass'])             # the meridian
+    ell_ring(c, 15.5, 14, 5, 12, P['brass_lo'])           # a second, edge-on
+    ell_ring(c, 15.5, 14, 12, 4, P['brass_hi'])           # a tropic
+    for x in range(3, 29):                                # and the equator
         c.px(x, 14, P['brass_hi'])
+        c.px(x, 15, P['brass_lo'])
     c.disc(15.5, 14, 5, INK)                              # the core
     c.disc(15.5, 14, 4, P['ener_c'])
     c.disc(15.5, 14, 3, P['ener_b'])
