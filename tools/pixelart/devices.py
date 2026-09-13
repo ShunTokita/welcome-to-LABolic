@@ -331,18 +331,26 @@ def laser(c, t):
 
 @device('magnet', (2, 2), frames=8)
 def magnet(c, t):
-    """The coil gives up four pixels of diameter so the field has somewhere to
-    be. In the previous version the arcs were drawn behind a coil that filled
-    the tile, and an effect nobody can see is not an effect."""
-    for i, r in enumerate((15, 12, 9)):             # the field, pulsing outward
-        lit = (int(t * 8) % 3) == i
-        for k in range(240):
-            a = math.pi * (k / 120.0)
-            x = int(round(15.5 + r * math.cos(a)))
-            y = int(round(12 - r * 0.85 * math.sin(a)))
-            under(c, x, y, P['cry_hi'] if lit else P['glow'])
-            y2 = int(round(12 + r * 0.5 * math.sin(a)))
-            under(c, x, y2, P['cry'] if lit else P['glow'])
+    """Rings of field travelling outward from the coil.
+
+    Cross-fading three fixed arcs, as the last version did, only made them
+    brighter and dimmer in place — nothing moved, and three arcs at once was
+    already a thicket. Two arcs, each growing from the coil to the edge and
+    fading as it goes, read as emission and leave the sprite legible. They are
+    drawn in translucent purple, so they tint the floor instead of sitting on
+    it, and so the cast-shadow pass skips them.
+    """
+    CX, CY, RMIN, RMAX = 15.5, 15, 7.0, 16.0
+    STEPS = ((0.30, (216, 194, 246, 225)), (0.65, (200, 172, 238, 165)),
+             (1.00, (188, 160, 230, 105)))
+    for i in range(2):                              # two rings, half a beat apart
+        u = (t + 0.5 * i) % 1.0
+        r = RMIN + u * (RMAX - RMIN)
+        col = next(v for lim, v in STEPS if u <= lim)
+        for k in range(300):
+            a = 2 * math.pi * k / 300
+            c.px(int(round(CX + r * math.cos(a))),
+                 int(round(CY + r * 0.62 * math.sin(a))), col)
     box(c, 4, 22, 27, 29, 2, BODY, INK)             # bed
     readout(c, 7, 15, 27)
     c.rect(11, 10, 20, 21, INK)                     # coil former
@@ -453,52 +461,55 @@ def phase(c, t):
 
 @device('qaa', (3, 2), frames=8)
 def qaa(c, t):
-    """A beam line leaves a ring along the tangent, so these leave at twelve
-    and six o'clock and run straight out to the detector consoles — an earlier
-    version had them radiating from the rim like spokes, which is not how a
-    beam gets out of a machine. The L-bends filling the corners are cooling,
-    not beam: they come off the cabinets, not the ring.
+    """A ring on a plinth, boxed in by racks on three sides.
+
+    The previous version replaced the flanking cabinets with two diagonal
+    consoles and gave the ring nothing to stand on, so the machine floated.
+    The racks are back — left, right, and a low bank across the rear — and the
+    ring sits on a plinth between them.
+
+    The beam leaves along the tangent, which at twelve and six o'clock is
+    horizontal: one line runs out to the right rack, the other to the left.
     """
     cx, cy, R, BAND = 23.5, 13, 9, 6
-    box(c, 2, 27, 45, 30, 1, OCHRE, INK)                    # bench
+    # The rear bank is a step darker than the flanking racks. Same ochre at
+    # the same value would sit in the same plane as them; one step back is
+    # what puts it behind the ring.
+    OCHRE_BACK = ramp(P['och'], P['och'], P['och_lo'], P['ink2'])
+    box(c, 4, 1, 43, 9, 2, OCHRE_BACK, INK)                 # rear bank of racks
+    for y in range(5, 9, 2):
+        c.hline(6, 41, y, P['ink2'])
+    for x in range(7, 41, 6):
+        c.px(x, 5, P['cry']); c.px(x + 2, 7, P['hot_b'])
 
-    def console(x0, y0, x1, y1):
-        box(c, x0, y0, x1, y1, 2, OCHRE, INK)
-        c.rect(x0 + 2, y0 + 4, x1 - 2, y1 - 2, P['dglass'])  # the detector
-        c.frame(x0 + 2, y0 + 4, x1 - 2, y1 - 2, P['ink2'])
-        return (x0 + x1) // 2
+    for x0 in (0, 39):                                      # left and right racks
+        box(c, x0, 9, x0 + 8, 29, 2, OCHRE, INK)
+        c.rect(x0 + 2, 14, x0 + 6, 19, P['dglass'])         # a detector in each
+        c.frame(x0 + 2, 14, x0 + 6, 19, P['ink2'])
+        c.px(x0 + 4, 16, P['cry_hi'])
+        for y in range(22, 28, 2):
+            c.hline(x0 + 2, x0 + 6, y, P['och_lo'])
+        c.rect(x0 + 3, 9, x0 + 5, 11, INK)                  # a cooling riser to the
+        c.vline(x0 + 4, 9, 10, P['met'])                    # rear bank
 
-    console(35, 1, 46, 10)                                  # upper right
-    console(1, 16, 12, 25)                                  # lower left
+    box(c, 17, 21, 30, 29, 2, OCHRE, INK)                   # the plinth
+    c.hline(19, 28, 26, P['och_lo'])
 
-    def beamline(x0, x1, y, out_right):
+    def beamline(x0, x1, y, rightward):
         c.rect(x0, y - 1, x1, y + 2, INK)
         c.rect(x0, y, x1, y + 1, P['met_lo'])
         c.hline(x0, x1, y, P['met'])
-        n = x1 - x0
+        n = max(1, x1 - x0)
         for k in range(0, n, 3):                            # the beam inside it
-            u = (k / max(1, n) + (t if out_right else -t)) % 1.0
+            u = (k / n + (t if rightward else -t)) % 1.0
             c.px(int(round(x0 + u * n)), y, P['cry'])
-        u = (t * 1.0) % 1.0
-        px_ = x0 + u * n if out_right else x1 - u * n
-        c.px(int(round(px_)), y, P['cry_hi'])
-        c.px(int(round(px_)) - 1, y, P['cry'])
+        u = t % 1.0
+        hx = x0 + u * n if rightward else x1 - u * n
+        c.px(int(round(hx)), y, P['cry_hi'])
+        c.px(int(round(hx)) - 1, y, P['cry'])
 
-    beamline(int(cx), 36, cy - R + 1, True)                 # twelve o'clock, out right
-    beamline(11, int(cx), cy + R - 1, False)                # six o'clock, out left
-
-    # Cooling, in L-bends off the consoles. Kept in metal with one cool
-    # highlight: drawn in full cyan they shouted over the beam lines, which
-    # are the thing the machine is about.
-    for (vx, vy0, vy1, hx0, hx1, hy) in ((39, 10, 22, 33, 42, 21),
-                                         (5, 5, 17, 5, 14, 4)):
-        c.rect(vx, vy0, vx + 3, vy1, INK)
-        c.rect(vx + 1, vy0 + 1, vx + 2, vy1 - 1, P['met_lo'])
-        c.vline(vx + 1, vy0 + 1, vy1 - 1, P['met'])
-        c.rect(hx0, hy, hx1, hy + 3, INK)
-        c.rect(hx0 + 1, hy + 1, hx1 - 1, hy + 2, P['met_lo'])
-        c.hline(hx0 + 1, hx1 - 1, hy + 1, P['met'])
-        c.px(hx0 + 2, hy + 2, P['ener_b']); c.px(hx1 - 2, hy + 1, P['ener_b'])
+    beamline(int(cx), 40, cy - R + 1, True)                 # twelve o'clock, to the right
+    beamline(7, int(cx), cy + R - 1, False)                 # six o'clock, to the left
 
     c.ring(cx, cy, R, BAND, INK)                            # the ring
     c.ring(cx, cy, R - 1, BAND + 1, P['och'])
