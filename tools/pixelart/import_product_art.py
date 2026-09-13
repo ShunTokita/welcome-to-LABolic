@@ -16,8 +16,11 @@ What it does, per file:
      mean, especially across an ink outline
   3. snaps every colour to the nearest entry in the shared palette, in Lab,
      so "nearest" means what the eye means rather than what RGB distance means
-  4. re-inks the silhouette, because step 2 and 3 both nibble at a 1px outline
-  5. writes a 1-bit alpha, since the artifact CSS scales these with
+  4. opens and closes the mask, so the silhouette stops zig-zagging by a pixel
+  5. absorbs single pixels that match none of their neighbours
+  6. re-inks the silhouette, because steps 2 and 3 both nibble at a 1px outline,
+     then thins it back to one pixel where the source's own outline survived
+  7. writes a 1-bit alpha, since the artifact CSS scales these with
      image-rendering: pixelated and a soft edge shows up as a grey fringe
 
 Usage:
@@ -192,6 +195,119 @@ def downsample(im, size, pad=1):
     return out
 
 
+# --------------------------------------------------------------------------
+# cleanup
+# --------------------------------------------------------------------------
+INKS = (INK, tuple(P['ink2'][:3]))
+N4 = ((1, 0), (-1, 0), (0, 1), (0, -1))
+
+
+def _neighbours(px, w, h, x, y):
+    for dx, dy in N4:
+        nx, ny = x + dx, y + dy
+        if 0 <= nx < w and 0 <= ny < h:
+            yield nx, ny, px[nx, ny]
+
+
+def clean_alpha(im, rounds=2):
+    """Straighten the silhouette.
+
+    Majority-vote downsampling decides each destination pixel on its own, so
+    along a boundary the vote flips back and forth and the edge comes out with
+    one-pixel spurs and notches. Opening then closing the mask removes both:
+    an opaque pixel hanging off the shape by a single corner goes, and a
+    single-pixel bite out of the shape fills in.
+    """
+    w, h = im.size
+    for _ in range(rounds):
+        px = im.load()
+        drop, fill = [], []
+        for y in range(h):
+            for x in range(w):
+                opaque = [n for n in _neighbours(px, w, h, x, y) if n[2][3] == 255]
+                if px[x, y][3] == 255:
+                    if len(opaque) < 2:
+                        drop.append((x, y))
+                elif len(opaque) >= 3:
+                    fill.append(((x, y), Counter(n[2][:3] for n in opaque).most_common(1)[0][0]))
+        if not drop and not fill:
+            break
+        for p in drop:
+            px[p] = (0, 0, 0, 0)
+        for p, col in fill:
+            px[p] = col + (255,)
+    return im
+
+
+def despeckle(im):
+    """Absorb single pixels that match none of their neighbours.
+
+    The source art is shaded finely enough that at this scale a lone cell can
+    win a vote for a colour that appears nowhere around it. One such pixel
+    reads as dirt, and a field of them reads as noise.
+
+    Judged over all eight neighbours, not four: a one-pixel line running
+    diagonally has no orthogonal neighbour of its own colour, so a four-way
+    test calls every pixel of it a speck and dissolves the line. That is what
+    happened to the sink's drain the first time.
+    """
+    w, h = im.size
+    px = im.load()
+    fix = []
+    for y in range(h):
+        for x in range(w):
+            if px[x, y][3] != 255:
+                continue
+            here = px[x, y][:3]
+            around = []
+            for dy in (-1, 0, 1):
+                for dx in (-1, 0, 1):
+                    if dx == dy == 0:
+                        continue
+                    nx, ny = x + dx, y + dy
+                    if 0 <= nx < w and 0 <= ny < h and px[nx, ny][3] == 255:
+                        around.append(px[nx, ny][:3])
+            if around and here not in around:
+                fix.append(((x, y), Counter(around).most_common(1)[0][0]))
+    for p, col in fix:
+        px[p] = col + (255,)
+    return im
+
+
+def thin_ink(im):
+    """Bring the outline back to one pixel everywhere.
+
+    Re-inking only ever marks the boundary, so a two-pixel edge means the
+    source's own outline survived the downsample just inside the new one. The
+    inner of the two is replaced by whatever it encloses; an interior dark
+    line that never touches the silhouette has no boundary ink beside it and
+    is left alone.
+    """
+    w, h = im.size
+    px = im.load()
+    edge = set()
+    for y in range(h):
+        for x in range(w):
+            if px[x, y][3] == 255 and px[x, y][:3] in INKS:
+                if any(n[2][3] != 255 for n in _neighbours(px, w, h, x, y)) or \
+                        x in (0, w - 1) or y in (0, h - 1):
+                    edge.add((x, y))
+    fix = []
+    for y in range(h):
+        for x in range(w):
+            if (x, y) in edge or px[x, y][3] != 255 or px[x, y][:3] not in INKS:
+                continue
+            if not any((n[0], n[1]) in edge for n in _neighbours(px, w, h, x, y)):
+                continue
+            fill = [n[2][:3] for n in _neighbours(px, w, h, x, y)
+                    if n[2][3] == 255 and n[2][:3] not in INKS]
+            if fill:
+                fix.append(((x, y), Counter(fill).most_common(1)[0][0]))
+    for p, col in fix:
+        px[p] = col + (255,)
+    return im
+
+
 def reink(im):
     """Put the navy back around the silhouette.
 
@@ -221,13 +337,16 @@ def convert(path, size, do_reink):
     im = drop_flat_background(Image.open(path))
     im = trim(im)
     small = downsample(im, size)
+    small = clean_alpha(small)
     px = small.load()
     for y in range(size):
         for x in range(size):
             r, g, b, a = px[x, y]
             px[x, y] = (0, 0, 0, 0) if a < 128 else snap((r, g, b)) + (255,)
+    small = despeckle(small)
     if do_reink:
         small = reink(small)
+        small = thin_ink(small)
     return small
 
 

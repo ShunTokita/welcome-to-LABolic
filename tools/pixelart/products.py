@@ -246,39 +246,63 @@ def invar(c):
 
 @product('permalloy')
 def permalloy(c):
-    # A C-core with copper wound over about half of it. The E-I version read
-    # as a picture frame: the window and the limb are the same rectangle twice,
-    # and at 32px that is all anyone sees. A C has one unmistakable shape, and
-    # the gap in it says "magnetic circuit" without needing any detail.
-    CX, CY, RO, RI = 15.5, 16, 13, 8
-    for y in range(32):                                   # the core
-        for x in range(32):
+    # A C-core with copper wound over about half of it. The E-I version read as
+    # a picture frame: its window and its centre limb are the same rectangle
+    # twice, and at icon size that is all anyone sees. A C has one shape only,
+    # and the gap in it says "magnetic circuit" with no detail needed.
+    #
+    # The turns are angular wedges, and what separates them is a dark line
+    # rather than a glimpse of the core: the core's lit face is nearly white,
+    # so letting it show between the turns drew bright slashes across the
+    # copper. A winding reads as a solid mass cut by the shadows between wires.
+    U = c.w / 32.0
+    CX, CY = c.w / 2.0 - 0.5, c.h / 2.0
+    RO, RI = 13.0 * U, 7.5 * U
+    RIM = 1.2                                             # in pixels, not units
+    GAP = 0.62                                            # the C's opening
+    TURNS = 8
+    A0, A1 = math.radians(128), math.radians(232)         # half the core
+    STEP = (A1 - A0) / (TURNS - 1)
+    WIDE = STEP * 0.34                                    # leaves steel between
+
+    for y in range(c.h):
+        for x in range(c.w):
             dx, dy = x - CX, y - CY
             d = math.hypot(dx, dy)
+            if d > RO + 3 or d < RI - 3:
+                continue
+            aa = math.atan2(dy, dx)
+            if aa < 0:
+                aa += 2 * math.pi
+            wound = any(abs(aa - (A0 + k * STEP)) <= WIDE for k in range(TURNS))
+            in_coil = A0 - WIDE <= aa <= A1 + WIDE
+            if in_coil and not wound and RI - 2.5 <= d <= RO + 2.5:
+                c.px(x, y, P['cu_lo'])                    # the shadow between
+                continue                                  # one turn and the next
+            if wound and RI - 2.5 <= d <= RO + 2.5:
+                # Shaded across the turn, not along it: each one is a round
+                # wire, so it wants a highlight up its middle and a dark line
+                # where it meets the next.
+                rel = (d - (RI - 2.5)) / ((RO + 2.5) - (RI - 2.5))
+                if rel > 0.88 or rel < 0.12:
+                    col = P['cu_lo']
+                elif 0.48 < rel <= 0.80:
+                    col = P['cu_hi']
+                else:
+                    col = P['cu']
+                c.px(x, y, col)
+                continue
             if not (RI <= d <= RO):
                 continue
-            if dx > 0 and abs(dy) < dx * 0.55:            # its gap, facing right
+            if dx > 0 and abs(dy) < dx * GAP:             # its gap, facing right
                 continue
-            if d > RO - 1.2 or d < RI + 1.2:
-                c.px(x, y, P['met_lo'])
-            elif dx + dy < -3:
-                c.px(x, y, P['met_hi'])
+            if d > RO - RIM or d < RI + RIM:
+                col = P['met_lo']
+            elif dx + dy < -4 * U:
+                col = P['met_hi']
             else:
-                c.px(x, y, P['met'])
-    for k in range(9):                                    # the winding, over
-        a = math.radians(104 + k * 17)                    # the left half only
-        hi = P['cu_hi'] if k % 3 == 0 else (P['cu_lo'] if k % 3 == 2 else P['cu'])
-        for t in range(-30, 31):
-            r = RI - 2.0 + (RO - RI + 4.0) * (t + 30) / 60.0
-            for w in (-0.055, 0.0, 0.055):
-                c.px(int(round(CX + r * math.cos(a + w))),
-                     int(round(CY + r * math.sin(a + w))), hi)
-    c.rect(20, 4, 25, 8, INK)                             # its two leads
-    c.rect(21, 5, 24, 7, P['cu'])
-    c.hline(21, 24, 5, P['cu_hi'])
-    c.rect(20, 24, 25, 28, INK)
-    c.rect(21, 25, 24, 27, P['cu_lo'])
-    c.hline(21, 24, 25, P['cu'])
+                col = P['met']
+            c.px(x, y, col)
     c.outline(INK, over=None)
 
 
@@ -755,14 +779,18 @@ SHIPPED = {
     'azoth', 'quintessence', 'lapis',
 }
 
+# The thirteen imported icons are 64px, so anything still drawn here is drawn
+# at 64 too — a 32px sprite doubled would show twice the dot size next to them.
+CANVAS = 64
+
 if __name__ == '__main__':
     for did in SHIPPED:
-        c = Canvas(S, S)
+        c = Canvas(CANVAS, CANVAS)
         ART[did](c)
         c.save(os.path.join(OUT, did + '.png'))
     for stale in sorted(set(ART) - SHIPPED):
         path = os.path.join(OUT, stale + '.png')
         if os.path.exists(path):
             os.remove(path)
-    print('products ok:', len(SHIPPED), '| drawn but not shipped:',
-          len(ART) - len(SHIPPED))
+    print('products ok: %d at %dpx | drawn but not shipped: %d'
+          % (len(SHIPPED), CANVAS, len(ART) - len(SHIPPED)))
