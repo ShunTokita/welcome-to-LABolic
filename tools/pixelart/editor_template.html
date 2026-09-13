@@ -1,0 +1,693 @@
+<title>LABolic ドットエディタ</title>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Zen+Kaku+Gothic+New:wght@400;500;700&family=IBM+Plex+Mono:wght@400;600&display=swap">
+<style>
+  /* The tool borrows the game's own two colours — the navy every sprite is
+     outlined in, and the purple of the Discovery popup's border — so the
+     editor sits in the same world as the thing being edited. */
+  :root {
+    --ground:   #f4ecd8;
+    --panel:    #fffbf0;
+    --panel-2:  #f9f2e2;
+    --ink:      #2b3252;
+    --ink-soft: #6b7091;
+    --ink-dim:  #9a9ab0;
+    --line:     #ded0b0;
+    --line-soft:#ece0c6;
+    --accent:   #6f4ea0;
+    --accent-2: #ede4f6;
+    --ok:       #3f7d54;
+    --warn:     #a8571f;
+    --shadow:   0 1px 0 rgba(43,50,82,.06), 0 6px 18px rgba(43,50,82,.07);
+    color-scheme: light dark;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --ground:   #191d2b;
+      --panel:    #222739;
+      --panel-2:  #1e2333;
+      --ink:      #e9e4d6;
+      --ink-soft: #a7aec6;
+      --ink-dim:  #6e7590;
+      --line:     #39405a;
+      --line-soft:#2c3247;
+      --accent:   #b294e0;
+      --accent-2: #312a46;
+      --ok:       #7fc496;
+      --warn:     #e0a36a;
+      --shadow:   0 1px 0 rgba(0,0,0,.3), 0 8px 22px rgba(0,0,0,.35);
+    }
+  }
+  :root[data-theme="dark"] {
+    --ground:   #191d2b;
+    --panel:    #222739;
+    --panel-2:  #1e2333;
+    --ink:      #e9e4d6;
+    --ink-soft: #a7aec6;
+    --ink-dim:  #6e7590;
+    --line:     #39405a;
+    --line-soft:#2c3247;
+    --accent:   #b294e0;
+    --accent-2: #312a46;
+    --ok:       #7fc496;
+    --warn:     #e0a36a;
+    --shadow:   0 1px 0 rgba(0,0,0,.3), 0 8px 22px rgba(0,0,0,.35);
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--ground);
+    color: var(--ink);
+    font-family: "Zen Kaku Gothic New", system-ui, -apple-system, sans-serif;
+    font-size: 14px;
+    line-height: 1.6;
+  }
+  .mono { font-family: "IBM Plex Mono", ui-monospace, monospace; }
+
+  .wrap { padding: 18px 16px 48px; max-width: 1180px; margin: 0 auto; }
+
+  header.bar {
+    display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 14px;
+    padding-bottom: 14px; margin-bottom: 16px;
+    border-bottom: 1px solid var(--line);
+  }
+  header.bar h1 {
+    margin: 0; font-size: 19px; font-weight: 700; letter-spacing: .01em;
+  }
+  header.bar .sub { color: var(--ink-soft); font-size: 12.5px; }
+
+  .layout { display: grid; grid-template-columns: 258px minmax(0, 1fr); gap: 18px; align-items: start; }
+  @media (max-width: 900px) { .layout { grid-template-columns: 1fr; } }
+
+  .panel {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 12px 12px 14px;
+    box-shadow: var(--shadow);
+  }
+  .panel + .panel { margin-top: 14px; }
+  .panel h2 {
+    margin: 0 0 9px; font-size: 11px; font-weight: 700;
+    letter-spacing: .12em; text-transform: uppercase; color: var(--ink-soft);
+  }
+
+  /* ---- sprite list ---- */
+  .sprites { display: grid; grid-template-columns: repeat(auto-fill, minmax(60px, 1fr)); gap: 6px; }
+  .sprites button {
+    display: block; padding: 4px 3px 5px; cursor: pointer;
+    background: var(--panel-2); border: 1px solid var(--line-soft);
+    border-radius: 6px; color: var(--ink-soft);
+    font: inherit; font-size: 9.5px; line-height: 1.25; text-align: center;
+  }
+  .sprites button img {
+    display: block; width: 40px; height: 40px; margin: 0 auto 3px;
+    image-rendering: pixelated;
+  }
+  .sprites button:hover { border-color: var(--accent); }
+  .sprites button[aria-pressed="true"] {
+    background: var(--accent-2); border-color: var(--accent); color: var(--ink);
+    font-weight: 700;
+  }
+  .sprites button .dot {
+    display: inline-block; width: 5px; height: 5px; border-radius: 50%;
+    background: var(--ok); vertical-align: middle; margin-left: 3px;
+  }
+  .sprites button .dot[hidden] { display: none; }
+
+  /* ---- tools ---- */
+  .tools { display: flex; gap: 6px; }
+  .tools button {
+    flex: 1; padding: 7px 4px; cursor: pointer; font: inherit; font-size: 12px;
+    background: var(--panel-2); color: var(--ink-soft);
+    border: 1px solid var(--line-soft); border-radius: 6px;
+  }
+  .tools button[aria-pressed="true"] {
+    background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 700;
+  }
+  .tools button kbd {
+    display: block; font-family: "IBM Plex Mono", monospace; font-size: 9px;
+    opacity: .65; margin-top: 1px;
+  }
+
+  /* ---- palette ---- */
+  .swatch-group { margin-bottom: 8px; }
+  .swatch-group h3 {
+    margin: 0 0 4px; font-size: 10.5px; font-weight: 500; color: var(--ink-dim);
+  }
+  .swatches { display: flex; flex-wrap: wrap; gap: 3px; }
+  .swatches button {
+    width: 21px; height: 21px; padding: 0; cursor: pointer;
+    border: 1px solid rgba(43,50,82,.25); border-radius: 3px;
+  }
+  .swatches button[aria-pressed="true"] {
+    outline: 2px solid var(--accent); outline-offset: 1px;
+  }
+  .swatches button.erase {
+    background-color: var(--panel-2);
+    background-image:
+      linear-gradient(45deg, var(--line) 25%, transparent 25%, transparent 75%, var(--line) 75%),
+      linear-gradient(45deg, var(--line) 25%, transparent 25%, transparent 75%, var(--line) 75%);
+    background-size: 10px 10px;
+    background-position: 0 0, 5px 5px;
+  }
+
+  .current {
+    display: flex; align-items: center; gap: 8px;
+    margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--line-soft);
+  }
+  .current .chip {
+    width: 30px; height: 30px; border-radius: 4px;
+    border: 1px solid rgba(43,50,82,.3); flex: none;
+  }
+  .current .meta { min-width: 0; }
+  .current .meta b { display: block; font-size: 12px; font-weight: 700; }
+  .current .meta span { display: block; font-size: 11px; color: var(--ink-soft); }
+
+  /* ---- canvas ---- */
+  .stage-head {
+    display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px;
+    margin-bottom: 10px;
+  }
+  .stage-head .name { font-weight: 700; font-size: 15px; }
+  .stage-head .spacer { flex: 1 1 auto; }
+  .btn {
+    padding: 6px 11px; cursor: pointer; font: inherit; font-size: 12.5px;
+    background: var(--panel); color: var(--ink);
+    border: 1px solid var(--line); border-radius: 6px;
+  }
+  .btn:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); }
+  .btn:disabled { opacity: .42; cursor: default; }
+  .btn.primary {
+    background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 700;
+  }
+  .btn.primary:hover:not(:disabled) { color: #fff; filter: brightness(1.08); }
+  .zoomctl { display: flex; align-items: center; gap: 4px; }
+  .zoomctl .lvl { min-width: 34px; text-align: center; font-size: 12px; color: var(--ink-soft); }
+
+  .stage {
+    background: var(--panel); border: 1px solid var(--line); border-radius: 8px;
+    padding: 14px; box-shadow: var(--shadow); overflow: auto;
+  }
+  #board {
+    display: block; margin: 0 auto; touch-action: none; cursor: crosshair;
+    image-rendering: pixelated;
+    border: 1px solid var(--line);
+  }
+  .readout {
+    margin-top: 9px; display: flex; flex-wrap: wrap; gap: 6px 16px;
+    font-size: 11.5px; color: var(--ink-soft);
+  }
+
+  .note {
+    margin-top: 14px; padding: 10px 12px; border-radius: 6px;
+    background: var(--panel-2); border: 1px solid var(--line-soft);
+    font-size: 12px; color: var(--ink-soft);
+  }
+  .note b { color: var(--ink); }
+  .note ul { margin: 6px 0 0; padding-left: 1.1em; }
+  .note li { margin: 2px 0; }
+
+  #toast {
+    position: fixed; left: 50%; bottom: 22px; transform: translateX(-50%);
+    padding: 9px 16px; border-radius: 999px; font-size: 13px; font-weight: 700;
+    background: var(--ink); color: var(--ground);
+    box-shadow: 0 6px 20px rgba(0,0,0,.28);
+    opacity: 0; pointer-events: none; transition: opacity .18s ease;
+  }
+  #toast.show { opacity: 1; }
+  @media (prefers-reduced-motion: reduce) { #toast { transition: none; } }
+
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+</style>
+
+<div class="wrap">
+  <header class="bar">
+    <h1>LABolic ドットエディタ</h1>
+    <span class="sub">Discovery 製品アイコン 14点 / 64×64</span>
+  </header>
+
+  <div class="layout">
+    <div>
+      <div class="panel">
+        <h2>アイコン</h2>
+        <div class="sprites" id="sprite-list"></div>
+      </div>
+
+      <div class="panel">
+        <h2>道具</h2>
+        <div class="tools">
+          <button id="tool-pen" aria-pressed="true">ペン<kbd>B</kbd></button>
+          <button id="tool-pick" aria-pressed="false">スポイト<kbd>I</kbd></button>
+          <button id="tool-erase" aria-pressed="false">消しゴム<kbd>E</kbd></button>
+        </div>
+        <div class="current">
+          <div class="chip" id="cur-chip"></div>
+          <div class="meta">
+            <b id="cur-name">—</b>
+            <span class="mono" id="cur-hex">—</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <h2>パレット</h2>
+        <div id="palette"></div>
+      </div>
+    </div>
+
+    <div>
+      <div class="stage-head">
+        <span class="name" id="stage-name">—</span>
+        <span class="spacer"></span>
+        <div class="zoomctl">
+          <button class="btn" id="zoom-out" title="縮小">−</button>
+          <span class="lvl mono" id="zoom-lvl">×8</span>
+          <button class="btn" id="zoom-in" title="拡大">＋</button>
+        </div>
+        <button class="btn" id="undo" disabled>一手戻す</button>
+        <button class="btn" id="revert">この1枚を初期化</button>
+        <button class="btn primary" id="save">保存</button>
+      </div>
+
+      <div class="stage">
+        <canvas id="board" width="520" height="520"></canvas>
+        <div class="readout">
+          <span class="mono" id="ro-pos">x — , y —</span>
+          <span class="mono" id="ro-col">—</span>
+          <span id="ro-state">—</span>
+        </div>
+      </div>
+
+      <div class="note" id="howto">
+        <b>使い方</b>
+        <ul>
+          <li>パレットの色を選んで、マスをクリック（ドラッグで連続）</li>
+          <li>スポイトは画面の色を拾ってパレットを合わせます。ペン中でも <b>Alt</b> を押しながらで拾えます</li>
+          <li><b>一手戻す</b> は Ctrl+Z（⌘Z）でも。ドラッグ1回が1手です</li>
+          <li><b>保存</b> すると編集内容が残り、Claude 側から読み取ってリポジトリに反映できます</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="toast" role="status" aria-live="polite"></div>
+
+<script>
+const PALETTE = __PALETTE_JSON__;
+const GROUPS  = __GROUPS_JSON__;
+const SPRITES = __SPRITES_JSON__;
+const ORDER   = __ORDER_JSON__;
+
+const W = 64, H = 64;
+const ZOOMS = [4, 6, 8, 10, 12, 16];
+
+const $ = (id) => document.getElementById(id);
+const board = $('board');
+const ctx = board.getContext('2d', { willReadFrequently: true });
+const off = document.createElement('canvas');
+off.width = W; off.height = H;
+const octx = off.getContext('2d', { willReadFrequently: true });
+
+let curId = ORDER[0];
+let img = null;            // ImageData for the sprite being edited
+let zoom = 8;
+let tool = 'pen';
+let colorIdx = 0;          // index into PALETTE, or -1 for transparent
+let undoStack = [];
+let dirty = new Set();     // sprite ids edited but not yet saved
+let saved = new Set();     // sprite ids with a stored version
+let db = null;
+let downloads = null;
+let painting = false;
+let lastCell = null;
+
+/* ---------- helpers ---------- */
+function hexOf(i) { return i < 0 ? null : PALETTE[i].hex; }
+function rgbOf(hex) {
+  return [parseInt(hex.slice(1, 3), 16), parseInt(hex.slice(3, 5), 16), parseInt(hex.slice(5, 7), 16)];
+}
+function nearestIndex(r, g, b) {
+  let best = 0, bd = Infinity;
+  for (let i = 0; i < PALETTE.length; i++) {
+    const [pr, pg, pb] = PALETTE[i].rgb;
+    const d = (pr - r) ** 2 + (pg - g) ** 2 + (pb - b) ** 2;
+    if (d < bd) { bd = d; best = i; }
+  }
+  return best;
+}
+function toast(msg, ms) {
+  const t = $('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(toast._t);
+  toast._t = setTimeout(() => t.classList.remove('show'), ms || 1900);
+}
+
+/* ---------- rendering ---------- */
+function render() {
+  const px = zoom;
+  board.width = W * px;
+  board.height = H * px;
+  board.style.width = (W * px) + 'px';
+  board.style.height = (H * px) + 'px';
+
+  // A checkerboard first, so transparent cells read as empty rather than as
+  // whatever the page happens to be sitting on.
+  const light = getComputedStyle(document.documentElement).getPropertyValue('--panel-2').trim();
+  const dark = getComputedStyle(document.documentElement).getPropertyValue('--line-soft').trim();
+  const c = 8;
+  for (let y = 0; y < H * px; y += c) {
+    for (let x = 0; x < W * px; x += c) {
+      ctx.fillStyle = (((x / c) + (y / c)) % 2) ? dark : light;
+      ctx.fillRect(x, y, c, c);
+    }
+  }
+
+  octx.putImageData(img, 0, 0);
+  ctx.imageSmoothingEnabled = false;
+  ctx.drawImage(off, 0, 0, W * px, H * px);
+
+  if (px >= 6) {
+    ctx.strokeStyle = 'rgba(43,50,82,.12)';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    for (let i = 1; i < W; i++) {
+      ctx.moveTo(i * px + .5, 0); ctx.lineTo(i * px + .5, H * px);
+      ctx.moveTo(0, i * px + .5); ctx.lineTo(W * px, i * px + .5);
+    }
+    ctx.stroke();
+    ctx.strokeStyle = 'rgba(43,50,82,.28)';
+    ctx.beginPath();
+    for (let i = 8; i < W; i += 8) {
+      ctx.moveTo(i * px + .5, 0); ctx.lineTo(i * px + .5, H * px);
+      ctx.moveTo(0, i * px + .5); ctx.lineTo(W * px, i * px + .5);
+    }
+    ctx.stroke();
+  }
+  $('zoom-lvl').textContent = '×' + px;
+  $('zoom-in').disabled = ZOOMS.indexOf(px) === ZOOMS.length - 1;
+  $('zoom-out').disabled = ZOOMS.indexOf(px) === 0;
+}
+
+function updateState() {
+  $('undo').disabled = undoStack.length === 0;
+  const bits = [];
+  bits.push(dirty.has(curId) ? '未保存の変更あり' : '変更なし');
+  if (saved.has(curId)) bits.push('保存済み');
+  if (!db) bits.push('保存は使えません');
+  $('ro-state').textContent = bits.join(' / ');
+  document.querySelectorAll('#sprite-list button').forEach((b) => {
+    const d = b.querySelector('.dot');
+    d.hidden = !(dirty.has(b.dataset.id) || saved.has(b.dataset.id));
+  });
+}
+
+/* ---------- editing ---------- */
+function pushUndo() {
+  undoStack.push(new Uint8ClampedArray(img.data));
+  if (undoStack.length > 60) undoStack.shift();
+  updateState();
+}
+
+function setPixel(x, y, idx) {
+  const o = (y * W + x) * 4;
+  const d = img.data;
+  if (idx < 0) { d[o] = d[o + 1] = d[o + 2] = d[o + 3] = 0; return; }
+  const [r, g, b] = PALETTE[idx].rgb;
+  d[o] = r; d[o + 1] = g; d[o + 2] = b; d[o + 3] = 255;
+}
+
+function pickAt(x, y) {
+  const o = (y * W + x) * 4;
+  const d = img.data;
+  if (d[o + 3] < 128) { selectColor(-1); return; }
+  selectColor(nearestIndex(d[o], d[o + 1], d[o + 2]));
+}
+
+function cellFromEvent(ev) {
+  const r = board.getBoundingClientRect();
+  const x = Math.floor((ev.clientX - r.left) / (r.width / W));
+  const y = Math.floor((ev.clientY - r.top) / (r.height / H));
+  if (x < 0 || y < 0 || x >= W || y >= H) return null;
+  return [x, y];
+}
+
+function readoutAt(cell) {
+  if (!cell) { $('ro-pos').textContent = 'x — , y —'; $('ro-col').textContent = '—'; return; }
+  const [x, y] = cell;
+  $('ro-pos').textContent = 'x ' + x + ' , y ' + y;
+  const o = (y * W + x) * 4, d = img.data;
+  $('ro-col').textContent = d[o + 3] < 128 ? '（透明）'
+    : '#' + [d[o], d[o + 1], d[o + 2]].map((v) => v.toString(16).padStart(2, '0')).join('').toUpperCase();
+}
+
+board.addEventListener('pointerdown', (ev) => {
+  const cell = cellFromEvent(ev);
+  if (!cell) return;
+  ev.preventDefault();
+  board.setPointerCapture(ev.pointerId);
+  if (tool === 'pick' || ev.altKey) { pickAt(cell[0], cell[1]); return; }
+  pushUndo();
+  painting = true;
+  lastCell = null;
+  paintCell(cell);
+});
+board.addEventListener('pointermove', (ev) => {
+  const cell = cellFromEvent(ev);
+  readoutAt(cell);
+  if (!painting || !cell) return;
+  paintCell(cell);
+});
+['pointerup', 'pointercancel'].forEach((t) => board.addEventListener(t, () => {
+  painting = false; lastCell = null;
+}));
+board.addEventListener('pointerleave', () => readoutAt(null));
+
+function paintCell(cell) {
+  const [x, y] = cell;
+  if (lastCell && lastCell[0] === x && lastCell[1] === y) return;
+  // Bresenham between samples, or a fast drag leaves gaps in the stroke.
+  if (lastCell) {
+    let [x0, y0] = lastCell;
+    const dx = Math.abs(x - x0), sx = x0 < x ? 1 : -1;
+    const dy = -Math.abs(y - y0), sy = y0 < y ? 1 : -1;
+    let err = dx + dy;
+    for (;;) {
+      setPixel(x0, y0, tool === 'erase' ? -1 : colorIdx);
+      if (x0 === x && y0 === y) break;
+      const e2 = 2 * err;
+      if (e2 >= dy) { err += dy; x0 += sx; }
+      if (e2 <= dx) { err += dx; y0 += sy; }
+    }
+  } else {
+    setPixel(x, y, tool === 'erase' ? -1 : colorIdx);
+  }
+  lastCell = [x, y];
+  dirty.add(curId);
+  render();
+  readoutAt(cell);
+  updateState();
+}
+
+function undo() {
+  if (!undoStack.length) return;
+  img.data.set(undoStack.pop());
+  render(); updateState();
+}
+
+/* ---------- selection ---------- */
+function selectColor(i) {
+  colorIdx = i;
+  document.querySelectorAll('#palette button').forEach((b) => {
+    b.setAttribute('aria-pressed', String(Number(b.dataset.i) === i));
+  });
+  const chip = $('cur-chip');
+  if (i < 0) {
+    chip.style.background = 'transparent';
+    chip.style.backgroundImage =
+      'linear-gradient(45deg, var(--line) 25%, transparent 25%, transparent 75%, var(--line) 75%),' +
+      'linear-gradient(45deg, var(--line) 25%, transparent 25%, transparent 75%, var(--line) 75%)';
+    chip.style.backgroundSize = '12px 12px';
+    chip.style.backgroundPosition = '0 0, 6px 6px';
+    $('cur-name').textContent = '透明';
+    $('cur-hex').textContent = 'alpha 0';
+  } else {
+    chip.style.backgroundImage = 'none';
+    chip.style.background = PALETTE[i].hex;
+    $('cur-name').textContent = PALETTE[i].name;
+    $('cur-hex').textContent = PALETTE[i].hex.toUpperCase();
+  }
+}
+
+function setTool(t) {
+  tool = t;
+  $('tool-pen').setAttribute('aria-pressed', String(t === 'pen'));
+  $('tool-pick').setAttribute('aria-pressed', String(t === 'pick'));
+  $('tool-erase').setAttribute('aria-pressed', String(t === 'erase'));
+  board.style.cursor = t === 'pick' ? 'copy' : 'crosshair';
+}
+
+function loadImageData(src) {
+  return new Promise((res, rej) => {
+    const im = new Image();
+    im.onload = () => {
+      octx.clearRect(0, 0, W, H);
+      octx.drawImage(im, 0, 0, W, H);
+      res(octx.getImageData(0, 0, W, H));
+    };
+    im.onerror = rej;
+    im.src = src;
+  });
+}
+
+async function selectSprite(id, useSaved) {
+  curId = id;
+  $('stage-name').textContent = id;
+  document.querySelectorAll('#sprite-list button').forEach((b) => {
+    b.setAttribute('aria-pressed', String(b.dataset.id === id));
+  });
+  let src = SPRITES[id];
+  if (useSaved !== false && db) {
+    try {
+      const snap = await db.doc('sprites/' + id).get();
+      if (snap.exists && snap.data() && snap.data().png) {
+        src = snap.data().png;
+        saved.add(id);
+      }
+    } catch (e) { /* fall back to the shipped art */ }
+  }
+  img = await loadImageData(src);
+  undoStack = [];
+  render();
+  updateState();
+  readoutAt(null);
+}
+
+/* ---------- build the UI ---------- */
+(function buildPalette() {
+  const host = $('palette');
+  const erase = document.createElement('div');
+  erase.className = 'swatch-group';
+  erase.innerHTML = '<h3>消す</h3>';
+  const erow = document.createElement('div');
+  erow.className = 'swatches';
+  const eb = document.createElement('button');
+  eb.className = 'erase'; eb.dataset.i = '-1';
+  eb.title = '透明'; eb.setAttribute('aria-label', '透明');
+  eb.setAttribute('aria-pressed', 'false');
+  eb.addEventListener('click', () => selectColor(-1));
+  erow.appendChild(eb); erase.appendChild(erow); host.appendChild(erase);
+
+  GROUPS.forEach((g) => {
+    const wrap = document.createElement('div');
+    wrap.className = 'swatch-group';
+    const h = document.createElement('h3');
+    h.textContent = g.label;
+    wrap.appendChild(h);
+    const row = document.createElement('div');
+    row.className = 'swatches';
+    g.keys.forEach((key) => {
+      const i = PALETTE.findIndex((p) => p.name === key);
+      if (i < 0) return;
+      const b = document.createElement('button');
+      b.dataset.i = String(i);
+      b.style.background = PALETTE[i].hex;
+      b.title = key + ' ' + PALETTE[i].hex.toUpperCase();
+      b.setAttribute('aria-label', key);
+      b.setAttribute('aria-pressed', 'false');
+      b.addEventListener('click', () => selectColor(i));
+      row.appendChild(b);
+    });
+    wrap.appendChild(row);
+    host.appendChild(wrap);
+  });
+})();
+
+(function buildList() {
+  const host = $('sprite-list');
+  ORDER.forEach((id) => {
+    const b = document.createElement('button');
+    b.dataset.id = id;
+    b.setAttribute('aria-pressed', 'false');
+    b.innerHTML = '<img alt="" src="' + SPRITES[id] + '">' +
+      '<span>' + id + '</span><span class="dot" hidden></span>';
+    b.addEventListener('click', () => selectSprite(id));
+    host.appendChild(b);
+  });
+})();
+
+$('tool-pen').addEventListener('click', () => setTool('pen'));
+$('tool-pick').addEventListener('click', () => setTool('pick'));
+$('tool-erase').addEventListener('click', () => setTool('erase'));
+$('undo').addEventListener('click', undo);
+$('zoom-in').addEventListener('click', () => {
+  const i = ZOOMS.indexOf(zoom);
+  if (i < ZOOMS.length - 1) { zoom = ZOOMS[i + 1]; render(); }
+});
+$('zoom-out').addEventListener('click', () => {
+  const i = ZOOMS.indexOf(zoom);
+  if (i > 0) { zoom = ZOOMS[i - 1]; render(); }
+});
+$('revert').addEventListener('click', async () => {
+  if (!confirm(curId + ' を配布時の絵に戻します。この1枚の編集は失われます。')) return;
+  await selectSprite(curId, false);
+  dirty.delete(curId);
+  updateState();
+  toast('初期化しました');
+});
+
+$('save').addEventListener('click', async () => {
+  if (!db) { toast('この画面では保存できません'); return; }
+  octx.putImageData(img, 0, 0);
+  const png = off.toDataURL('image/png');
+  $('save').disabled = true;
+  try {
+    await db.doc('sprites/' + curId).set({
+      png: png, w: W, h: H, updatedAt: new Date().toISOString()
+    });
+    dirty.delete(curId);
+    saved.add(curId);
+    updateState();
+    toast('保存しました（' + curId + '）');
+  } catch (e) {
+    toast('保存できませんでした: ' + (e && e.code ? e.code : 'unknown'), 3200);
+  } finally {
+    $('save').disabled = false;
+  }
+});
+
+window.addEventListener('keydown', (ev) => {
+  if (ev.target.tagName === 'INPUT' || ev.target.tagName === 'TEXTAREA') return;
+  if ((ev.ctrlKey || ev.metaKey) && ev.key.toLowerCase() === 'z') { ev.preventDefault(); undo(); return; }
+  if (ev.ctrlKey || ev.metaKey || ev.altKey) return;
+  const k = ev.key.toLowerCase();
+  if (k === 'b') setTool('pen');
+  else if (k === 'i') setTool('pick');
+  else if (k === 'e') setTool('erase');
+  else if (k === '+' || k === '=') $('zoom-in').click();
+  else if (k === '-') $('zoom-out').click();
+});
+
+/* ---------- boot ---------- */
+selectColor(PALETTE.findIndex((p) => p.name === 'ink'));
+setTool('pen');
+selectSprite(ORDER[0], false).then(() => {
+  // The store is optional: the page edits fine without it, it just cannot
+  // hand anything back. Wire it up once it answers, then re-read the
+  // current sprite in case a saved version exists.
+  if (window.claude && window.claude.use) {
+    window.claude.use('db').then((d) => {
+      db = d;
+      if (!d) { updateState(); return; }
+      return Promise.all(ORDER.map((id) =>
+        d.doc('sprites/' + id).get().then((s) => { if (s.exists) saved.add(id); }).catch(() => {})
+      )).then(() => selectSprite(curId));
+    }).catch(() => { updateState(); });
+  } else {
+    updateState();
+  }
+});
+</script>
