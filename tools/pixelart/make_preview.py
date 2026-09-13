@@ -53,7 +53,7 @@ FLOORS = [('lv1', '木造', '長尺の床板と木目。突きつけ目地は入
 # Seconds per cycle, per device. A furnace breathes slowly; a rolling mill
 # does not.
 SPEED = {'furnace': 1.6, 'casting': 1.4, 'om': 1.8, 'pc': 1.6, 'arc': 0.9,
-         'rolling': 0.7, 'sem': 1.2, 'laser': 1.1, 'magnet': 1.3, 'tem': 1.8,
+         'rolling': 1.9, 'sem': 1.2, 'laser': 1.1, 'magnet': 1.3, 'tem': 1.8,
          'phase': 1.4, 'qaa': 1.0, 'agt': 1.2, 'mpss': 2.0}
 
 A = {'scene': uri('build/lab-scene.png')}

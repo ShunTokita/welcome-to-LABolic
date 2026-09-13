@@ -52,6 +52,17 @@ def device(did, tiles, frames=1):
     return deco
 
 
+def erow(cx, rx, ry, cy, y):
+    """Half-open x range of an ellipse at row y, or None above/below it. Used
+    where a circular thing is seen at an angle: in this projection the top of
+    a cylinder is an ellipse as wide as the diameter and a quarter as tall."""
+    d = 1.0 - ((y - cy) / ry) ** 2
+    if d <= 0:
+        return None
+    hw = rx * math.sqrt(d)
+    return int(round(cx - hw)), int(round(cx + hw))
+
+
 def tri(t):
     """Triangle wave on [0,1) — a scan that runs out and back."""
     return 2 * t if t < 0.5 else 2 * (1 - t)
@@ -103,38 +114,53 @@ def furnace(c, t):
 
 @device('casting', (1, 1), frames=8)
 def casting(c, t):
-    """A crucible of melt, standing on a tripod over a fire.
+    """A crucible of melt on a tripod over a fire.
 
-    The melt belongs *inside* the vessel, not on top of it. What the oblique
-    projection buys here is exactly that: looking slightly down into an open
-    cup, you see the far inner wall, then the liquid surface, then the near
-    rim in front of it — so the level reads, and the level is the whole point.
-    An earlier draft filled the rim itself with orange, which turned the
-    crucible into a machine with a hot lid.
-
-    Induction would be the real method, but at Lv1 a fire underneath says
-    "melting" faster than a coil does.
+    The vessel is a cylinder, so its mouth is an ellipse — as wide as the
+    diameter and, at this projection's quarter-depth, about five rows tall.
+    Two ellipses do the work: the outer one is the rim of the wall, the inner
+    one is the opening, and the melt fills the inner one. That is what makes
+    the level readable, and the level is the point of the sprite. The lower
+    corners are shaved so the body reads as a cup rather than a can.
     """
+    CX, RIM_CY = 7.5, 3.0
     c.line(4, 11, 3, 14, INK); c.line(5, 11, 4, 14, INK)     # tripod
     c.line(11, 11, 12, 14, INK); c.line(10, 11, 11, 14, INK)
     c.rect(3, 14, 12, 14, INK)
     c.hline(4, 11, 14, P['met_lo'])
-    flick = math.sin(2 * math.pi * t)                        # the fire, breathing
-    top = 12 - (1 if flick > 0.3 else 0)
+    up = math.sin(2 * math.pi * t)                           # the fire, breathing
+    top = 12 - (1 if up > 0.3 else 0)
     c.rect(6, top, 9, 13, P['hot_c'])
     c.rect(7, top, 8, 13, P['hot_b'])
-    c.px(7 + (1 if flick > 0 else 0), top, P['hot_a'])
-    c.rect(2, 1, 13, 11, INK)                                # the cup, slightly flared
-    c.rect(3, 2, 12, 2, P['body_hi'])                        # rim, far top face
-    c.rect(3, 3, 12, 3, P['body_dk'])                        # inner wall, in shadow
-    c.rect(3, 4, 12, 4, P['hot_a'])                          # the melt surface
-    c.rect(3, 5, 12, 5, P['hot_c'])
-    c.px(4 + int(t * 8), 4, P['white'])                      # one highlight, drifting
-    c.rect(3, 6, 12, 6, P['body_hi'])                        # rim, near top face
-    c.rect(3, 7, 12, 10, P['body'])                          # outside wall
-    c.vline(3, 7, 10, P['body_hi'])
-    c.vline(12, 7, 10, P['body_dk'])
-    c.rect(4, 10, 11, 10, P['body_dk'])
+    c.px(7 + (1 if up > 0 else 0), top, P['hot_a'])
+
+    for y in range(3, 12):                                   # the body
+        x0, x1 = (2, 13)
+        if y == 10:
+            x0, x1 = 3, 12                                   # ...corners shaved
+        elif y == 11:
+            x0, x1 = 4, 11
+        c.rect(x0, y, x1, y, INK)
+        if x1 - x0 > 2:
+            c.rect(x0 + 1, y, x1 - 1, y, P['body'])
+            c.px(x0 + 1, y, P['body_hi']); c.px(x1 - 1, y, P['body_dk'])
+
+    for y in range(0, 7):                                    # the rim, an ellipse
+        r = erow(CX, 6.0, 2.6, RIM_CY, y)
+        if not r:
+            continue
+        c.rect(r[0], y, r[1], y, INK)
+        if r[1] - r[0] > 2:
+            c.rect(r[0] + 1, y, r[1] - 1, y, P['body_hi'])
+    for y in range(0, 7):                                    # the melt in the mouth
+        r = erow(CX, 5.0, 2.1, RIM_CY, y)
+        if not r:
+            continue
+        near = y > RIM_CY
+        c.rect(r[0], y, r[1], y, P['hot_c'] if near else P['hot_a'])
+        if not near:
+            c.rect(r[0] + 1, y, r[1] - 1, y, P['hot_a'])
+    c.px(4 + int(t * 6), 3, P['white'])                      # a highlight, drifting
 
 
 @device('om', (1, 1), frames=8)
@@ -305,29 +331,34 @@ def laser(c, t):
 
 @device('magnet', (2, 2), frames=8)
 def magnet(c, t):
-    for i, r in enumerate((13, 10)):                # field, as two arcs that
-        bright = (int(t * 4) % 2) == i              # take turns pulsing
-        for k in range(200):
-            a = math.pi * (k / 100.0)
+    """The coil gives up four pixels of diameter so the field has somewhere to
+    be. In the previous version the arcs were drawn behind a coil that filled
+    the tile, and an effect nobody can see is not an effect."""
+    for i, r in enumerate((15, 12, 9)):             # the field, pulsing outward
+        lit = (int(t * 8) % 3) == i
+        for k in range(240):
+            a = math.pi * (k / 120.0)
             x = int(round(15.5 + r * math.cos(a)))
-            y = int(round(13 - r * 0.55 * math.sin(a)))
-            under(c, x, y, P['cry'] if bright else P['glow'])
-    box(c, 3, 20, 28, 29, 2, BODY, INK)             # bed
-    readout(c, 6, 14, 26)
-    c.rect(8, 6, 23, 21, INK)                       # coil former
-    c.rect(9, 7, 22, 20, P['cu'])
-    for x in range(9, 23, 2):                       # windings, around a
-        c.vline(x, 7, 20, P['cu_hi'])               # horizontal axis
-        c.vline(x + 1, 7, 20, P['cu_lo'])
-    c.rect(5, 8, 9, 19, INK)                        # end cheeks
-    c.rect(6, 9, 8, 18, P['met'])
-    c.vline(6, 9, 18, P['met_hi'])
-    c.rect(22, 8, 26, 19, INK)
-    c.rect(23, 9, 25, 18, P['met_lo'])
-    c.rect(0, 12, 5, 15, INK)                       # pole pieces
-    c.rect(1, 13, 4, 14, P['met'])
-    c.rect(26, 12, 31, 15, INK)
-    c.rect(27, 13, 30, 14, P['met_lo'])
+            y = int(round(12 - r * 0.85 * math.sin(a)))
+            under(c, x, y, P['cry_hi'] if lit else P['glow'])
+            y2 = int(round(12 + r * 0.5 * math.sin(a)))
+            under(c, x, y2, P['cry'] if lit else P['glow'])
+    box(c, 4, 22, 27, 29, 2, BODY, INK)             # bed
+    readout(c, 7, 15, 27)
+    c.rect(11, 10, 20, 21, INK)                     # coil former
+    c.rect(12, 11, 19, 20, P['cu'])
+    for x in range(12, 20, 2):                      # windings, around a
+        c.vline(x, 11, 20, P['cu_hi'])              # horizontal axis
+        c.vline(x + 1, 11, 20, P['cu_lo'])
+    c.rect(8, 12, 12, 19, INK)                      # end cheeks
+    c.rect(9, 13, 11, 18, P['met'])
+    c.vline(9, 13, 18, P['met_hi'])
+    c.rect(19, 12, 23, 19, INK)
+    c.rect(20, 13, 22, 18, P['met_lo'])
+    c.rect(4, 14, 9, 17, INK)                       # pole pieces
+    c.rect(5, 15, 8, 16, P['met'])
+    c.rect(22, 14, 27, 17, INK)
+    c.rect(23, 15, 26, 16, P['met_lo'])
 
 
 @device('tem', (2, 2), frames=8)
@@ -335,31 +366,29 @@ def tem(c, t):
     """A slim column with things stuck into it and a viewing window at their
     foot. That silhouette is the whole read.
 
-    The previous draft chased real anatomy — every lens housing at its true
-    relative diameter — and lost the shape: the objective is genuinely the
-    fattest casting on a TEM, and at 32px drawing it that way turned a tall
-    instrument into a squat one. Here the column stays narrow the whole way
-    down, the housings only step out a little, and the budget goes on the
-    rods entering it and on the fluorescent screen at the bottom.
+    Two rules keep it from going ragged. The lens flanges step out only one
+    pixel past the column, not three — a bigger step turns the profile into a
+    staircase at this size. And the viewing chamber's upper corners are
+    tapered, so the column meets it on a slope instead of a shelf.
     """
     box(c, 3, 27, 28, 30, 1, BODY, INK)             # console
     knobs(c, 6, 14, 28)
     knobs(c, 17, 26, 28)
 
-    def band(y0, y1, x0=10, x1=21):                 # a lens housing
-        c.rect(x0, y0, x1, y1, INK)
-        c.rect(x0 + 1, y0 + 1, x1 - 1, y1 - 1, P['body'])
-        c.vline(x0 + 1, y0 + 1, y1 - 1, P['body_hi'])
-        c.vline(x1 - 1, y0 + 1, y1 - 1, P['body_dk'])
+    def band(y0, y1):                               # a lens flange
+        c.rect(11, y0, 20, y1, INK)
+        c.rect(12, y0 + 1, 19, y1 - 1, P['body'])
+        c.vline(12, y0 + 1, y1 - 1, P['body_hi'])
+        c.vline(19, y0 + 1, y1 - 1, P['body_dk'])
 
     def rod(x0, x1, y, left=False):                 # something stuck into it
         c.rect(x0, y, x1, y + 1, INK)
         c.hline(x0 + 1, x1 - 1, y, P['met'])
         kx = x0 + 1 if left else x1 - 1
-        c.rect(kx - 1, y - 1, kx + 1, y + 2, INK)
+        c.rect(kx, y - 1, kx + 1, y + 2, INK)
         c.px(kx, y, P['met_hi'])
 
-    c.rect(12, 1, 19, 22, INK)                      # the column itself, slim
+    c.rect(12, 1, 19, 22, INK)                      # the column, slim all the way
     c.rect(13, 2, 18, 21, P['body'])
     c.vline(13, 2, 21, P['body_hi'])
     c.vline(18, 2, 21, P['body_dk'])
@@ -369,25 +398,23 @@ def tem(c, t):
     if math.sin(2 * math.pi * t) > -0.2:            # the emitter, flickering
         c.px(15, 1, P['ener_a']); c.px(16, 1, P['ener_a'])
 
-    band(4, 6)                                      # condenser
-    rod(21, 27, 5)
-    band(9, 12)                                     # objective, one step wider
-    rod(21, 26, 10)
-    rod(5, 11, 10, left=True)
-    band(15, 17)                                    # intermediate / projector
-    rod(21, 25, 16)
+    band(4, 6); rod(20, 26, 5)                      # condenser
+    band(9, 12); rod(20, 25, 10); rod(6, 12, 10, left=True)
+    band(15, 17); rod(20, 24, 16)
 
-    c.rect(7, 20, 24, 27, INK)                      # the viewing chamber
-    c.rect(8, 21, 23, 26, P['body'])
-    c.hline(8, 23, 21, P['body_hi'])
-    c.rect(10, 22, 21, 25, P['dglass'])             # the fluorescent screen
-    c.frame(10, 22, 21, 25, P['ink2'])
+    for i, y in enumerate((19, 20)):                # the chamber, tapered in
+        c.rect(9 + 2 - 2 * i, y, 22 - 2 + 2 * i, y, INK)
+        c.rect(10 + 2 - 2 * i, y, 21 - 2 + 2 * i, y, P['body'])
+    c.rect(7, 21, 24, 27, INK)                      # the viewing chamber
+    c.rect(8, 22, 23, 26, P['body'])
+    c.hline(8, 23, 22, P['body_hi'])
+    c.rect(10, 23, 21, 25, P['dglass'])             # the fluorescent screen
     glow = 0.5 + 0.5 * math.sin(2 * math.pi * t)    # ...glowing under the beam
-    c.rect(14, 23, 17, 24, P['ener_c'])
+    c.rect(14, 23, 17, 25, P['ener_c'])
     if glow > 0.35:
-        c.rect(15, 23, 16, 24, P['ener_b'])
+        c.rect(15, 23, 16, 25, P['ener_b'])
     if glow > 0.75:
-        c.px(15, 23, P['ener_a'])
+        c.px(15, 24, P['ener_a'])
 
 
 # =====================================================================
@@ -426,55 +453,69 @@ def phase(c, t):
 
 @device('qaa', (3, 2), frames=8)
 def qaa(c, t):
-    """The ring is the accelerator; everything else is served by it.
-
-    Two things were wrong in the draft before this one. The cabinets stood
-    full height and competed with the ring, so they are now low boxes. And the
-    beam lines were three pixels deep and ran the whole way across, which made
-    them read as shelving rather than pipework — they are two pixels now, well
-    separated, gathering on a slim vertical manifold before dropping into the
-    cabinet.
+    """A beam line leaves a ring along the tangent, so these leave at twelve
+    and six o'clock and run straight out to the detector consoles — an earlier
+    version had them radiating from the rim like spokes, which is not how a
+    beam gets out of a machine. The L-bends filling the corners are cooling,
+    not beam: they come off the cabinets, not the ring.
     """
-    cx, cy, R, BAND = 23.5, 12, 10, 7
-    box(c, 2, 27, 45, 30, 1, OCHRE, INK)            # bench
-    # Three lines a side, leaving the ring at different angles and fanning
-    # down into the cabinet. Drawn horizontally with a shared vertical
-    # manifold they read as shelving; radiating from the ring they read as
-    # pipework, which is what they are.
-    for sgn in (-1, 1):
-        cab0 = 1 if sgn < 0 else 36
-        box(c, cab0, 20, cab0 + 11, 28, 2, OCHRE, INK)
-        for y in (24, 26):
-            c.hline(cab0 + 2, cab0 + 9, y, P['och_lo'])
-        c.px(cab0 + 2, 24, P['cry']); c.px(cab0 + 9, 26, P['cry'])
-        for a_deg, tx in ((16, 8), (0, 5), (-16, 2)):
-            ex = int(round(cx + sgn * R * math.cos(math.radians(a_deg))))
-            ey = int(round(cy - R * math.sin(math.radians(a_deg))))
-            gx = cab0 + tx if sgn < 0 else cab0 + 11 - tx
-            c.line(ex, ey, gx, 21, INK)
-            c.line(ex, ey + 1, gx, 22, INK)
-            c.line(ex - sgn, ey + 1, gx, 21, P['met'])
-            c.px(ex, ey, P['cry_hi'])
-    c.ring(cx, cy, R, BAND, INK)                    # the ring
+    cx, cy, R, BAND = 23.5, 13, 9, 6
+    box(c, 2, 27, 45, 30, 1, OCHRE, INK)                    # bench
+
+    def console(x0, y0, x1, y1):
+        box(c, x0, y0, x1, y1, 2, OCHRE, INK)
+        c.rect(x0 + 2, y0 + 4, x1 - 2, y1 - 2, P['dglass'])  # the detector
+        c.frame(x0 + 2, y0 + 4, x1 - 2, y1 - 2, P['ink2'])
+        return (x0 + x1) // 2
+
+    console(35, 1, 46, 10)                                  # upper right
+    console(1, 16, 12, 25)                                  # lower left
+
+    def beamline(x0, x1, y, out_right):
+        c.rect(x0, y - 1, x1, y + 2, INK)
+        c.rect(x0, y, x1, y + 1, P['met_lo'])
+        c.hline(x0, x1, y, P['met'])
+        n = x1 - x0
+        for k in range(0, n, 3):                            # the beam inside it
+            u = (k / max(1, n) + (t if out_right else -t)) % 1.0
+            c.px(int(round(x0 + u * n)), y, P['cry'])
+        u = (t * 1.0) % 1.0
+        px_ = x0 + u * n if out_right else x1 - u * n
+        c.px(int(round(px_)), y, P['cry_hi'])
+        c.px(int(round(px_)) - 1, y, P['cry'])
+
+    beamline(int(cx), 36, cy - R + 1, True)                 # twelve o'clock, out right
+    beamline(11, int(cx), cy + R - 1, False)                # six o'clock, out left
+
+    # Cooling, in L-bends off the consoles. Kept in metal with one cool
+    # highlight: drawn in full cyan they shouted over the beam lines, which
+    # are the thing the machine is about.
+    for (vx, vy0, vy1, hx0, hx1, hy) in ((39, 10, 22, 33, 42, 21),
+                                         (5, 5, 17, 5, 14, 4)):
+        c.rect(vx, vy0, vx + 3, vy1, INK)
+        c.rect(vx + 1, vy0 + 1, vx + 2, vy1 - 1, P['met_lo'])
+        c.vline(vx + 1, vy0 + 1, vy1 - 1, P['met'])
+        c.rect(hx0, hy, hx1, hy + 3, INK)
+        c.rect(hx0 + 1, hy + 1, hx1 - 1, hy + 2, P['met_lo'])
+        c.hline(hx0 + 1, hx1 - 1, hy + 1, P['met'])
+        c.px(hx0 + 2, hy + 2, P['ener_b']); c.px(hx1 - 2, hy + 1, P['ener_b'])
+
+    c.ring(cx, cy, R, BAND, INK)                            # the ring
     c.ring(cx, cy, R - 1, BAND + 1, P['och'])
     c.ring(cx, cy, R - 1, R - 1, P['och_hi'])
     c.disc(cx, cy, BAND - 1, P['dglass'])
-    for k in range(8):                              # bending magnets
+    for k in range(8):                                      # bending magnets
         a = math.pi * k / 4
         bx = int(round(cx + math.cos(a) * (R - 1))); by = int(round(cy + math.sin(a) * (R - 1)))
         c.rect(bx - 1, by - 1, bx + 1, by + 1, INK)
         c.px(bx, by, P['och_hi'])
-    for k in range(140):                            # the circulating beam
+    for k in range(140):                                    # the circulating beam
         a = 2 * math.pi * k / 140
         c.px(int(round(cx + math.cos(a) * 4)), int(round(cy + math.sin(a) * 4)), P['cry'])
-    for i in range(2):                              # ...and a packet going round
+    for i in range(2):                                      # ...and a packet on it
         a = 2 * math.pi * (t + 0.5 * i)
         c.px(int(round(cx + math.cos(a) * 4)),
              int(round(cy + math.sin(a) * 4)), P['cry_hi'])
-    c.rect(20, 22, 27, 28, INK)                     # the pedestal it stands on
-    c.rect(21, 23, 26, 27, P['och'])
-    c.vline(21, 23, 27, P['och_hi'])
-    c.vline(26, 23, 27, P['och_lo'])
 
 
 @device('agt', (3, 2), frames=8)
@@ -488,9 +529,18 @@ def agt(c, t):
         box(c, x0 + 2, 13, x0 + 6, 26, 0, GREEN, INK)
         c.vline(mid, 14, 25, P['wood'])
         box(c, x0 + 1, 10, x0 + 7, 13, 1, BRASS, INK)
-        c.stamp(CRYSTAL, {'o': INK, 'a': P['cry_hi'], 'b': P['cry'], 'c': P['cry_lo']},
+        # The crystals pulse a half-cycle apart, so the pair reads as
+        # alternating rather than as one blinking lamp.
+        lit = math.sin(2 * math.pi * (t + (0.5 if x0 else 0.0))) > 0
+        c.stamp(CRYSTAL, {'o': INK,
+                          'a': P['white'] if lit else P['cry_hi'],
+                          'b': P['cry_hi'] if lit else P['cry'],
+                          'c': P['cry'] if lit else P['cry_lo']},
                 ox=mid - 2, oy=3)
         c.px(mid, 1, P['cry_hi'])
+        if lit:
+            for dx, dy in ((-3, 5), (3, 5), (0, 0), (-2, 2), (2, 2)):
+                under(c, mid + dx, 3 + dy, P['glow'])
     c.ring(CX, CY, R, BAND, INK)                    # wheel
     c.ring(CX, CY, R - 1, BAND + 1, P['grn'])
     c.ring(CX, CY, R - 1, R - 1, P['grn_hi'])
