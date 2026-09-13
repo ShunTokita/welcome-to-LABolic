@@ -16323,6 +16323,7 @@ function titleSetupState() {
 function titleRenderLab() {
   const lab = document.getElementById('title-lab');
   if (!lab) return;
+  const now = Date.now();
 
   for (const eq of titleEquip) {
     let node = titleNodes.get(eq.id);
@@ -16342,7 +16343,7 @@ function titleRenderLab() {
     setVar(node.root, '--w',   t.dims.w);
     setVar(node.root, '--h',   t.dims.h);
 
-    const busy = eq.busyUntil > Date.now();
+    const busy = eq.busyUntil > now;
     node.root.classList.toggle('busy', busy);
     // Same trick renderLab() uses: hand the progress bar to CSS once per task
     // and leave it alone, so re-rendering never restarts the animation.
@@ -16383,11 +16384,17 @@ function titleRenderLab() {
       } else {
         el.dataset.face = w.row > el._pr ? 'front' : 'back';
       }
-      el.classList.add('walking');
     } else if (!el.dataset.face) {
       el.dataset.face = 'front';
     }
     el._pc = w.col; el._pr = w.row;
+    // At work they turn to the machine, the same as on the real floor: every
+    // device stands one tile above its work tile, so that is the back view.
+    if (w.busyUntil > now) el.dataset.face = 'back';
+    // And the legs stop. `walking` was only ever added here and never taken
+    // off, so a Co-Worker who had walked once marched on the spot for the
+    // rest of the title screen.
+    el.classList.toggle('walking', Array.isArray(w.path) && w.path.length > 0);
     setVar(el, '--col', w.col);
     setVar(el, '--row', w.row);
   }
