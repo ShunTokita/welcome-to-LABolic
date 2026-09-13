@@ -879,16 +879,6 @@
     border: 3px solid var(--accent-purple);
     box-shadow: 0 0 16px rgba(169,100,255,0.4);
   }
-  /* The Discovery popup shows the product the alloy is actually used for,
-     which is 32px pixel art: a circle would crop the corners off a trumpet,
-     and any non-integer scale would blur it. 64 = 32 x 2 exactly. */
-  .discovery-icon.is-art {
-    width: 64px; height: 64px; border-radius: 10px;
-    background-repeat: no-repeat;
-    background-size: 64px 64px;
-    background-color: var(--bg-card);
-    image-rendering: pixelated;
-  }
   .discovery-recipe {
     font-family: ui-monospace, monospace;
     font-size: 11px; color: var(--text-secondary);
@@ -13059,13 +13049,8 @@ function showDiscoveryPopup(disc, spec) {
   celebrateDiscovery();   // particles behind the popup that is about to open
   // Render icon using the specimen's elements (same as specimenIconStyle)
   const icon = document.getElementById('disc-popup-icon');
-  if (icon) {
-    // The element gradient told the player nothing they had not just typed
-    // in themselves. Show what the alloy is actually used for instead —
-    // every id in `discoveries` has a sprite under assets/pixel/product/.
-    icon.classList.add('is-art');
-    icon.style.cssText = '';
-    icon.style.backgroundImage = `url('assets/pixel/product/${disc.id}.png')`;
+  if (icon && spec) {
+    icon.style.cssText = specimenIconStyle(spec.elements);
   }
 
   document.getElementById('disc-popup-name').textContent = disc.name;
