@@ -879,6 +879,17 @@
     border: 3px solid var(--accent-purple);
     box-shadow: 0 0 16px rgba(169,100,255,0.4);
   }
+  /* Product art for the eleven real alloys and tier t3. It is 32px pixel art:
+     a circle would crop the corners off a trumpet, and any non-integer scale
+     would blur it, so 64 = 32 x 2 exactly. The other fantasy tiers keep the
+     circular element gradient. */
+  .discovery-icon.is-art {
+    width: 64px; height: 64px; border-radius: 10px;
+    background-repeat: no-repeat;
+    background-size: 64px 64px;
+    background-color: var(--bg-card);
+    image-rendering: pixelated;
+  }
   .discovery-recipe {
     font-family: ui-monospace, monospace;
     font-size: 11px; color: var(--text-secondary);
@@ -13045,13 +13056,27 @@ function bindStoryEventPopup() {
 // =============================================================
 // Discovery popup — shown when a Discovery is newly achieved
 // =============================================================
+// Real alloys and tier t3 have art of the product they are used for. The
+// element gradient the popup used to show was a mix of colours the player had
+// just chosen themselves, so it told them nothing; where there is no art yet
+// (t1 and t2) it is still better than an empty box.
+const PRODUCT_ART_TIERS = new Set(['real', 't3']);
+
+function setDiscoveryIcon(icon, disc, spec) {
+  if (PRODUCT_ART_TIERS.has(disc.tier)) {
+    icon.classList.add('is-art');
+    icon.style.cssText = '';
+    icon.style.backgroundImage = `url('assets/pixel/product/${disc.id}.png')`;
+  } else if (spec) {
+    icon.classList.remove('is-art');
+    icon.style.cssText = specimenIconStyle(spec.elements);
+  }
+}
 function showDiscoveryPopup(disc, spec) {
   celebrateDiscovery();   // particles behind the popup that is about to open
   // Render icon using the specimen's elements (same as specimenIconStyle)
   const icon = document.getElementById('disc-popup-icon');
-  if (icon && spec) {
-    icon.style.cssText = specimenIconStyle(spec.elements);
-  }
+  if (icon) setDiscoveryIcon(icon, disc, spec);
 
   document.getElementById('disc-popup-name').textContent = disc.name;
 

@@ -51,25 +51,20 @@ FLOORS = [('lv1', '木造', '長尺の床板と木目。突きつけ目地は入
           ('lv4', 'クリーム色シートビニル', '#ded4b7。4案の中で最も明るいものを採用。最も長く見る床なので模様は意図的に静か')]
 
 # Discovery popup art — one product per material, 32x32, shown at 64px.
+# Only the eleven real alloys and tier t3 get art; t1 and t2 keep the element
+# gradient in the popup, so their sprites are drawn but not shipped.
 PRODUCTS = [
     ('brass', 'Brass', 'トランペット'),
     ('cupronickel', 'Cupronickel', '100円硬貨'),
-    ('monel', 'Monel', '汚れた水滴を弾く鏡面板'),
-    ('invar', 'Invar', '棒・炎・氷・温度計'),
+    ('monel', 'Monel', 'ピカピカの金属バルクと、弾かれた汚い水滴'),
+    ('invar', 'Invar', '金属バルク／温度計／高温側に炎・低温側に氷'),
     ('permalloy', 'Permalloy', 'E-Iコアのトランス'),
-    ('nichrome', 'Nichrome', '発熱するトースター'),
-    ('ferritic_ss', 'Ferritic SS', '洗面ボウルとPトラップ配管'),
+    ('nichrome', 'Nichrome', '扉を手前に開けるオーブントースター'),
+    ('ferritic_ss', 'Ferritic SS', '四角いステンレスのキッチンシンク'),
     ('austenitic_ss', 'Austenitic SS', 'スプーンとメス'),
     ('ti_cr_beta', 'Ti-Cr β', '人工股関節ステム'),
-    ('nitinol', 'Nitinol', '片方のつるを折り曲げた眼鏡'),
-    ('inconel_like', 'Inconel-like', 'ターボファン'),
-    ('aetherite_a', 'AETHERITE-α', '浮いている天秤'),
-    ('nullsteel_b', 'NULLSTEEL-β', '磁気軌道の上に浮く円盤'),
-    ('pyremite_g', 'PYREMITE-γ', '外れない磁石'),
-    ('paradox_d', 'PARADOX-δ', '色が定まらないバルク金属'),
-    ('project_aether', 'Project AETHER', '超伝導コイル'),
-    ('xenolith_7', 'XENOLITH-7', '割れが塞がる盾'),
-    ('chronos_ix', 'CHRONOS-IX', '歪んだ砂時計'),
+    ('nitinol', 'Nitinol', '眼鏡（右のつるだけ折り返してある）'),
+    ('inconel_like', 'Inconel-like', 'ターボファン、浅い斜方'),
     ('azoth', 'AZOTH', 'アランビック蒸留器'),
     ('quintessence', 'Quintessence', 'アーミラリ天球儀'),
     ('lapis', 'Lapis Philosophorum', '台座の上の賢者の石'),
@@ -337,7 +332,7 @@ HTML = f'''<title>LABolic ドット絵アセット</title>
   </section>
 
   <section>
-    <div class="sec-head"><h2>Discovery製品 21点</h2><span>32×32 / ポップアップでは×2の64px</span></div>
+    <div class="sec-head"><h2>Discovery製品 14点</h2><span>32×32 / ポップアップでは×2の64px</span></div>
     <p class="lede">Discoveryのポップアップは元素の色を混ぜたグラデーションを出していましたが、それはプレイヤーが直前に自分で入力した情報でしかありません。代わりにその合金が実際に何に使われているかを出します。空想合金はフレーバーテキストが示すものを描いています。</p>
     <div class="castgrid">{prod_cells}</div>
   </section>
