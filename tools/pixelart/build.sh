@@ -13,6 +13,11 @@ cd "$(dirname "${BASH_SOURCE[0]}")/../.."
 for stage in floors walls devices sprites products; do
   python3 "tools/pixelart/$stage.py"
 done
+# Externally drawn Discovery icons win over the ones products.py draws, so the
+# import has to come after it. Skipped when nothing has been handed over.
+if ls art-in/product/*.png >/dev/null 2>&1; then
+  python3 tools/pixelart/import_product_art.py art-in/product --size 64
+fi
 python3 tools/pixelart/make_scene.py
 python3 tools/pixelart/make_preview.py
 

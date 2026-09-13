@@ -87,23 +87,52 @@ def snap(c):
 # --------------------------------------------------------------------------
 # geometry
 # --------------------------------------------------------------------------
-def drop_flat_background(im):
+def drop_flat_background(im, passes=4):
     """Make a uniform background transparent.
 
     Artwork exported on a card rather than on transparency is common, and the
     giveaway is that all four corners are the same opaque colour. Only pixels
     reachable from the edge are cleared, so a patch of that same colour inside
     the drawing is left alone.
+
+    Repeated, because a card is often more than one flat layer — a coloured
+    border around a cream field is two, and clearing only the outermost leaves
+    the field behind as a rectangle that the re-inking then draws a frame
+    around.
     """
     im = im.convert('RGBA')
+    for _ in range(passes):
+        before = sum(1 for p in im.get_flattened_data() if p[3] == 0)
+        im = _drop_one_flat_layer(im)
+        if sum(1 for p in im.get_flattened_data() if p[3] == 0) == before:
+            break
+    return im
+
+
+def _drop_one_flat_layer(im):
     w, h = im.size
     px = im.load()
-    corners = [px[0, 0], px[w - 1, 0], px[0, h - 1], px[w - 1, h - 1]]
-    if not all(c[3] == 255 for c in corners):
+    ring = []
+    for x in range(w):
+        ring += [px[x, 0], px[x, h - 1]]
+    for y in range(h):
+        ring += [px[0, y], px[w - 1, y]]
+    opaque = [c[:3] for c in ring if c[3] == 255]
+    if not opaque:
         return im
-    if len({c[:3] for c in corners}) != 1:
+    # The background is whatever most of the border ring is, not whatever the
+    # corners happen to be: on a card where the drawing runs into one corner,
+    # a corners-only test never agrees and the field is never cleared.
+    #
+    # Taken as a median with a tolerance rather than as the commonest bucket:
+    # a flat colour out of a lossy encoder straddles bucket boundaries, and
+    # split three ways it can lose a majority vote to nothing at all.
+    bg = tuple(sorted(c[k] for c in opaque)[len(opaque) // 2] for k in range(3))
+    near = sum(1 for c in opaque
+               if max(abs(c[k] - bg[k]) for k in range(3)) <= 16)
+    if near * 100 < len(ring) * 55:
         return im
-    bg = corners[0][:3]
+
     seen = [[False] * h for _ in range(w)]
     stack = [(x, y) for x in range(w) for y in (0, h - 1)]
     stack += [(x, y) for y in range(h) for x in (0, w - 1)]
@@ -115,7 +144,7 @@ def drop_flat_background(im):
         if a == 0:
             seen[x][y] = True
             continue
-        if max(abs(r - bg[0]), abs(g - bg[1]), abs(b - bg[2])) > 12:
+        if max(abs(r - bg[0]), abs(g - bg[1]), abs(b - bg[2])) > 16:
             continue
         seen[x][y] = True
         px[x, y] = (0, 0, 0, 0)
