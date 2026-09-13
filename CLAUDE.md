@@ -19,11 +19,14 @@ build/                      プレビュー生成物（git管理外）
 
 ## 作業ブランチと公開先
 
-`subv2` が Claude Code 専用ブランチ。ここに直接コミットしてよい（ユーザー承認済み）。
-`main` は本番。`subv2` から `main` への反映は、ユーザーが明示的に指示したときだけ行う。
+`subv3` が Claude Code 専用ブランチ。ここに直接コミットしてよい（ユーザー承認済み）。
+`main` は本番。`subv3` から `main` への反映は、ユーザーが明示的に指示したときだけ行う。
 
-**`subv2` は GitHub Pages の公開元。`git push` した時点で全世界から見える。**
+**`subv3` は GitHub Pages の公開元。`git push` した時点で全世界から見える。**
 サンドボックスではないので、未確認の変更をプッシュしたままにしない。
+
+`subv2` は v40 までの旧公開元。ドット絵化（v41）で差分が大きくなったため
+`subv3` に切り替えた。`pixelart-trial` はその作業ブランチで、`subv3` の起点。
 
 - 入口: https://shuntokita.github.io/welcome-to-LABolic/
 - 各版: https://shuntokita.github.io/welcome-to-LABolic/labolic-playtest-NN.html
@@ -40,10 +43,10 @@ Pages の確認は必ずユーザーに依頼すること。curl で確かめよ
 tools/new-version.sh          # 最新版を複製し、番号とタイトルを+1
 #   → labolic-playtest-NN.html を編集
 tools/check.sh                # アセット欠損・タイトル不整合・未追跡ファイルを検査
-git add -A && git commit && git push -u origin subv2
+git add -A && git commit && git push -u origin subv3
 #   → 直URL（上記）をユーザーに渡して実機確認してもらう。入口はまだ旧版
 tools/release.sh              # 確認が取れたら index.html を新版に向ける
-git add -A && git commit && git push -u origin subv2
+git add -A && git commit && git push -u origin subv3
 ```
 
 **ユーザーの確認が取れる前に `release.sh` を実行しない。**

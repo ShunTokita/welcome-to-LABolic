@@ -16,9 +16,18 @@ src=$(version_file "$ver")
 fail=0
 
 # 1. Every referenced asset exists.
+#
+# A path built in a template literal — url('assets/pixel/product/${id}.png') —
+# leaves only its directory prefix behind for the grep. That is a real
+# reference and worth checking, but what it names is a directory, so a
+# trailing slash is checked with -d and everything else with -f.
 missing=0
 for p in $(grep -oE "assets/[A-Za-z0-9_/.-]+" "$src" | sort -u); do
-  [ -f "$p" ] || { echo "MISSING ASSET: $p"; missing=1; fail=1; }
+  if [ "${p%/}" != "$p" ]; then
+    [ -d "$p" ] || { echo "MISSING ASSET DIR: $p"; missing=1; fail=1; }
+  else
+    [ -f "$p" ] || { echo "MISSING ASSET: $p"; missing=1; fail=1; }
+  fi
 done
 [ $missing -eq 0 ] && echo "OK   assets: all references resolve"
 
