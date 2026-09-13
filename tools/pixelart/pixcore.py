@@ -80,6 +80,18 @@ P = {
     'och_hi':  (226, 200, 138),
     'och':     (190, 162, 96),
     'och_lo':  (144, 120, 64),
+    # Product art (the Discovery cards)
+    'sil_hi':  (240, 244, 250),   # polished stainless
+    'sil':     (198, 206, 218),
+    'sil_lo':  (138, 148, 166),
+    'ice_hi':  (234, 248, 255),
+    'ice':     (168, 214, 242),
+    'ice_lo':  (104, 160, 204),
+    'grime':   (112, 120, 86),    # dirty water
+    'grime_lo':(74, 82, 56),
+    'red_hi':  (255, 146, 122),
+    'red':     (214, 58, 52),
+    'red_lo':  (138, 28, 34),
     'cu_hi':   (232, 168, 112),   # copper windings
     'cu':      (198, 124, 70),
     'cu_lo':   (144, 84, 46),

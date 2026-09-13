@@ -50,6 +50,31 @@ FLOORS = [('lv1', '木造', '長尺の床板と木目。突きつけ目地は入
           ('lv3', '緑のラバー床', '8px間隔の丸い突起。実験室用ラバーシートの定番'),
           ('lv4', 'クリーム色シートビニル', '#ded4b7。4案の中で最も明るいものを採用。最も長く見る床なので模様は意図的に静か')]
 
+# Discovery popup art — one product per material, 32x32, shown at 64px.
+PRODUCTS = [
+    ('brass', 'Brass', 'トランペット'),
+    ('cupronickel', 'Cupronickel', '100円硬貨'),
+    ('monel', 'Monel', '汚れた水滴を弾く鏡面板'),
+    ('invar', 'Invar', '棒・炎・氷・温度計'),
+    ('permalloy', 'Permalloy', 'E-Iコアのトランス'),
+    ('nichrome', 'Nichrome', '発熱するトースター'),
+    ('ferritic_ss', 'Ferritic SS', '洗面ボウルとPトラップ配管'),
+    ('austenitic_ss', 'Austenitic SS', 'スプーンとメス'),
+    ('ti_cr_beta', 'Ti-Cr β', '人工股関節ステム'),
+    ('nitinol', 'Nitinol', '片方のつるを折り曲げた眼鏡'),
+    ('inconel_like', 'Inconel-like', 'ターボファン'),
+    ('aetherite_a', 'AETHERITE-α', '浮いている天秤'),
+    ('nullsteel_b', 'NULLSTEEL-β', '磁気軌道の上に浮く円盤'),
+    ('pyremite_g', 'PYREMITE-γ', '外れない磁石'),
+    ('paradox_d', 'PARADOX-δ', '色が定まらないバルク金属'),
+    ('project_aether', 'Project AETHER', '超伝導コイル'),
+    ('xenolith_7', 'XENOLITH-7', '割れが塞がる盾'),
+    ('chronos_ix', 'CHRONOS-IX', '歪んだ砂時計'),
+    ('azoth', 'AZOTH', 'アランビック蒸留器'),
+    ('quintessence', 'Quintessence', 'アーミラリ天球儀'),
+    ('lapis', 'Lapis Philosophorum', '台座の上の賢者の石'),
+]
+
 # Seconds per cycle, per device. A furnace breathes slowly; a rolling mill
 # does not.
 SPEED = {'furnace': 1.6, 'casting': 1.4, 'om': 1.8, 'pc': 1.6, 'arc': 0.9,
@@ -65,6 +90,8 @@ for cid in CAST:
     A['c_' + cid] = uri('assets/pixel/char/%s_front.png' % cid)
 for cid in SHEETS:
     A['s_' + cid] = uri('assets/pixel/char/%s.png' % cid)
+for pid, *_ in PRODUCTS:
+    A['p_' + pid] = uri('assets/pixel/product/%s.png' % pid)
 for key, *_ in FLOORS:
     A['f_' + key] = uri('assets/pixel/floor/%s.png' % key)
     A['fs_' + key] = uri('build/lab-scene-%s.png' % key)
@@ -103,6 +130,12 @@ sheet_cells = ''.join(f'''
           <img class="px" src="{A['s_' + cid]}" alt="{cid}のシート" width="{48 * 4}" height="{48 * 4}">
           <figcaption>{cid} — assets/pixel/char/{cid}.png</figcaption>
         </figure>''' for cid in SHEETS)
+
+prod_cells = ''.join(f'''
+        <figure class="ch">
+          <img class="px" src="{A['p_' + pid]}" alt="{label}" width="128" height="128">
+          <figcaption>{label}<span>{note}</span></figcaption>
+        </figure>''' for pid, label, note in PRODUCTS)
 
 floor_blocks = ''.join(f'''
       <div class="device">
@@ -301,6 +334,12 @@ HTML = f'''<title>LABolic ドット絵アセット</title>
     <div class="castgrid">{cast_cells}</div>
     <div class="sheets">{sheet_cells}</div>
     <p class="lede" style="margin-top:14px">シートは3列（正面・側面・背面）× 2行（歩行2フレーム）。側面は右向きだけを描き、左向きはCSSの水平反転で作ります。</p>
+  </section>
+
+  <section>
+    <div class="sec-head"><h2>Discovery製品 21点</h2><span>32×32 / ポップアップでは×2の64px</span></div>
+    <p class="lede">Discoveryのポップアップは元素の色を混ぜたグラデーションを出していましたが、それはプレイヤーが直前に自分で入力した情報でしかありません。代わりにその合金が実際に何に使われているかを出します。空想合金はフレーバーテキストが示すものを描いています。</p>
+    <div class="castgrid">{prod_cells}</div>
   </section>
 
   <section>

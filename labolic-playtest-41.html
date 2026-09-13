@@ -879,6 +879,16 @@
     border: 3px solid var(--accent-purple);
     box-shadow: 0 0 16px rgba(169,100,255,0.4);
   }
+  /* The Discovery popup shows the product the alloy is actually used for,
+     which is 32px pixel art: a circle would crop the corners off a trumpet,
+     and any non-integer scale would blur it. 64 = 32 x 2 exactly. */
+  .discovery-icon.is-art {
+    width: 64px; height: 64px; border-radius: 10px;
+    background-repeat: no-repeat;
+    background-size: 64px 64px;
+    background-color: var(--bg-card);
+    image-rendering: pixelated;
+  }
   .discovery-recipe {
     font-family: ui-monospace, monospace;
     font-size: 11px; color: var(--text-secondary);
@@ -4232,11 +4242,7 @@ function applyTransform() {
 function getLabPxSize() {
   const tile = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--tile'));
   const { w, h } = effectiveLabSize();
-  // The walls stand outside the floor — half a tile at each side and below,
-  // two above for the far wall — so what has to be fitted on screen is the
-  // room, not the floor inside it.
-  return { w: tile * w, h: tile * h, tile,
-           padL: tile * 0.5, padR: tile * 0.5, padT: tile * 2, padB: tile * 0.5 };
+  return { w: tile * w, h: tile * h, tile };
 }
 
 function autoFit() {
@@ -4251,14 +4257,13 @@ function autoFit() {
   const chat = document.querySelector('.chat-overlay');
   const chatW = (chat && !chat.classList.contains('collapsed')) ? chat.offsetWidth + 16 : 0;
   const usableW = vw - chatW;
-  const roomW = lab.w + lab.padL + lab.padR;
-  const roomH = lab.h + lab.padT + lab.padB;
-  const fit = Math.min((usableW - 16) / roomW, (vh - 16) / roomH);
+  // Fit the floor, not the room. Sizing to the walls as well cost a whole
+  // zoom step at Lv4 and shrank every machine to make room for scenery, which
+  // is backwards — the walls may run off the top of the viewport instead.
+  const fit = Math.min((usableW - 8) / lab.w, (vh - 8) / lab.h);
   zoomLevel = snapZoom(fit, true);
-  // Centre the room, then step in by the wall so the floor's own origin lands
-  // where the pan expects it.
-  panX = (usableW - roomW * zoomLevel) / 2 + lab.padL * zoomLevel;
-  panY = (vh - roomH * zoomLevel) / 2 + lab.padT * zoomLevel;
+  panX = (usableW - lab.w * zoomLevel) / 2;
+  panY = (vh - lab.h * zoomLevel) / 2;
   applyTransform();
 }
 
@@ -13054,8 +13059,13 @@ function showDiscoveryPopup(disc, spec) {
   celebrateDiscovery();   // particles behind the popup that is about to open
   // Render icon using the specimen's elements (same as specimenIconStyle)
   const icon = document.getElementById('disc-popup-icon');
-  if (icon && spec) {
-    icon.style.cssText = specimenIconStyle(spec.elements);
+  if (icon) {
+    // The element gradient told the player nothing they had not just typed
+    // in themselves. Show what the alloy is actually used for instead —
+    // every id in `discoveries` has a sprite under assets/pixel/product/.
+    icon.classList.add('is-art');
+    icon.style.cssText = '';
+    icon.style.backgroundImage = `url('assets/pixel/product/${disc.id}.png')`;
   }
 
   document.getElementById('disc-popup-name').textContent = disc.name;
