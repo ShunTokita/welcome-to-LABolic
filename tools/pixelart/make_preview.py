@@ -10,6 +10,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 ROOT = os.path.normpath(os.path.join(HERE, '..', '..'))
 import spec
+from devices import DEV
 
 
 def uri(rel):
@@ -49,13 +50,15 @@ FLOORS = [('lv1', '木造', '長尺の床板と木目。突きつけ目地は入
           ('lv3', '緑のラバー床', '8px間隔の丸い突起。実験室用ラバーシートの定番'),
           ('lv4', 'クリーム色シートビニル', '#ded4b7。4案の中で最も明るいものを採用。最も長く見る床なので模様は意図的に静か')]
 
-ANIM = [('laser', 'Laser Dep', 8, 1.1, 'レーザーヘッドがガントリー上を左右に走査し、ビームと溶融池が追従する'),
-        ('phase', 'Phase-Shift', 8, 1.4, '3本の柱の中で場の位相が送られる'),
-        ('agt', 'AGT', 8, 1.2, '直交2軌道の上を電子が回る。軌道そのものは静止したまま')]
+# Seconds per cycle, per device. A furnace breathes slowly; a rolling mill
+# does not.
+SPEED = {'furnace': 1.6, 'casting': 1.4, 'om': 1.8, 'pc': 1.6, 'arc': 0.9,
+         'rolling': 0.7, 'sem': 1.2, 'laser': 1.1, 'magnet': 1.3, 'tem': 1.8,
+         'phase': 1.4, 'qaa': 1.0, 'agt': 1.2, 'mpss': 2.0}
 
 A = {'scene': uri('build/lab-scene.png')}
-for aid, *_ in ANIM:
-    A['a_' + aid] = uri('assets/pixel/anim/%s.png' % aid)
+for did, *_ in DEVICES:
+    A['a_' + did] = uri('assets/pixel/anim/%s.png' % did)
 for did, *_ in DEVICES:
     A['d_' + did] = uri('assets/pixel/%s.png' % did)
 for cid in CAST:
@@ -66,34 +69,28 @@ for key, *_ in FLOORS:
     A['f_' + key] = uri('assets/pixel/floor/%s.png' % key)
     A['fs_' + key] = uri('build/lab-scene-%s.png' % key)
 
-AZ = 6
-anim_css, anim_cells = [], []
-for aid, label, n, secs, note in ANIM:
-    w, h = {'laser': (32, 32), 'phase': (48, 32), 'agt': (48, 32)}[aid]
-    anim_css.append(f'''
-  #anim-{aid} {{ width:{w * AZ}px; height:{h * AZ}px;
-    background-image:url("{A['a_' + aid]}");
-    background-size:{w * n * AZ}px {h * AZ}px; background-repeat:no-repeat;
-    animation:play-{aid} {secs}s steps({n}) infinite; }}
-  @keyframes play-{aid} {{ from {{ background-position:0 0; }}
-                           to   {{ background-position:-{w * n * AZ}px 0; }} }}''')
-    anim_cells.append(f'''
-      <figure class="anim">
-        <div class="art"><div class="px" id="anim-{aid}"></div></div>
-        <figcaption><b>{label}</b><span class="tag">{n}フレーム · {secs}秒 · {w * n}×{h}</span><span class="note">{note}</span></figcaption>
-      </figure>''')
-anim_css = ''.join(anim_css)
-
+# The device grid plays. A still picture of a machine that is meant to glow
+# is the wrong review surface for the thing being reviewed.
 Z = 5
-dev_cells = []
+anim_css, dev_cells = [], []
 for did, label, lv, note in DEVICES:
     tw, th = spec.FOOTPRINT[lv]
     w, h = spec.cell(tw, th)
+    n = DEV[did][3]
+    secs = SPEED[did]
+    anim_css.append(f'''
+  #dev-{did} {{ width:{w * Z}px; height:{h * Z}px;
+    background-image:url("{A['a_' + did]}");
+    background-size:{w * n * Z}px {h * Z}px; background-repeat:no-repeat;
+    animation:play-{did} {secs}s steps({n}) infinite; }}
+  @keyframes play-{did} {{ from {{ background-position:0 0; }}
+                           to   {{ background-position:-{w * n * Z}px 0; }} }}''')
     dev_cells.append(f'''
       <figure class="dev">
-        <div class="art" style="height:{64 * Z // 2}px"><img class="px" src="{A['d_' + did]}" alt="{label}" width="{w * Z}" height="{h * Z}"></div>
-        <figcaption><b>{label}</b><span class="tag">Lv{lv} · {tw}×{th}タイル · {w}×{h}</span><span class="note">{note}</span></figcaption>
+        <div class="art" style="height:{176}px"><div class="px anim-box" id="dev-{did}"></div></div>
+        <figcaption><b>{label}</b><span class="tag">Lv{lv} · {tw}×{th}タイル · {w}×{h} · {n}フレーム</span><span class="note">{note}</span></figcaption>
       </figure>''')
+anim_css = ''.join(anim_css)
 
 cast_cells = ''.join(f'''
         <figure class="ch">
@@ -244,10 +241,8 @@ HTML = f'''<title>LABolic ドット絵アセット</title>
   .anim .tag {{ display:block; font-family:var(--mono); font-size:10.5px;
                 color:var(--ink-3); margin-bottom:5px; }}
   .anim .note {{ display:block; color:var(--ink-2); font-size:12.5px; }}
-  #anim-laser, #anim-phase, #anim-agt {{ image-rendering:pixelated; }}
-  @media (prefers-reduced-motion: reduce) {{
-    #anim-laser, #anim-phase, #anim-agt {{ animation:none; }}
-  }}
+  .anim-box {{ image-rendering:pixelated; }}
+  @media (prefers-reduced-motion: reduce) {{ .anim-box {{ animation:none !important; }} }}
 {anim_css}
 
   footer {{ margin-top:56px; padding-top:18px; border-top:1px solid var(--line);
@@ -290,17 +285,12 @@ HTML = f'''<title>LABolic ドット絵アセット</title>
   </section>
 
   <section>
-    <div class="sec-head"><h2>装置 14点</h2><span>Lv1 16×16 / Lv2 32×16 / Lv3 32×32 / Lv4 48×32 / Lv5 64×64</span></div>
+    <div class="sec-head"><h2>装置 14点</h2><span>Lv1 16×16 / Lv2 32×16 / Lv3 32×32 / Lv4 48×32 / Lv5 64×64 · 全点が動きます</span></div>
+    <p class="lede">14点すべてにエフェクトを付けました。各フレームを横に並べた1枚のPNGで、<code>background-position</code> を <code>animation: steps(N)</code> で送ります——ドット絵では補間の入らない <code>steps()</code> が必須です。下のグリッドは実際にその方法で再生しています。1フレーム目は静止版と同一なので、静止アセットとシートのどちらを使っても見た目は連続します。</p>
     <div class="devgrid">{''.join(dev_cells)}</div>
-  </section>
-
-  <section>
-    <div class="sec-head"><h2>動的描画</h2><span>assets/pixel/anim/ · 横並びフレームシート</span></div>
-    <p class="lede">3点にアニメーションを付けました。各フレームを横に並べた1枚のPNGで、ゲーム側は <code>background-position</code> と <code>animation: steps(N)</code> で送ります——ドット絵では補間の入らない <code>steps()</code> が必須です。1フレーム目は静止版と同一なので、静止アセットとシートのどちらを使っても見た目は連続します。</p>
-    <div class="animgrid">{''.join(anim_cells)}</div>
     <div class="note">
-      <h4>使い方</h4>
-      <p><code>background-size: (フレーム数 × 幅)px 100%</code> を指定し、<code>background-position-x</code> を 0 から −(フレーム数 × 幅)px まで <code>steps(N)</code> で送ります。このページの3点は実際にその方法で動いています。稼働中のみ動かすなら、<code>.equip</code> に状態クラスを足してアニメーションを切り替えるのが素直です。</p>
+      <h4>圧延ロールの回転について</h4>
+      <p>ご指摘のとおり、圧延で残る跡はロールに直角な周方向の跡だけで、正面から見ると縦線になります。縦線は回転対称なので、これ自体は回しても動きません。そこで縦線は静止させたまま、ロール面を横帯が上下にスクロールします。上下のロールで向きが逆なのは、ニップで両方の表面が同じ向きに材料を送る必要があるためです。</p>
     </div>
   </section>
 
@@ -346,7 +336,7 @@ HTML = f'''<title>LABolic ドット絵アセット</title>
     <ul>
       <li>assets/pixel/ — 装置14点（furnace, casting, om, pc, arc, rolling, sem, laser, magnet, tem, phase, qaa, agt, mpss）</li>
       <li>assets/pixel/char/ — 26体のシート ＋ *_front.png</li>
-      <li>assets/pixel/anim/ — laser.png · phase.png · agt.png（各8フレーム）</li>
+      <li>assets/pixel/anim/ — 装置14点ぶんのフレームシート</li>
       <li>assets/pixel/floor/ — lv1.png · lv2.png · lv3.png · lv4.png</li>
       <li>tools/pixelart/spec.py（投射とグリッドの規約）· pixcore.py · pixshapes.py</li>
       <li>tools/pixelart/devices.py · sprites.py · floors.py</li>

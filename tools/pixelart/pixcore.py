@@ -70,6 +70,8 @@ P = {
 
     'glass':   (206, 227, 242),   # lens tint
     'dglass':  (52, 64, 94),      # dark chamber glass
+    'liq':     (226, 238, 246),   # a clear liquid, in a clear pipe
+    'liq_hi':  (248, 252, 255),
     'ener_a':  (208, 246, 255),   # plasma / beam, hot core
     'ener_b':  (104, 196, 234),
     'ener_c':  (46, 120, 178),

@@ -83,47 +83,61 @@ def readout(c, x0, x1, y, dark=None):
 # =====================================================================
 # Lv1 — one tile. Sixteen pixels buys a silhouette and one telling detail.
 # =====================================================================
-@device('furnace', (1, 1))
+@device('furnace', (1, 1), frames=8)
 def furnace(c, t):
     box(c, 1, 2, 14, 14, 2, BODY, INK)
     c.hline(2, 13, 5, P['body_dk'])                 # front/top seam
     c.rect(3, 7, 12, 13, P['body_lo'])              # door, sunk in
     c.hline(3, 12, 7, P['body_dk'])
     c.vline(3, 7, 13, P['body_dk'])
+    up = math.sin(2 * math.pi * t)                  # the fire, breathing
     c.stamp(['.ooo.', 'oaabo', 'oabbo', 'obbbo', '.ooo.'],
-            {'o': INK, 'a': P['hot_a'], 'b': P['hot_b']}, ox=5, oy=8)
+            {'o': INK, 'a': P['hot_a'] if up > -0.4 else P['hot_b'],
+             'b': P['hot_b'] if up > 0.4 else P['hot_c']}, ox=5, oy=8)
+    c.px(6 + int(t * 4) % 3, 9, P['white'] if up > 0.6 else P['hot_a'])
     c.rect(8, 1, 11, 3, INK)                        # flue, standing on the top face
     c.rect(9, 2, 10, 3, P['met_lo'])
     c.vline(9, 2, 3, P['met'])
-    lamp(c, 11, 8, P['hot_b'])
+    lamp(c, 11, 8, P['hot_b'] if t < 0.5 else P['hot_a'])
 
 
-@device('casting', (1, 1))
+@device('casting', (1, 1), frames=8)
 def casting(c, t):
-    # The thing that says "crucible" rather than "cabinet" is the lip: a rim
-    # two pixels wider than the body, overhanging it. Under that the body is a
-    # plain cylinder with a flat bottom — a real crucible's base is not a cone
-    # — and the legs splay so the fire sits in the gap between them.
-    c.line(5, 10, 3, 13, INK); c.line(6, 10, 4, 13, INK)     # splayed legs
-    c.line(10, 10, 12, 13, INK); c.line(9, 10, 11, 13, INK)
-    c.rect(6, 11, 9, 12, P['hot_c'])                         # fire, between them
-    c.rect(7, 11, 8, 12, P['hot_b'])
-    c.px(7, 11, P['hot_a'])
-    c.rect(4, 5, 11, 10, INK)                                # body, under the lip
-    c.rect(5, 6, 10, 9, P['body'])
-    c.vline(5, 6, 9, P['body_hi'])
-    c.vline(10, 6, 9, P['body_dk'])
-    c.hline(5, 10, 9, P['body_dk'])
-    # The lip is filled with melt all the way down. A pale row in there reads
-    # as a display panel and turns the whole thing into an appliance.
-    c.rect(1, 1, 14, 5, INK)                                 # the overhanging lip
-    c.rect(2, 2, 13, 2, P['hot_a'])
-    c.rect(2, 3, 13, 3, P['hot_b'])
-    c.rect(2, 4, 13, 4, P['hot_c'])
-    c.px(3, 2, P['white']); c.px(4, 2, P['white'])
+    """A crucible of melt, standing on a tripod over a fire.
+
+    The melt belongs *inside* the vessel, not on top of it. What the oblique
+    projection buys here is exactly that: looking slightly down into an open
+    cup, you see the far inner wall, then the liquid surface, then the near
+    rim in front of it — so the level reads, and the level is the whole point.
+    An earlier draft filled the rim itself with orange, which turned the
+    crucible into a machine with a hot lid.
+
+    Induction would be the real method, but at Lv1 a fire underneath says
+    "melting" faster than a coil does.
+    """
+    c.line(4, 11, 3, 14, INK); c.line(5, 11, 4, 14, INK)     # tripod
+    c.line(11, 11, 12, 14, INK); c.line(10, 11, 11, 14, INK)
+    c.rect(3, 14, 12, 14, INK)
+    c.hline(4, 11, 14, P['met_lo'])
+    flick = math.sin(2 * math.pi * t)                        # the fire, breathing
+    top = 12 - (1 if flick > 0.3 else 0)
+    c.rect(6, top, 9, 13, P['hot_c'])
+    c.rect(7, top, 8, 13, P['hot_b'])
+    c.px(7 + (1 if flick > 0 else 0), top, P['hot_a'])
+    c.rect(2, 1, 13, 11, INK)                                # the cup, slightly flared
+    c.rect(3, 2, 12, 2, P['body_hi'])                        # rim, far top face
+    c.rect(3, 3, 12, 3, P['body_dk'])                        # inner wall, in shadow
+    c.rect(3, 4, 12, 4, P['hot_a'])                          # the melt surface
+    c.rect(3, 5, 12, 5, P['hot_c'])
+    c.px(4 + int(t * 8), 4, P['white'])                      # one highlight, drifting
+    c.rect(3, 6, 12, 6, P['body_hi'])                        # rim, near top face
+    c.rect(3, 7, 12, 10, P['body'])                          # outside wall
+    c.vline(3, 7, 10, P['body_hi'])
+    c.vline(12, 7, 10, P['body_dk'])
+    c.rect(4, 10, 11, 10, P['body_dk'])
 
 
-@device('om', (1, 1))
+@device('om', (1, 1), frames=8)
 def om(c, t):
     # Four parts have to survive at 16px, and they are what makes a
     # microscope a microscope: a heavy foot, an arm behind, a raked eyepiece,
@@ -146,34 +160,44 @@ def om(c, t):
     c.rect(2, 10, 11, 11, INK)                      # stage
     c.hline(3, 10, 10, P['body_hi'])
     c.hline(3, 10, 11, P['body_dk'])
-    c.px(6, 10, P['ener_b']); c.px(7, 10, P['ener_a'])
-    lamp(c, 4, 13, P['hot_b'])
+    lit = math.sin(2 * math.pi * t) > 0
+    c.px(6, 10, P['ener_a'] if lit else P['ener_b'])
+    c.px(7, 10, P['ener_b'] if lit else P['ener_a'])
+    lamp(c, 4, 13, P['hot_b'] if lit else P['hot_c'])
 
 
-@device('pc', (1, 1))
+@device('pc', (1, 1), frames=8)
 def pc(c, t):
     c.rect(3, 3, 12, 11, INK)                       # screen
     c.rect(4, 4, 11, 10, P['dglass'])
     c.rect(5, 5, 10, 9, P['ener_c'])
     c.stamp(['.o.', 'ooo', 'oao'], {'o': P['ener_a'], 'a': P['ener_b']}, ox=7, oy=6)
+    c.hline(5, 10, 9, P['ener_c'])                  # a job, running
+    c.hline(5, 5 + int(t * 6), 9, P['ener_a'])
     c.rect(1, 11, 14, 14, INK)                      # deck, seen from above
     c.rect(2, 12, 13, 13, P['body'])
     c.hline(2, 13, 12, P['body_hi'])
     for x in range(3, 13, 2):
         c.px(x, 13, P['body_dk'])
-    lamp(c, 13, 12, P['ener_b'])
+    lamp(c, 13, 12, P['ener_b'] if t < 0.5 else P['ener_c'])
 
 
 # =====================================================================
 # Lv2 — two tiles wide, one tall. A machine and its console.
 # =====================================================================
-@device('arc', (2, 1))
+@device('arc', (2, 1), frames=8)
 def arc(c, t):
     box(c, 0, 3, 17, 13, 2, BODY, INK)              # chamber
     c.hline(1, 16, 6, P['body_dk'])
+    strike = math.sin(2 * math.pi * t * 2)          # the arc, striking
     c.disc(8, 9, 3, INK)                            # viewport
     c.disc(8, 9, 2, P['ener_c'])
-    c.px(8, 8, P['ener_a']); c.px(7, 9, P['ener_b'])
+    if strike > -0.2:
+        c.disc(8, 9, 1, P['ener_b'])
+    if strike > 0.6:
+        c.disc(8, 9, 1, P['ener_a']); c.px(8, 8, P['white'])
+    else:
+        c.px(8, 8, P['ener_a'])
     c.rect(13, 7, 15, 12, P['met_lo'])              # electrode feed
     c.vline(13, 7, 12, P['met'])
     box(c, 22, 5, 31, 13, 2, DARK, INK)             # vacuum pump
@@ -188,19 +212,31 @@ def arc(c, t):
     c.rect(24, 14, 29, 14, INK)
 
 
-@device('rolling', (2, 1))
+@device('rolling', (2, 1), frames=10)
 def rolling(c, t):
     box(c, 0, 1, 5, 14, 1, BODY, INK)               # left housing
     box(c, 26, 1, 31, 14, 1, BODY, INK)             # right housing
     # One block split by a single ink line: the nip is a line, and every row
     # not spent on an outline goes into the diameter of the rolls.
+    # Rolling leaves marks perpendicular to the roll — circumferential rings,
+    # which in this view are vertical lines. Those are rotationally symmetric,
+    # so they cannot show the roll turning; they stay put. What turns is a
+    # band of light scrolling across the face, and it scrolls the opposite way
+    # on the two rolls, because at the nip both surfaces have to drive the
+    # stock the same way.
     c.rect(4, 2, 27, 14, INK)
-    for y0, y1 in ((3, 7), (9, 13)):
+    ROWS = 5
+    for i, (y0, y1) in enumerate(((3, 7), (9, 13))):
         c.rect(5, y0, 26, y1, P['met'])
         c.hline(5, 26, y0, P['met_hi'])
         c.hline(5, 26, y1, P['met_lo'])
-        for x in range(7, 26, 5):                   # a little turned texture
-            c.px(x, y0 + 1, P['met_hi']); c.px(x + 2, y1 - 1, P['met_lo'])
+        for x in range(7, 26, 4):                   # circumferential marks
+            c.vline(x, y0, y1, P['met_lo'])
+        off = int(t * 10) % ROWS
+        band = y1 - off if i == 0 else y0 + off     # up on top, down below
+        c.hline(5, 26, band, P['met_hi'])
+        for x in range(7, 26, 4):
+            c.px(x, band, P['met'])
         c.rect(4, y0 - 1, 6, y1 + 1, INK)           # journals at each end
         c.rect(25, y0 - 1, 27, y1 + 1, INK)
         c.rect(5, y0, 5, y1, P['met_hi'])
@@ -211,7 +247,7 @@ def rolling(c, t):
     c.hline(1, 4, 12, P['body_dk']); c.hline(27, 30, 12, P['body_dk'])
 
 
-@device('sem', (2, 1))
+@device('sem', (2, 1), frames=8)
 def sem(c, t):
     box(c, 1, 4, 12, 13, 2, BODY, INK)              # chamber
     c.rect(4, 0, 9, 5, INK)                         # column
@@ -232,6 +268,7 @@ def sem(c, t):
         c.px(gx, gy, P['met_lo']); c.px(gx + 1, gy, P['met_lo'])
         c.px(gx, gy + 1, P['met_lo'])                # grains, not a paper dart
         c.px(gx, gy, P['met_hi'])
+    c.hline(17, 28, 5 + int(t * 6), P['ener_b'])     # the raster, scanning down
     c.rect(20, 13, 25, 14, INK)                     # its stand
     c.rect(2, 14, 5, 14, INK); c.rect(8, 14, 11, 14, INK)
 
@@ -266,14 +303,15 @@ def laser(c, t):
     lamp(c, 26, 8, P['hot_b'])
 
 
-@device('magnet', (2, 2))
+@device('magnet', (2, 2), frames=8)
 def magnet(c, t):
-    for r in (13, 10):                              # field, as two faint arcs
+    for i, r in enumerate((13, 10)):                # field, as two arcs that
+        bright = (int(t * 4) % 2) == i              # take turns pulsing
         for k in range(200):
             a = math.pi * (k / 100.0)
             x = int(round(15.5 + r * math.cos(a)))
             y = int(round(13 - r * 0.55 * math.sin(a)))
-            under(c, x, y, P['glow'])
+            under(c, x, y, P['cry'] if bright else P['glow'])
     box(c, 3, 20, 28, 29, 2, BODY, INK)             # bed
     readout(c, 6, 14, 26)
     c.rect(8, 6, 23, 21, INK)                       # coil former
@@ -292,76 +330,64 @@ def magnet(c, t):
     c.rect(27, 13, 30, 14, P['met_lo'])
 
 
-@device('tem', (2, 2))
+@device('tem', (2, 2), frames=8)
 def tem(c, t):
-    """A transmission electron microscope, drawn from what the instrument
-    actually looks like rather than as a stack of discs.
+    """A slim column with things stuck into it and a viewing window at their
+    foot. That silhouette is the whole read.
 
-    Top to bottom: the high-tension tank and gun; the condenser lens with its
-    aperture rod entering horizontally; the goniometer, whose specimen holder
-    is a long rod sticking straight out of the side of the column — the single
-    most recognisable feature and the one the first draft omitted; the
-    objective lens, the fattest housing on the column, with its own aperture
-    rod; the selected-area aperture; intermediate and projector lenses; and
-    the viewing chamber with its leaded glass window raked toward the
-    operator. An EDS detector comes in at an angle just above the specimen.
+    The previous draft chased real anatomy — every lens housing at its true
+    relative diameter — and lost the shape: the objective is genuinely the
+    fattest casting on a TEM, and at 32px drawing it that way turned a tall
+    instrument into a squat one. Here the column stays narrow the whole way
+    down, the housings only step out a little, and the budget goes on the
+    rods entering it and on the fluorescent screen at the bottom.
     """
-    box(c, 1, 26, 30, 30, 1, BODY, INK)             # console desk
-    knobs(c, 4, 15, 28)
-    knobs(c, 18, 28, 28)
+    box(c, 3, 27, 28, 30, 1, BODY, INK)             # console
+    knobs(c, 6, 14, 28)
+    knobs(c, 17, 26, 28)
 
-    def housing(x0, x1, y0, y1, r=BODY):
+    def band(y0, y1, x0=10, x1=21):                 # a lens housing
         c.rect(x0, y0, x1, y1, INK)
-        c.rect(x0 + 1, y0 + 1, x1 - 1, y1 - 1, r['base'])
-        c.vline(x0 + 1, y0 + 1, y1 - 1, r['lit'])
-        c.vline(x1 - 1, y0 + 1, y1 - 1, r['shade'])
+        c.rect(x0 + 1, y0 + 1, x1 - 1, y1 - 1, P['body'])
+        c.vline(x0 + 1, y0 + 1, y1 - 1, P['body_hi'])
+        c.vline(x1 - 1, y0 + 1, y1 - 1, P['body_dk'])
 
-    def rod(x0, x1, y, knob_left=False):
-        """An aperture or holder rod, entering the column horizontally."""
+    def rod(x0, x1, y, left=False):                 # something stuck into it
         c.rect(x0, y, x1, y + 1, INK)
         c.hline(x0 + 1, x1 - 1, y, P['met'])
-        kx = x0 if knob_left else x1 - 1
+        kx = x0 + 1 if left else x1 - 1
         c.rect(kx - 1, y - 1, kx + 1, y + 2, INK)
         c.px(kx, y, P['met_hi'])
 
-    c.rect(13, 6, 18, 21, INK)                      # the column tube
-    c.rect(14, 6, 17, 21, P['body_lo'])
-    c.vline(14, 6, 21, P['body'])
+    c.rect(12, 1, 19, 22, INK)                      # the column itself, slim
+    c.rect(13, 2, 18, 21, P['body'])
+    c.vline(13, 2, 21, P['body_hi'])
+    c.vline(18, 2, 21, P['body_dk'])
 
-    housing(12, 19, 0, 4, METAL)                    # HT tank and gun
-    c.hline(13, 18, 1, P['met_hi'])
+    c.rect(13, 0, 18, 3, INK)                       # gun at the crown
     c.rect(14, 1, 17, 2, P['ener_c'])
-    c.px(15, 1, P['ener_a']); c.px(16, 1, P['ener_a'])
-    housing(13, 18, 4, 6)                           # gun neck
+    if math.sin(2 * math.pi * t) > -0.2:            # the emitter, flickering
+        c.px(15, 1, P['ener_a']); c.px(16, 1, P['ener_a'])
 
-    housing(10, 21, 6, 9)                           # condenser lens
-    rod(21, 26, 7)                                  # its aperture
+    band(4, 6)                                      # condenser
+    rod(21, 27, 5)
+    band(9, 12)                                     # objective, one step wider
+    rod(21, 26, 10)
+    rod(5, 11, 10, left=True)
+    band(15, 17)                                    # intermediate / projector
+    rod(21, 25, 16)
 
-    housing(9, 22, 9, 13)                           # goniometer / stage
-    c.rect(12, 10, 19, 12, P['dglass'])
-    c.px(15, 11, P['ener_b']); c.px(16, 11, P['ener_a'])
-    rod(22, 31, 10)                                 # the specimen holder rod
-    for i in range(7):                              # EDS detector, raked in
-        c.px(2 + i, 3 + i, INK); c.px(3 + i, 3 + i, P['met'])
-        c.px(2 + i, 4 + i, INK)
-    c.rect(0, 1, 3, 4, INK)
-    c.rect(1, 2, 2, 3, P['met_lo'])
-
-    housing(7, 24, 13, 18)                          # objective — the fat one
-    c.hline(8, 23, 14, P['body_hi'])
-    c.hline(8, 23, 17, P['body_dk'])
-    rod(1, 8, 15, knob_left=True)                   # objective aperture
-
-    housing(10, 21, 18, 21)                         # intermediate lens
-    rod(21, 26, 19)                                 # selected-area aperture
-    housing(11, 20, 21, 23)                         # projector lens
-
-    c.rect(5, 22, 26, 27, INK)                      # viewing chamber
-    c.rect(6, 23, 25, 26, P['body'])
-    c.hline(6, 25, 23, P['body_hi'])
-    for i in range(4):                              # leaded glass, raked
-        c.rect(9 + i, 23 + i, 22 - i, 23 + i, P['dglass'])
-    c.px(15, 25, P['ener_b']); c.px(16, 24, P['ener_b'])
+    c.rect(7, 20, 24, 27, INK)                      # the viewing chamber
+    c.rect(8, 21, 23, 26, P['body'])
+    c.hline(8, 23, 21, P['body_hi'])
+    c.rect(10, 22, 21, 25, P['dglass'])             # the fluorescent screen
+    c.frame(10, 22, 21, 25, P['ink2'])
+    glow = 0.5 + 0.5 * math.sin(2 * math.pi * t)    # ...glowing under the beam
+    c.rect(14, 23, 17, 24, P['ener_c'])
+    if glow > 0.35:
+        c.rect(15, 23, 16, 24, P['ener_b'])
+    if glow > 0.75:
+        c.px(15, 23, P['ener_a'])
 
 
 # =====================================================================
@@ -398,41 +424,57 @@ def phase(c, t):
         c.px(bx, 20, P['och'])
 
 
-@device('qaa', (3, 2), frames=1)
+@device('qaa', (3, 2), frames=8)
 def qaa(c, t):
-    box(c, 2, 25, 45, 30, 2, OCHRE, INK)            # bench
-    knobs(c, 5, 18, 27)
-    knobs(c, 28, 42, 27)
-    box(c, 1, 9, 13, 26, 2, OCHRE, INK)             # left cabinet
-    box(c, 34, 9, 46, 26, 2, OCHRE, INK)            # right cabinet
-    for y in range(14, 25, 3):
-        c.hline(3, 11, y, P['och_lo'])
-        c.hline(36, 44, y, P['och_lo'])
-        c.px(3, y, P['cry']); c.px(44, y, P['hot_b'])
-    cx, cy = 23.5, 15
-    # The ring is the accelerator, so the beam line leaves it on both sides
-    # and runs into the cabinets rather than the cabinets simply flanking it.
-    for x0, x1 in ((11, 14), (33, 36)):
-        c.rect(x0, cy - 2, x1, cy + 2, INK)
-        c.rect(x0, cy - 1, x1, cy + 1, P['met_lo'])
-        c.hline(x0, x1, cy - 1, P['met'])
-        c.px(x0 + 1, cy, P['cry_hi']); c.px(x1 - 1, cy, P['cry_hi'])
-    c.ring(cx, cy, 11, 7, INK)                      # the ring
-    c.ring(cx, cy, 10, 8, P['och'])
-    c.ring(cx, cy, 10, 10, P['och_hi'])
-    c.disc(cx, cy, 6, P['dglass'])
+    """The ring is the accelerator; everything else is served by it.
+
+    Two things were wrong in the draft before this one. The cabinets stood
+    full height and competed with the ring, so they are now low boxes. And the
+    beam lines were three pixels deep and ran the whole way across, which made
+    them read as shelving rather than pipework — they are two pixels now, well
+    separated, gathering on a slim vertical manifold before dropping into the
+    cabinet.
+    """
+    cx, cy, R, BAND = 23.5, 12, 10, 7
+    box(c, 2, 27, 45, 30, 1, OCHRE, INK)            # bench
+    # Three lines a side, leaving the ring at different angles and fanning
+    # down into the cabinet. Drawn horizontally with a shared vertical
+    # manifold they read as shelving; radiating from the ring they read as
+    # pipework, which is what they are.
+    for sgn in (-1, 1):
+        cab0 = 1 if sgn < 0 else 36
+        box(c, cab0, 20, cab0 + 11, 28, 2, OCHRE, INK)
+        for y in (24, 26):
+            c.hline(cab0 + 2, cab0 + 9, y, P['och_lo'])
+        c.px(cab0 + 2, 24, P['cry']); c.px(cab0 + 9, 26, P['cry'])
+        for a_deg, tx in ((16, 8), (0, 5), (-16, 2)):
+            ex = int(round(cx + sgn * R * math.cos(math.radians(a_deg))))
+            ey = int(round(cy - R * math.sin(math.radians(a_deg))))
+            gx = cab0 + tx if sgn < 0 else cab0 + 11 - tx
+            c.line(ex, ey, gx, 21, INK)
+            c.line(ex, ey + 1, gx, 22, INK)
+            c.line(ex - sgn, ey + 1, gx, 21, P['met'])
+            c.px(ex, ey, P['cry_hi'])
+    c.ring(cx, cy, R, BAND, INK)                    # the ring
+    c.ring(cx, cy, R - 1, BAND + 1, P['och'])
+    c.ring(cx, cy, R - 1, R - 1, P['och_hi'])
+    c.disc(cx, cy, BAND - 1, P['dglass'])
     for k in range(8):                              # bending magnets
         a = math.pi * k / 4
-        bx = int(round(cx + math.cos(a) * 9)); by = int(round(cy + math.sin(a) * 9))
+        bx = int(round(cx + math.cos(a) * (R - 1))); by = int(round(cy + math.sin(a) * (R - 1)))
         c.rect(bx - 1, by - 1, bx + 1, by + 1, INK)
         c.px(bx, by, P['och_hi'])
-    for k in range(160):                            # the circulating beam
-        a = 2 * math.pi * k / 160
+    for k in range(140):                            # the circulating beam
+        a = 2 * math.pi * k / 140
         c.px(int(round(cx + math.cos(a) * 4)), int(round(cy + math.sin(a) * 4)), P['cry'])
-        c.px(int(round(cx + math.cos(a) * 3)), int(round(cy + math.sin(a) * 3)), P['cry_lo'])
-    c.px(int(cx), cy, P['cry_hi'])
-    c.rect(20, 26, 27, 27, INK)                     # the pedestal it stands on
-    c.hline(21, 26, 26, P['och'])
+    for i in range(2):                              # ...and a packet going round
+        a = 2 * math.pi * (t + 0.5 * i)
+        c.px(int(round(cx + math.cos(a) * 4)),
+             int(round(cy + math.sin(a) * 4)), P['cry_hi'])
+    c.rect(20, 22, 27, 28, INK)                     # the pedestal it stands on
+    c.rect(21, 23, 26, 27, P['och'])
+    c.vline(21, 23, 27, P['och_hi'])
+    c.vline(26, 23, 27, P['och_lo'])
 
 
 @device('agt', (3, 2), frames=8)
@@ -484,7 +526,7 @@ def agt(c, t):
 # =====================================================================
 # Lv5 — four tiles square. The one machine the whole lab is built around.
 # =====================================================================
-@device('mpss', (4, 4))
+@device('mpss', (4, 4), frames=8)
 def mpss(c, t):
     box(c, 2, 50, 61, 61, 3, BODY, INK)             # plinth
     knobs(c, 7, 27, 57); knobs(c, 36, 56, 57)
@@ -497,11 +539,16 @@ def mpss(c, t):
             c.hline(x0 + 1, x0 + 14, y, INK)
             c.hline(x0 + 1, x0 + 14, y + 1, P['met_lo'])
         for i, px_ in enumerate(range(x0 + 3, x0 + 14, 3)):
-            c.rect(px_, 30, px_ + 1, 39, INK)       # middle: standpipes
-            c.vline(px_, 30, 39, P['met_lo'])
-            for k in range(3):                      # bubbles rising in them
-                by = 31 + ((k * 3 + i * 2) % 9)
-                c.px(px_, by, P['ener_a']); c.px(px_, by + 1, P['ener_b'])
+            # Clear pipes carrying a clear liquid, so they are drawn in whites
+            # and read against the dark rack rather than as more metalwork.
+            c.rect(px_ - 1, 30, px_ + 1, 39, INK)   # middle: standpipes
+            c.vline(px_ - 1, 30, 39, P['liq'])
+            c.vline(px_, 30, 39, P['liq_hi'])
+            c.vline(px_ + 1, 30, 39, P['glass'])
+            for k in range(3):                      # bubbles, rising
+                by = 39 - ((k * 3 + i * 2 + int(t * 9)) % 10)
+                c.px(px_, by, P['white'])
+                c.px(px_ - 1, by, P['glass']); c.px(px_ + 1, by, P['glass'])
         for y in range(44, 50, 3):                  # lower: card slots
             c.hline(x0 + 2, x0 + 13, y, P['met_lo'])
             c.px(x0 + 13, y, P['cry'])
@@ -516,7 +563,7 @@ def mpss(c, t):
         for k in range(320):
             u = k / 319.0
             y = int(round(18 + u * 27))
-            x = int(round(31.5 + 7.5 * math.sin(u * 8.0 + ph)))
+            x = int(round(31.5 + 7.5 * math.sin(u * 8.0 + ph + 2 * math.pi * t)))
             c.px(x, y, base); c.px(x + 1, y, base)
             if (k // 26) % 3 == 0:
                 c.px(x, y, hi)
