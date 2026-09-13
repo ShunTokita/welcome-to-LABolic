@@ -18,6 +18,7 @@ import os, sys, math
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 from pixcore import Canvas, P
+from pixshapes import box, ramp, round_rect
 
 OUT = os.path.join(HERE, '..', '..', 'assets', 'pixel', 'product')
 os.makedirs(OUT, exist_ok=True)
@@ -43,6 +44,49 @@ def bar(c, x0, y0, x1, y1, hi, mid, lo):
     c.vline(x1 - 1, y0 + 1, y1 - 1, lo)
 
 
+def ingot(c, cx, cy, hw, h, top, lit, shade, edge=None):
+    """A solid block, isometric. The house projection (front face + top band,
+    no side faces) is right for a machine standing on a floor, where a dozen
+    of them have to agree with each other; for a bare lump of metal in a popup
+    it draws a rectangle inside a rectangle, which reads as a screen. A block
+    needs three faces meeting at a corner before it stops being a panel.
+    """
+    col = {}
+    for x in range(cx - hw, cx + hw + 1):
+        dx = abs(x - cx)
+        halfh = (hw - dx) // 2
+        col[x] = (cy - halfh, cy + halfh)
+    for x, (t, b) in col.items():                          # the top face
+        for y in range(t, b + 1):
+            c.px(x, y, top if y <= cy else (lit if x <= cx else shade))
+    for x, (t, b) in col.items():                          # and the two sides
+        for y in range(b + 1, b + 1 + h):
+            c.px(x, y, lit if x <= cx else shade)
+    if edge:
+        for x, (t, b) in col.items():
+            c.px(x, b + h, edge)
+    c.outline(INK, over=None)
+
+
+def ell_ring(c, cx, cy, rx, ry, col):
+    """The outline of an ellipse, one pixel wide. c.ellipse fills, and an
+    armillary sphere drawn with filled ellipses is a plate."""
+    for y in range(c.h):
+        t = 1.0 - ((y - cy) / (ry + 0.5)) ** 2
+        if t < 0:
+            continue
+        dx = (rx + 0.5) * math.sqrt(t)
+        c.px(int(round(cx - dx)), y, col)
+        c.px(int(round(cx + dx)), y, col)
+    for x in range(c.w):
+        t = 1.0 - ((x - cx) / (rx + 0.5)) ** 2
+        if t < 0:
+            continue
+        dy = (ry + 0.5) * math.sqrt(t)
+        c.px(x, int(round(cy - dy)), col)
+        c.px(x, int(round(cy + dy)), col)
+
+
 def sparkle(c, x, y):
     c.px(x, y, P['white'])
     for dx, dy in ((-1, 0), (1, 0), (0, -1), (0, 1)):
@@ -54,36 +98,38 @@ def sparkle(c, x, y):
 # =====================================================================
 @product('brass')
 def brass(c):
-    # Read as an icon of a trumpet first and as a trumpet second: bell, three
-    # valves, mouthpiece, nothing else. The first pass drew a real instrument's
-    # proportions and at 32px that is a pile of brass tubing.
-    CY = 16
-    for i in range(10):                                   # the bell, flaring
-        x = 21 + i
-        half = 3 + (i * i) // 9
+    # Reference composition, house rules: bell up and to the right, valve
+    # cluster in the middle, tuning slide looping back under it. The loop is
+    # what stops three vertical casings on a tube reading as a syringe rack.
+    CY = 13
+    for i in range(10):                                   # the bell
+        x = 20 + i
+        half = 3 + (i * i) // 8
         c.vline(x, CY - half, CY + half, INK)
         if i:
             c.vline(x, CY - half + 1, CY + half - 1, P['brass'])
             c.px(x, CY - half + 1, P['brass_hi'])
             c.px(x, CY + half - 1, P['brass_lo'])
-    c.vline(30, CY - 12, CY + 12, INK)                    # its rim, straight on
-    c.vline(29, CY - 11, CY + 11, P['brass_hi'])
-    c.vline(30, CY - 11, CY + 11, P['brass'])
-    c.vline(31, CY - 10, CY + 10, P['brass_lo'])
-    c.rect(4, CY - 2, 22, CY + 2, INK)                    # the body tube
-    c.rect(4, CY - 1, 22, CY + 1, P['brass'])
-    c.hline(4, 22, CY - 1, P['brass_hi'])
-    c.hline(4, 22, CY + 1, P['brass_lo'])
-    for vx in (8, 13, 18):                                # three valve casings
-        c.rect(vx, 6, vx + 3, CY - 2, INK)
-        c.rect(vx + 1, 7, vx + 2, CY - 2, P['brass'])
-        c.vline(vx + 1, 7, CY - 2, P['brass_hi'])
-        c.vline(vx + 2, 7, CY - 2, P['brass_lo'])
-        c.rect(vx, 3, vx + 3, 6, INK)                     # and finger buttons
-        c.rect(vx + 1, 4, vx + 2, 5, P['brass_hi'])
-        c.px(vx + 2, 5, P['brass'])
-        c.rect(vx, CY + 3, vx + 3, CY + 6, INK)           # valve slides below
-        c.rect(vx + 1, CY + 3, vx + 2, CY + 5, P['brass_lo'])
+    c.vline(30, 1, 25, INK)                               # its rim
+    c.vline(29, 2, 24, P['brass_hi'])
+    c.vline(30, 2, 24, P['brass'])
+    c.rect(4, CY - 2, 21, CY + 2, INK)                    # the lead pipe
+    c.rect(4, CY - 1, 21, CY + 1, P['brass'])
+    c.hline(4, 21, CY - 1, P['brass_hi'])
+    c.hline(4, 21, CY + 1, P['brass_lo'])
+    for vx in (8, 12, 16):                                # three valve casings
+        c.rect(vx, 4, vx + 3, CY - 2, INK)
+        c.rect(vx + 1, 5, vx + 2, CY - 2, P['brass'])
+        c.vline(vx + 1, 5, CY - 2, P['brass_hi'])
+        c.rect(vx, 1, vx + 3, 4, INK)                     # and finger buttons
+        c.rect(vx + 1, 2, vx + 2, 3, P['brass_hi'])
+        c.px(vx + 2, 3, P['brass'])
+    c.rect(6, 17, 21, 20, INK)                            # the tuning slide,
+    c.rect(7, 18, 20, 19, P['brass'])                     # looping back under
+    c.hline(7, 20, 18, P['brass_hi'])
+    for (bx, by0) in ((6, CY + 2), (19, CY + 2)):
+        c.rect(bx, by0, bx + 2, 18, INK)
+        c.vline(bx + 1, by0, 18, P['brass'])
     c.rect(0, CY - 4, 5, CY + 4, INK)                     # the mouthpiece
     c.rect(1, CY - 3, 4, CY + 3, P['brass_hi'])
     c.rect(2, CY - 2, 4, CY + 2, P['brass'])
@@ -92,329 +138,314 @@ def brass(c):
 
 @product('cupronickel')
 def cupronickel(c):
-    c.disc(15.5, 16, 13, INK)
-    c.disc(15.5, 16, 12, P['sil_lo'])
-    c.disc(15.5, 16, 11, P['sil'])
-    c.disc(14, 14, 8, P['sil_hi'])
-    c.disc(15.5, 16, 9, P['sil'])
-    c.disc(14.5, 15, 7, P['sil_hi'])
-    c.stamp(['ooo.ooo.ooo',                              # 100
-             'o.o.o.o.o.o',
-             'o.o.o.o.o.o',
-             'o.o.o.o.o.o',
-             'ooo.ooo.ooo'], {'o': P['sil_lo']}, ox=10, oy=14)
-    c.px(11, 9, P['white']); c.px(12, 9, P['white'])
-    sparkle(c, 22, 9)
+    # A 100-yen piece. The denomination has to be one solid weight — stamping
+    # it twice a pixel apart to fake an emboss just broke the strokes.
+    c.disc(15.5, 15.5, 14, INK)
+    c.disc(15.5, 15.5, 13, P['sil_hi'])
+    c.disc(15.5, 15.5, 12, P['sil'])
+    c.disc(14, 14, 10, P['sil_hi'])
+    c.ring(15.5, 15.5, 12, 11, P['sil_lo'])               # the milled rim
+    D = {'1': ['.a.', 'aa.', '.a.', '.a.', 'aaa'],
+         '0': ['aaa', 'a.a', 'a.a', 'a.a', 'aaa']}
+    for i, ch in enumerate('100'):                        # the denomination
+        c.stamp(D[ch], {'a': P['met_lo']}, ox=8 + i * 4, oy=9)
+    for (bx, by) in ((10, 18), (15, 17), (20, 19), (13, 22), (18, 22)):
+        c.stamp(['.a.', 'aaa', '.a.'], {'a': P['sil_lo']}, ox=bx, oy=by)
+        c.px(bx + 1, by + 1, P['met_lo'])                 # the blossoms
+    c.px(9, 9, P['white']); c.px(10, 8, P['white'])
 
 
 @product('monel')
 def monel(c):
-    # Two ideas side by side, not one on top of the other: a bulk that is
-    # plainly polished, and one drop of filthy water that is plainly not
-    # wetting it. Overlapping them cost both.
-    c.rect(1, 14, 24, 28, INK)                            # the bulk, front face
-    c.rect(2, 15, 23, 21, P['sil_hi'])                    # a polished face
-    c.rect(2, 22, 23, 27, P['sil_lo'])                    # reflects sky over
-    c.hline(2, 23, 21, P['white'])                        # ground: the step is
-    c.hline(2, 23, 22, P['met_lo'])                       # what says "mirror"
-    c.hline(2, 23, 27, P['met_lo'])
-    for i in range(14):                                   # and one polish sweep
-        x = 4 + i
-        if 2 <= x <= 23:
-            c.px(x, 15 + i, P['white'])
-            c.px(x + 1, 15 + i, P['sil_hi'])
-    c.rect(1, 10, 24, 15, INK)                            # its top face
-    c.rect(2, 11, 23, 14, P['sil'])
-    c.hline(2, 23, 11, P['sil_hi'])
-    c.hline(2, 23, 14, P['sil_lo'])
-    c.px(4, 12, P['white']); c.px(5, 12, P['white'])
+    # A polished block with one drop of filthy water beside it. They stay
+    # apart: overlapped at this size they are one grey smear, and the point
+    # of the picture is that the water is not wetting the metal.
+    ingot(c, 11, 14, 8, 9, P['white'], P['sil'], P['sil_lo'], P['met_lo'])
+    for i in range(7):                                    # a polish sweep down
+        c.px(5 + i, 16 + i, P['sil_hi'])                  # the lit face
+        c.px(6 + i, 16 + i, P['white'])
+    c.px(8, 12, P['white']); c.px(9, 11, P['white'])      # and one on the top
     DROP = [(0, 0), (0, 1), (1, 2), (1, 3), (2, 4), (2, 5),
-            (3, 6), (3, 7), (3, 8), (2, 9), (1, 10)]       # a teardrop: point
-    for half, dy in DROP:                                  # at the top, bulb
-        c.hline(26 - half, 26 + half, 2 + dy, P['grime'])  # at the bottom
-    c.hline(25, 27, 9, P['grime_lo'])
-    c.hline(24, 28, 10, P['grime_lo'])
-    c.hline(25, 27, 11, P['grime_lo'])
-    c.px(25, 8, P['grn_hi']); c.px(25, 7, P['grn_hi'])     # its one highlight
+            (3, 6), (3, 7), (3, 8), (3, 9), (2, 10), (1, 11)]
+    for half, dy in DROP:                                 # the drop, beading
+        c.hline(25 - half, 25 + half, 3 + dy, P['grime'])
+    for half, dy in ((2, 8), (3, 9), (2, 10), (1, 11)):
+        c.hline(25 - half, 25 + half, 3 + dy, P['grime_lo'])
+    c.px(24, 9, P['grn_hi']); c.px(24, 8, P['grn_hi'])
     c.outline(INK, over=None)
 
 
 @product('invar')
 def invar(c):
-    # Bulk on the left, thermometer on the right, and the two ends of the
-    # scale labelled by a flame and a crystal. Nothing overlaps: at 32px an
-    # overlap is just a collision.
-    c.rect(1, 12, 15, 26, INK)                            # the bulk
-    c.rect(2, 13, 14, 19, P['sil_hi'])
-    c.rect(2, 20, 14, 25, P['sil_lo'])
-    c.hline(2, 14, 19, P['white'])
-    c.hline(2, 14, 20, P['met_lo'])
-    c.hline(2, 14, 25, P['met_lo'])
-    for i in range(11):
-        x = 3 + i
-        if 2 <= x <= 14:
-            c.px(x, 13 + i, P['white'])
-    c.rect(1, 8, 15, 13, INK)                             # its top face
-    c.rect(2, 9, 14, 12, P['sil'])
-    c.hline(2, 14, 9, P['sil_hi'])
-    c.hline(2, 14, 12, P['sil_lo'])
-    c.rect(17, 2, 22, 23, INK)                            # the thermometer
-    c.rect(18, 3, 21, 22, P['bg2'])
-    c.vline(18, 3, 22, P['white'])
-    c.rect(19, 4, 20, 22, P['red_lo'])
-    c.rect(19, 13, 20, 22, P['red'])
-    c.px(19, 13, P['red_hi'])
-    c.disc(19.5, 25, 4, INK)                              # and its bulb
-    c.disc(19.5, 25, 3, P['red'])
-    c.disc(18, 24, 1, P['red_hi'])
-    for y in (6, 8, 10, 16, 18, 20):                      # a scale on it
-        c.px(21, y, P['ink2'])
-    FLAME = [(0, 0), (1, 1), (1, 2), (2, 3), (2, 4), (2, 5), (2, 6), (1, 7)]
-    for half, dy in FLAME:                                # hot end: a flame
+    # Bar, thermometer, flame, crystal — four things, so they are ranked and
+    # never overlapped: the bar takes the left, the thermometer stands beside
+    # it, and fire and ice label the two ends of its scale.
+    ingot(c, 7, 13, 6, 8, P['white'], P['sil'], P['sil_lo'], P['met_lo'])
+    for i in range(5):
+        c.px(3 + i, 15 + i, P['sil_hi']); c.px(4 + i, 15 + i, P['white'])
+    c.px(5, 11, P['white'])
+    c.rect(15, 4, 20, 23, INK)                            # the thermometer
+    c.rect(16, 5, 19, 22, P['bg2'])
+    c.vline(16, 5, 22, P['white'])
+    c.rect(17, 6, 18, 22, P['red_lo'])
+    c.rect(17, 13, 18, 22, P['red'])
+    c.px(17, 13, P['red_hi'])
+    c.disc(17.5, 25, 4, INK)
+    c.disc(17.5, 25, 3, P['red'])
+    c.disc(16, 24, 1, P['red_hi'])
+    for y in (8, 10, 16, 18):
+        c.px(19, y, P['ink2'])
+    FLAME = [(0, 0), (1, 1), (2, 2), (2, 3), (3, 4), (3, 5), (2, 6), (1, 7)]
+    for half, dy in FLAME:                                # fire at the top
         c.hline(27 - half, 27 + half, 2 + dy, P['hot_c'])
-    for half, dy in ((0, 3), (1, 4), (1, 5), (1, 6), (0, 7)):
+    for half, dy in ((0, 3), (1, 4), (2, 5), (1, 6), (0, 7)):
         c.hline(27 - half, 27 + half, 2 + dy, P['hot_b'])
     c.px(27, 7, P['hot_a']); c.px(27, 8, P['hot_a'])
-    c.stamp(['..a..', 'a.a.a', '.aaa.', 'aaaaa',          # cold end: a crystal
-             '.aaa.', 'a.a.a', '..a..'],
-            {'a': P['ice_hi']}, ox=24, oy=19)
-    c.px(25, 21, P['ice']); c.px(29, 23, P['ice'])
-    c.px(26, 24, P['ice'])
+    c.stamp(['..a.a..', '..aaa..', 'a.aaa.a', '.aaaaa.', 'aaaaaaa',
+             '.aaaaa.', 'a.aaa.a', '..aaa..', '..a.a..'],   # ice at the bottom
+            {'a': P['ice_hi']}, ox=23, oy=18)
+    for (dx, dy) in ((1, 2), (5, 2), (3, 4), (1, 6), (5, 6)):
+        c.px(23 + dx, 18 + dy, P['ice'])
     c.outline(INK, over=None)
 
 
 @product('permalloy')
 def permalloy(c):
-    c.rect(3, 5, 28, 27, INK)                            # E-I laminated core
-    c.rect(4, 6, 27, 26, P['met_lo'])
-    for y in range(7, 26, 2):
-        c.hline(5, 26, y, P['met'])
-    c.rect(8, 10, 13, 22, P['bg2'])                      # windows
-    c.rect(18, 10, 23, 22, P['bg2'])
-    c.frame(8, 10, 13, 22, INK); c.frame(18, 10, 23, 22, INK)
-    c.rect(13, 8, 18, 24, INK)                           # centre limb, wound
-    for y in range(9, 24, 2):
-        c.hline(13, 18, y, P['cu_hi'])
-        c.hline(13, 18, y + 1, P['cu_lo'])
-    c.rect(10, 2, 12, 6, INK); c.px(11, 3, P['cu'])      # leads
-    c.rect(19, 2, 21, 6, INK); c.px(20, 3, P['cu'])
+    # An E-I transformer read from the front: the copper sits on the centre
+    # limb with a core window either side of it. Wrapping a slab in copper
+    # bands instead just drew a crate.
+    c.rect(2, 10, 29, 27, INK)                            # the core
+    c.rect(3, 11, 28, 14, P['met_hi'])                    # its top face
+    c.hline(3, 28, 14, P['met'])
+    c.rect(3, 15, 28, 26, P['met'])
+    c.vline(3, 15, 26, P['met_hi'])
+    c.hline(3, 28, 26, P['met_lo'])
+    for y in range(16, 27, 2):                            # the laminations
+        c.hline(4, 27, y, P['met_lo'])
+    c.rect(5, 15, 11, 24, INK)                            # the two windows
+    c.rect(6, 16, 10, 23, P['ink2'])
+    c.rect(20, 15, 26, 24, INK)
+    c.rect(21, 16, 25, 23, P['ink2'])
+    c.rect(11, 6, 20, 27, INK)                            # the centre limb,
+    c.rect(12, 7, 19, 26, P['cu'])                        # wound in copper
+    for y in range(7, 27, 3):
+        c.hline(12, 19, y, P['cu_hi'])
+        c.hline(12, 19, y + 2, P['cu_lo'])
+    c.vline(12, 7, 26, P['cu_hi'])
+    c.vline(19, 7, 26, P['cu_lo'])
+    c.px(13, 8, P['white'])
+    c.rect(0, 16, 3, 21, INK)                             # the terminals
+    c.rect(1, 17, 2, 20, P['brass'])
+    c.px(1, 17, P['brass_hi'])
+    c.rect(28, 16, 31, 21, INK)
+    c.rect(29, 17, 30, 20, P['brass'])
+    c.px(29, 17, P['brass_hi'])
+    c.rect(5, 27, 9, 30, INK)                             # and the feet
+    c.rect(22, 27, 26, 30, INK)
+    c.hline(6, 8, 28, P['met_lo']); c.hline(23, 25, 28, P['met_lo'])
 
 
 @product('nichrome')
 def nichrome(c):
-    # A front-opening oven toaster, not a pop-up one: the door is what makes
-    # the shape a toaster, and it also gives somewhere to show the elements
-    # actually glowing.
-    c.rect(0, 7, 31, 27, INK)                             # the body
-    c.rect(1, 8, 30, 26, P['met'])
-    c.hline(1, 30, 8, P['met_hi'])
-    c.hline(1, 30, 26, P['met_lo'])
-    c.rect(0, 3, 31, 8, INK)                              # its top face
-    c.rect(1, 4, 30, 7, P['met_hi'])
-    c.hline(1, 30, 7, P['met'])
-    c.rect(2, 10, 21, 24, INK)                            # the door's glass
-    c.rect(3, 11, 20, 23, P['dglass'])
+    # An oven toaster with the door on the front, so the elements can be seen
+    # actually glowing through it. The pop-up kind is a slot and a lever, and
+    # a slot at 32px is a line.
+    box(c, 0, 4, 31, 27, 4, ramp(P['met_hi'], P['met_hi'], P['met'], P['met_lo']), INK)
+    c.rect(2, 10, 21, 25, INK)                            # the door's glass
+    c.rect(3, 11, 20, 24, P['dglass'])
     c.hline(3, 20, 11, P['ink2'])
-    c.hline(4, 19, 13, P['hot_c'])                        # elements, top
-    c.hline(5, 18, 13, P['hot_b'])
-    c.hline(7, 16, 13, P['hot_a'])
-    c.hline(4, 19, 21, P['hot_c'])                        # elements, bottom
-    c.hline(5, 18, 21, P['hot_b'])
-    c.hline(7, 16, 21, P['hot_a'])
-    for x in range(4, 20, 3):                             # the wire rack
-        c.px(x, 17, P['met_lo'])
-    c.hline(4, 19, 18, P['met_lo'])
-    c.hline(5, 18, 16, (255, 200, 120, 60))               # the glow on the glass
-    c.rect(2, 24, 21, 26, INK)                            # the door handle
-    c.rect(3, 25, 20, 25, P['met_hi'])
-    c.rect(23, 10, 29, 24, INK)                           # the control panel
-    c.rect(24, 11, 28, 23, P['met_lo'])
-    c.disc(26, 14, 2, INK)                                # timer knob
-    c.disc(26, 14, 1, P['och'])
-    c.px(26, 13, P['och_hi'])
-    c.disc(26, 20, 2, INK)                                # and heat knob
-    c.disc(26, 20, 1, P['met_hi'])
-    c.px(25, 19, P['white'])
-    c.px(26, 17, P['hot_b'])                              # the pilot lamp
-    c.rect(3, 27, 6, 29, INK); c.rect(25, 27, 28, 29, INK)  # feet
-    c.hline(4, 5, 28, P['met_lo']); c.hline(26, 27, 28, P['met_lo'])
+    for y in (13, 18, 22):                                # three elements
+        c.hline(4, 19, y, P['hot_c'])
+        c.hline(5, 18, y, P['hot_b'])
+        c.hline(7, 16, y, P['hot_a'])
+        c.hline(5, 18, y - 1, P['och_lo'])             # the spill above and
+        c.hline(5, 18, y + 1, P['wood'])               # below each element
+    c.hline(4, 19, 16, P['met_lo'])                       # the wire rack
+    for x in range(5, 20, 4):
+        c.px(x, 15, P['met_lo']); c.px(x, 17, P['met_lo'])
+    c.rect(2, 25, 21, 27, INK)                            # the door handle
+    c.hline(3, 20, 26, P['met_hi'])
+    c.rect(23, 9, 29, 25, INK)                            # the controls
+    c.rect(24, 10, 28, 24, P['met_lo'])
+    for (ky, col) in ((13, P['och']), (20, P['met_hi'])):
+        c.disc(26, ky, 2, INK)
+        c.disc(26, ky, 1, col)
+        c.px(25, ky - 1, P['white'])
+    c.px(26, 16, P['hot_b']); c.px(26, 17, P['hot_c'])    # the pilot lamp
+    c.rect(3, 27, 6, 30, INK); c.rect(25, 27, 28, 30, INK)
+    c.hline(4, 5, 29, P['met_lo']); c.hline(26, 27, 29, P['met_lo'])
 
 
 @product('ferritic_ss')
 def ferritic_ss(c):
     # A sink is looked down into, so the deck is a trapezoid widening toward
-    # the viewer and the bowl walls converge to a floor — drawn as a front
-    # elevation it was a microwave three times running. The tap is thin, but
-    # thin still means ink around a fill: all-ink at 3px read as wireframe.
-    c.rect(21, 2, 25, 14, INK)                            # the tap's riser
-    c.rect(22, 3, 24, 14, P['sil'])
-    c.vline(22, 3, 14, P['sil_hi'])
-    c.vline(24, 3, 14, P['sil_lo'])
-    c.rect(25, 4, 29, 7, INK)                             # its lever
-    c.rect(26, 5, 28, 6, P['sil'])
-    c.px(26, 5, P['sil_hi'])
-    c.rect(10, 1, 25, 5, INK)                             # the gooseneck
-    c.rect(11, 2, 24, 4, P['sil'])
-    c.hline(11, 24, 2, P['sil_hi'])
-    c.hline(11, 24, 4, P['sil_lo'])
-    c.rect(9, 2, 14, 12, INK)                             # and the spout
-    c.rect(10, 3, 13, 11, P['sil'])
-    c.vline(10, 3, 11, P['sil_hi'])
-    c.vline(13, 3, 11, P['sil_lo'])
-    c.hline(10, 13, 12, P['ink2'])
+    # the viewer and the bowl walls converge to a floor; drawn as a front
+    # elevation it came out a microwave three times. The tap sits over the
+    # right of the deck and stops well short of it — carried across the full
+    # width it closed a rectangle with the deck and read as a carrying handle.
     for i in range(17):                                   # the deck
-        y = 13 + i
-        x0 = 5 - (i * 5) // 16
-        x1 = 26 + (i * 5) // 16
+        y = 12 + i
+        x0 = 4 - (i * 4) // 16
+        x1 = 27 + (i * 4) // 16
         c.hline(x0, x1, y, INK)
         c.hline(x0 + 1, x1 - 1, y, P['sil'])
         c.px(x0 + 1, y, P['sil_hi'])
         c.px(x1 - 1, y, P['sil_lo'])
-    c.hline(6, 25, 14, P['sil_hi'])
-    c.hline(1, 30, 29, P['sil_lo'])
-    for i in range(12):                                   # the bowl, converging
-        y = 16 + i
-        x0 = 8 - (i * 3) // 11
-        x1 = 23 + (i * 3) // 11
+    c.hline(5, 26, 13, P['sil_hi'])
+    c.hline(1, 30, 28, P['sil_lo'])
+    for i in range(12):                                   # the bowl
+        y = 15 + i
+        x0 = 7 - (i * 2) // 11
+        x1 = 24 + (i * 2) // 11
         c.hline(x0, x1, y, INK)
         if i:
-            c.hline(x0 + 1, x1 - 1, y, P['sil_lo'] if i < 4 else P['met_lo'])
-    c.hline(8, 23, 17, P['ink2'])                         # far wall, in shade
-    c.rect(6, 21, 25, 26, P['met_lo'])                    # the floor
-    c.hline(6, 25, 21, P['ink2'])
-    c.hline(6, 25, 26, P['sil_lo'])                       # near wall, lit
-    c.hline(5, 26, 27, P['sil'])
-    c.ellipse(15.5, 24, 3, 2, INK)                        # the drain
-    c.ellipse(15.5, 24, 2, 1, P['ink2'])
-    c.px(17, 19, P['sil_hi']); c.px(18, 19, P['sil_hi'])
+            c.hline(x0 + 1, x1 - 1, y, P['sil_lo'])
+    c.hline(7, 24, 16, P['met_lo'])                       # the far wall's shade
+    c.rect(6, 19, 25, 25, P['sil_lo'])                    # the floor
+    c.hline(6, 25, 19, P['met_lo'])
+    c.hline(5, 26, 26, P['sil'])                          # the near wall, lit
+    c.vline(5, 19, 26, P['sil'])
+    c.ellipse(12, 22, 3, 2, INK)                          # the drain, off to
+    c.ellipse(12, 22, 2, 1, P['met_lo'])                  # one side
+    c.px(9, 18, P['sil_hi']); c.px(10, 18, P['sil_hi'])
+    c.rect(22, 3, 25, 14, INK)                            # the tap's riser,
+    c.vline(23, 4, 13, P['sil_hi'])                       # kept slim: fat, it
+    c.vline(24, 4, 13, P['sil'])                          # closes a rectangle
+    c.rect(26, 5, 29, 8, INK)                             # with the deck and
+    c.px(27, 6, P['sil_hi']); c.px(28, 6, P['sil'])       # reads as a handle
+    c.px(27, 7, P['sil_lo'])
+    c.rect(16, 2, 25, 5, INK)                             # the gooseneck
+    c.hline(17, 24, 3, P['sil_hi'])
+    c.hline(17, 24, 4, P['sil'])
+    c.rect(15, 3, 18, 9, INK)                             # and the spout, well
+    c.vline(16, 4, 8, P['sil_hi'])                        # clear of the deck
+    c.vline(17, 4, 8, P['sil_lo'])
+    c.px(16, 9, P['ink2']); c.px(17, 9, P['ink2'])
 
 
 @product('austenitic_ss')
 def austenitic_ss(c):
-    # Two implements crossed. The scalpel failed the first time because a
-    # 1px line is a pin: it needs a fluted handle wide enough to hold and a
-    # blade wide enough to see the edge on.
-    c.line(3, 27, 17, 13, INK); c.line(4, 28, 18, 14, INK)   # spoon handle
-    c.line(3, 28, 17, 14, P['sil_lo'])
-    c.line(4, 27, 18, 13, P['sil'])
-    c.ellipse(21, 9, 6, 4, INK)                              # its bowl, tilted
-    c.ellipse(21, 9, 5, 3, P['sil'])
-    c.ellipse(20, 8, 3, 2, P['sil_hi'])
-    c.px(19, 7, P['white'])
-    for i in range(13):                                      # scalpel handle
-        x, y = 6 + i, 6 + i
-        c.rect(x - 1, y, x + 1, y + 1, INK)
+    # Two implements crossed. The scalpel needs a handle wide enough to hold
+    # and a blade wide enough to show an edge on — drawn as a 1px line it is
+    # a drawing pin.
+    c.line(11, 12, 25, 27, INK); c.line(13, 11, 27, 26, INK)   # spoon handle
+    c.line(12, 12, 26, 27, P['sil'])
+    c.line(12, 11, 26, 26, P['sil_hi'])
+    c.ellipse(8, 8, 5, 6, INK)                                 # its bowl
+    c.ellipse(8, 8, 4, 5, P['sil'])
+    c.ellipse(7, 7, 2, 3, P['sil_hi'])
+    c.px(6, 5, P['white'])
+    for i in range(13):                                        # scalpel handle
+        x, y = 5 + i, 27 - i
+        c.rect(x - 1, y - 1, x + 1, y + 1, INK)
         c.px(x, y, P['sil'])
         c.px(x, y + 1, P['sil_lo'] if i % 2 else P['met_lo'])
-    c.rect(4, 4, 9, 9, INK)                                  # its butt end
-    c.rect(5, 5, 8, 8, P['sil_lo'])
-    c.px(5, 5, P['sil_hi'])
-    for i in range(8):                                       # the blade, belly
-        c.hline(19 + i, 23 + i - i // 3, 19 + i, INK)
-    c.rect(20, 20, 24, 24, INK)
-    c.line(20, 20, 24, 24, P['sil_hi'])
-    c.line(21, 20, 25, 24, P['sil'])
-    c.px(22, 20, P['white'])
-    c.px(26, 26, INK); c.px(25, 25, P['sil_hi'])             # the point
-    sparkle(c, 27, 5)
+    c.rect(3, 25, 8, 30, INK)                                  # its butt end
+    c.rect(4, 26, 7, 29, P['sil_lo'])
+    c.px(4, 26, P['sil_hi'])
+    for i in range(8):                                         # the blade
+        c.hline(18 + i, 25 - i + i // 3, 14 - i, INK)
+    c.line(19, 13, 25, 7, P['sil_hi'])
+    c.line(20, 14, 26, 8, P['sil'])
+    c.line(21, 15, 24, 12, P['sil_lo'])
+    c.px(20, 12, P['white'])
+    sparkle(c, 28, 4)
 
 
 @product('ti_cr_beta')
 def ti_cr_beta(c):
-    # The head belongs off to one side with a long stem under it; a short
-    # stem under a big ball is a lollipop, and a stem that tapers hard is a
-    # hammer, so this one runs nearly parallel most of the way down.
-    c.disc(8, 7, 5, INK)                                  # femoral head
-    c.disc(8, 7, 4, P['sil'])
-    c.disc(7, 6, 2, P['sil_hi'])
-    c.px(6, 5, P['white'])
-    for i in range(6):                                    # neck, down and right
-        x, y = 11 + i, 9 + i
-        c.rect(x - 1, y, x + 2, y + 1, INK)
-        c.rect(x, y, x + 1, y, P['sil_lo'])
-        c.px(x, y, P['sil'])
-    c.rect(14, 13, 23, 18, INK)                           # the shoulder
-    c.rect(15, 14, 22, 17, P['sil_lo'])
-    c.hline(15, 22, 14, P['sil'])
-    c.px(15, 14, P['sil_hi'])
-    for i in range(13):                                   # the stem
-        y = 18 + i
-        x0 = 16 + i // 6
-        x1 = 22 - (i * 2) // 5
+    # A femoral stem: the head off to one side on a short neck, and a long
+    # stem curving away under it. Straight and stubby it is a lollipop;
+    # straight and tapered it is a hammer. The curve is the whole silhouette.
+    c.disc(23, 7, 5, INK)                                 # the head
+    c.disc(23, 7, 4, P['sil'])
+    c.disc(22, 6, 2, P['sil_hi'])
+    c.px(21, 5, P['white'])
+    for i in range(6):                                    # the neck
+        x, y = 20 - i, 9 + i
+        c.rect(x - 2, y, x + 2, y + 1, INK)
+        c.rect(x - 1, y, x + 1, y, P['sil'])
+        c.px(x + 1, y, P['sil_lo'])
+    for i in range(16):                                   # the stem, curving
+        y = 14 + i
+        cx = 15.0 - (i * i) / 42.0
+        half = 3.6 - i * 0.16
+        x0, x1 = int(round(cx - half)), int(round(cx + half))
         c.rect(x0, y, x1, y, INK)
         if x1 - x0 >= 2:
-            c.rect(x0 + 1, y, x1 - 1, y, P['sil_lo'])
-            c.px(x0 + 1, y, P['sil'])
-    for y in range(15, 26, 2):                            # porous coating
-        c.px(17 + (y % 3), y, P['met_lo'])
-        c.px(20 - (y % 2), y + 1, P['met_lo'])
-    sparkle(c, 27, 8)
+            c.rect(x0 + 1, y, x1 - 1, y, P['sil'])
+            c.px(x0 + 1, y, P['sil_hi'])
+            c.px(x1 - 1, y, P['sil_lo'])
+    for i in range(0, 12, 2):                             # the porous coating
+        c.px(13 - i // 3, 16 + i, P['met_lo'])
+    sparkle(c, 28, 15)
 
 
 @product('nitinol')
 def nitinol(c):
-    # Ordinary spectacles. Big lenses and one temple read as goggles, so the
-    # lenses come down and both temples go on — the right one folded back is
-    # the only thing that says the frame came back from it.
-    for ex in (9, 22):
-        c.ring(ex, 15, 5, 4, INK)                         # the rims
-        c.disc(ex, 15, 3, P['glass'])
-        c.disc(ex - 1, 13, 1, P['white'])
+    # Ordinary spectacles: thin rims, a bridge, and both temples. Thick rims
+    # on big lenses are goggles, and one temple is half a pair.
+    for ex in (10, 22):
+        c.ring(ex, 15, 6, 5, INK)
+        c.disc(ex, 15, 4, P['glass'])
+        c.disc(ex - 1, 13, 2, P['white'])
         c.px(ex + 2, 17, P['sil_hi'])
-    c.hline(14, 17, 12, INK)                              # the bridge
-    c.px(14, 13, INK); c.px(17, 13, INK)
-    c.px(15, 13, P['bg2']); c.px(16, 13, P['bg2'])
-    c.px(15, 12, P['sil_hi'])
-    c.hline(2, 4, 12, INK)                                # left temple, straight
-    c.hline(1, 3, 13, INK)
-    c.px(3, 12, P['sil_hi'])
-    c.px(0, 13, INK); c.px(0, 14, INK); c.px(1, 15, INK)  # over the ear
-    c.hline(27, 29, 12, INK)                              # right temple, bent
-    c.hline(28, 30, 13, INK)
-    c.px(28, 12, P['sil_hi'])
-    c.px(31, 13, INK); c.px(31, 14, INK); c.px(30, 15, INK)
-    c.px(30, 11, INK); c.px(29, 10, INK)                  # kinked where it was
-    c.px(28, 9, INK); c.px(27, 9, INK)                    # pulled too far
-    c.px(28, 10, P['sil_hi'])
-    sparkle(c, 21, 26)
+    c.hline(15, 17, 11, INK)                              # the bridge
+    c.px(15, 12, INK); c.px(17, 12, INK)
+    c.px(16, 12, P['glass'])
+    c.px(16, 10, P['sil_hi'])
+    c.hline(2, 4, 11, INK)                                # left temple
+    c.hline(1, 3, 12, INK)
+    c.px(3, 11, P['sil_hi'])
+    c.px(0, 12, INK); c.px(0, 13, INK); c.px(1, 14, INK)
+    c.hline(27, 29, 11, INK)                              # right temple, bent
+    c.hline(28, 30, 12, INK)
+    c.px(28, 11, P['sil_hi'])
+    c.px(30, 10, INK); c.px(29, 9, INK)
+    c.px(28, 8, INK); c.px(27, 8, INK)
+    c.px(28, 9, P['sil_hi'])
+    sparkle(c, 20, 26)
 
 
 @product('inconel_like')
 def inconel_like(c):
-    # Shallow turn: the fan face stays nearly round, because the swept blades
-    # and the spiral on the spinner are the two cues a non-specialist reads,
-    # and both of them only exist head-on. Blades are drawn as lines, not as
-    # a scatter of pixels along an arc — the scatter came out as static.
-    for i in range(9):                                    # the nacelle, behind
-        x = 23 + i                                        # and to the right
-        top = 6 + (i * 5) // 8
-        bot = 27 - (i * 6) // 8
+    # Shallow turn. The two cues a non-specialist reads on a jet engine — the
+    # swept fan and the spiral on the spinner — only exist head-on, so the fan
+    # face stays nearly round and the nacelle runs off behind it to the right,
+    # banded, with the hot section marked near the tail.
+    for i in range(13):                                   # the nacelle
+        x = 19 + i
+        top = 4 + (i * 6) // 12
+        bot = 29 - (i * 7) // 12
         c.vline(x, top, bot, INK)
         c.vline(x, top + 1, bot - 1, P['met'])
         c.px(x, top + 1, P['met_hi'])
+        c.px(x, top + 2, P['met_hi'])
         c.px(x, bot - 1, P['met_lo'])
-    for i in range(3):
-        c.vline(29 + i, 16 + i, 20 - i, P['ink2'])        # its nozzle
-    for i in range(7):                                    # the pylon, reaching
-        y = 7 - i                                         # the nacelle
-        c.rect(22 + i // 3, y, 27 - i // 4, y, INK)
-        c.rect(23 + i // 3, y, 26 - i // 4, y, P['met_lo'])
-    c.ellipse(12, 16, 12, 14, INK)                        # the fan case
-    c.ellipse(12, 16, 11, 13, P['met_hi'])
-    c.ellipse(12, 16, 10, 12, P['met'])
-    c.ellipse(12, 16, 9, 11, P['ink2'])                   # the dark inside it
+    for x in (23, 27):                                    # its banding
+        c.vline(x, 5 + (x - 19) * 6 // 12, 28 - (x - 19) * 7 // 12, P['met_lo'])
+    for x in (28, 29):                                    # the hot section
+        c.vline(x, 18, 21, P['hot_c'])
+    c.vline(30, 18, 20, P['ink2'])
+    c.rect(20, 0, 25, 6, INK)                             # a pylon stub
+    c.rect(21, 0, 24, 5, P['met_lo'])
+    c.px(21, 1, P['met'])
+    c.ellipse(11, 16, 11, 14, INK)                        # the fan case
+    c.ellipse(11, 16, 10, 13, P['met_hi'])
+    c.ellipse(11, 16, 9, 12, P['met'])
+    c.ellipse(11, 16, 8, 11, P['ink2'])
     for k in range(12):                                   # the fan, swept back
         a = 2 * math.pi * k / 12
-        x0 = int(round(12 + 3.4 * math.cos(a)))
+        x0 = int(round(11 + 3.0 * math.cos(a)))
         y0 = int(round(16 + 4.0 * math.sin(a)))
-        x1 = int(round(12 + 8.2 * math.cos(a + 0.55)))
-        y1 = int(round(16 + 10.0 * math.sin(a + 0.55)))
+        x1 = int(round(11 + 7.4 * math.cos(a + 0.55)))
+        y1 = int(round(16 + 10.2 * math.sin(a + 0.55)))
         c.line(x0, y0, x1, y1, P['met_hi'] if k % 2 else P['met'])
-    c.disc(12, 16, 3, INK)                                # the spinner
-    c.disc(12, 16, 2, P['met'])
+    c.disc(11, 16, 3, INK)                                # the spinner
+    c.disc(11, 16, 2, P['met'])
     for (dx, dy) in ((0, -2), (1, -1), (2, 0), (1, 1)):   # with the spiral
-        c.px(12 + dx, 16 + dy, P['white'])
-    c.px(11, 15, P['sil_hi'])
+        c.px(11 + dx, 16 + dy, P['white'])
+    c.px(10, 15, P['sil_hi'])
 
 
 # =====================================================================
@@ -589,87 +620,103 @@ def chronos_ix(c):
 
 @product('azoth')
 def azoth(c):
-    c.disc(10, 21, 8, INK)                                # the cucurbit
-    c.disc(10, 21, 7, P['glass'])
-    c.disc(10, 24, 6, P['cry'])
-    c.disc(8, 19, 3, P['white'])
-    c.rect(7, 8, 13, 14, INK)                             # its neck
-    c.rect(8, 9, 12, 13, P['glass'])
-    c.rect(6, 4, 15, 9, INK)                              # the head
-    c.rect(7, 5, 14, 8, P['glass'])
-    c.px(8, 6, P['white'])
-    for i in range(9):                                    # the beak, descending
-        c.px(14 + i, 6 + i, INK); c.px(15 + i, 6 + i, INK)
-        c.px(15 + i, 7 + i, P['glass'])
-    c.rect(21, 18, 29, 28, INK)                           # the receiver
-    c.rect(22, 19, 28, 27, P['glass'])
-    c.rect(22, 23, 28, 27, P['cry_lo'])
-    c.hline(22, 28, 23, P['cry_hi'])
-    c.px(24, 16, P['cry_hi']); c.px(24, 18, P['cry'])     # a drop falling
-    sparkle(c, 5, 14)
+    # An alembic, not a flask: a copper cucurbit over a flame, a swan neck
+    # carrying the vapour sideways, and a separate receiver for what comes
+    # out. Drop the neck and the receiver and it is laboratory glassware.
+    c.rect(2, 23, 16, 29, INK)                            # the furnace
+    c.rect(3, 24, 15, 28, P['met_lo'])
+    c.hline(3, 15, 24, P['met'])
+    c.rect(6, 25, 12, 29, INK)
+    for half, dy in ((0, 0), (1, 1), (2, 2), (2, 3)):     # and its flame
+        c.hline(9 - half, 9 + half, 25 + dy, P['hot_c'])
+    c.hline(8, 10, 27, P['hot_b']); c.px(9, 28, P['hot_a'])
+    c.disc(9, 16, 7, INK)                                 # the cucurbit
+    c.disc(9, 16, 6, P['cu'])
+    c.disc(7, 14, 4, P['cu_hi'])
+    c.disc(11, 19, 3, P['cu_lo'])
+    c.px(6, 12, P['white'])
+    c.rect(6, 21, 12, 24, INK)
+    c.rect(7, 22, 11, 23, P['cu_lo'])
+    c.rect(6, 6, 12, 11, INK)                             # its head
+    c.rect(7, 7, 11, 10, P['cu'])
+    c.hline(7, 11, 7, P['cu_hi'])
+    c.rect(11, 5, 22, 8, INK)                             # the swan neck
+    c.rect(12, 6, 21, 7, P['cu'])
+    c.hline(12, 21, 6, P['cu_hi'])
+    c.rect(19, 6, 22, 17, INK)
+    c.rect(20, 7, 21, 16, P['cu'])
+    c.vline(20, 7, 16, P['cu_hi'])
+    c.rect(17, 16, 26, 29, INK)                           # the receiver
+    c.rect(18, 17, 25, 28, P['sil'])
+    c.vline(18, 17, 28, P['sil_hi'])
+    c.vline(25, 17, 28, P['sil_lo'])
+    c.hline(18, 25, 17, P['sil_hi'])
+    c.rect(18, 23, 25, 28, P['cry'])                      # and what it caught
+    c.hline(18, 25, 23, P['cry_hi'])
+    c.px(19, 24, P['white'])
 
 
 @product('quintessence')
 def quintessence(c):
-    for rx, ry, col in ((13, 5, P['brass']), (13, 13, P['brass_lo']),
-                        (5, 13, P['brass'])):
-        for k in range(300):
-            a = 2 * math.pi * k / 300
-            c.px(int(round(15.5 + rx * math.cos(a))),
-                 int(round(16 + ry * math.sin(a))), col)
-    for rx, ry in ((13, 5), (13, 13), (5, 13)):           # ink under each ring
-        for k in range(300):
-            a = 2 * math.pi * k / 300
-            x = int(round(15.5 + rx * math.cos(a)))
-            y = int(round(16 + ry * math.sin(a)))
-            if (x, y - 1) not in c.d:
-                c.px(x, y - 1, INK)
-    c.rect(3, 28, 28, 30, INK)                            # the stand
-    c.rect(4, 29, 27, 29, P['brass_lo'])
-    c.disc(15.5, 16, 4, INK)                              # the fifth essence
-    c.disc(15.5, 16, 3, P['cry'])
-    c.disc(15, 15, 2, P['cry_hi'])
-    c.px(15, 15, P['white'])
-    for dx, dy in ((-6, -6), (7, -5), (-7, 6), (6, 7)):
-        c.px(15 + dx, 16 + dy, P['cry_hi'])
+    # An armillary sphere: gold hoops around a lit core, on a stand. The core
+    # is the blue of the reference rather than the Lv4 purple — purple is the
+    # equipment's colour in this game, and here it would read as a machine.
+    for (rx, ry, col) in ((12, 12, P['brass']),           # the meridian
+                          (4, 12, P['brass_lo']),         # a second hoop
+                          (12, 4, P['brass_hi']),         # and two latitudes
+                          (12, 8, P['brass'])):
+        ell_ring(c, 15.5, 14, rx, ry, col)
+    ell_ring(c, 15.5, 14, 12, 12, P['brass'])
+    for x in range(3, 29):                                # the equator, bright
+        c.px(x, 14, P['brass_hi'])
+    c.disc(15.5, 14, 5, INK)                              # the core
+    c.disc(15.5, 14, 4, P['ener_c'])
+    c.disc(15.5, 14, 3, P['ener_b'])
+    c.disc(14, 12, 2, P['ener_a'])
+    c.px(13, 11, P['white'])
+    c.rect(14, 26, 18, 29, INK)                           # the stand
+    c.rect(15, 27, 17, 28, P['brass'])
+    c.rect(10, 28, 22, 31, INK)
+    c.rect(11, 29, 21, 30, P['brass'])
+    c.hline(11, 21, 29, P['brass_hi'])
+    c.outline(INK, over=None)
 
 
 @product('lapis')
 def lapis(c):
-    c.rect(4, 24, 27, 30, INK)                            # the plinth
-    c.rect(5, 25, 26, 29, P['brass_lo'])
-    c.hline(5, 26, 25, P['brass'])
-    c.rect(8, 22, 23, 25, INK)
-    c.rect(9, 23, 22, 24, P['brass'])
-    c.hline(9, 22, 23, P['brass_hi'])
-    STONE = ['....ooo....',
-             '..ooaaaoo..',
-             '.oaaaaabbo.',
-             'oaaaabbbbbo',
-             'oaaabbbbbco',
-             'oaabbbbbcco',
-             '.obbbbbcco.',
-             '.obbbbccco.',
-             '..obbccco..',
-             '...occco...',
-             '....ooo....']
-    c.stamp(STONE, {'o': INK, 'a': P['red_hi'], 'b': P['red'], 'c': P['red_lo']},
-            ox=10, oy=8)
-    c.px(13, 11, P['white']); c.px(14, 11, P['white']); c.px(13, 12, P['white'])
-    for dx, dy in ((-6, -3), (7, -1), (-7, 5), (8, 6), (0, -6)):
-        c.px(15 + dx, 13 + dy, P['hot_a'])
-    for k in range(120):                                  # its aura
-        a = 2 * math.pi * k / 120
-        x = int(round(15.5 + 12 * math.cos(a)))
-        y = int(round(13 + 11 * math.sin(a)))
-        if (x, y) not in c.d and k % 3 == 0:
-            c.px(x, y, P['red_lo'])
+    # The philosophers' stone: a cut red crystal on a gold plinth. The first
+    # pass ringed it in a dashed circle, which read as a loading spinner.
+    c.rect(6, 24, 25, 29, INK)                            # the plinth
+    c.rect(7, 25, 24, 26, P['brass_hi'])                  # its top face
+    c.rect(7, 27, 24, 28, P['brass'])
+    c.hline(7, 24, 28, P['brass_lo'])
+    c.rect(9, 21, 22, 25, INK)
+    c.rect(10, 22, 21, 24, P['brass'])
+    c.hline(10, 21, 22, P['brass_hi'])
+    c.hline(10, 21, 24, P['brass_lo'])
+    for i in range(17):                                   # the crystal, cut
+        y = 5 + i
+        half = min(i, 6) if i < 13 else max(0, 6 - (i - 12) * 2)
+        if half <= 0 and i >= 13:
+            continue
+        c.hline(15 - half, 16 + half, y, INK)
+        if half:
+            c.hline(16 - half, 15 + half, y, P['red'])
+    for i in range(14):                                   # its facets
+        y = 6 + i
+        half = min(i, 5) if i < 12 else max(0, 5 - (i - 11) * 2)
+        if half > 0:
+            c.px(16 - half, y, P['red_hi'])
+            c.px(15 + half, y, P['red_lo'])
+    c.line(15, 6, 12, 13, P['red_hi'])
+    c.line(16, 6, 19, 13, P['red_lo'])
+    c.hline(11, 20, 13, P['red_lo'])
+    c.hline(12, 19, 12, P['red_hi'])
+    c.px(14, 9, P['white']); c.px(14, 10, P['red_hi'])
+    for (sx, sy) in ((4, 8), (26, 6), (24, 17), (6, 18)):
+        sparkle(c, sx, sy)
 
 
-# Only these ship. The Discovery popup shows product art for the eleven real
-# alloys and for tier t3, and keeps the element gradient for t1 and t2 — those
-# seven are still drawn here, but writing their files would put assets in the
-# repository that nothing loads.
 SHIPPED = {
     'brass', 'cupronickel', 'monel', 'invar', 'permalloy', 'nichrome',
     'ferritic_ss', 'austenitic_ss', 'ti_cr_beta', 'nitinol', 'inconel_like',
