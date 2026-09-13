@@ -538,16 +538,18 @@ CAST = {
 
 FACINGS = ('front', 'side', 'back')
 
-for cid, pal in CAST.items():
-    sheet = Canvas(W * len(FACINGS), H * 2)
-    for row in (0, 1):
-        for col, facing in enumerate(FACINGS):
-            figure(sheet, col * W, row * H, pal, facing, row)
-    sheet.save(os.path.join(OUT, cid + '.png'))
-    sheet.save(os.environ['SCRATCH'] + '/sheet_%s_x8.png' % cid, scale=8)
+if __name__ == '__main__':
+    for cid, pal in CAST.items():
+        sheet = Canvas(W * len(FACINGS), H * 2)
+        for row in (0, 1):
+            for col, facing in enumerate(FACINGS):
+                figure(sheet, col * W, row * H, pal, facing, row)
+        sheet.save(os.path.join(OUT, cid + '.png'))
+        if 'SCRATCH' in os.environ:
+            sheet.save(os.environ['SCRATCH'] + '/sheet_%s_x8.png' % cid, scale=8)
 
-    single = Canvas(W, H)
-    figure(single, 0, 0, pal, 'front', 0)
-    single.save(os.path.join(OUT, cid + '_front.png'))
+        single = Canvas(W, H)
+        figure(single, 0, 0, pal, 'front', 0)
+        single.save(os.path.join(OUT, cid + '_front.png'))
 
-print('sprites 16x24 ok:', ', '.join(CAST))
+    print('sprites 16x24 ok:', ', '.join(CAST))
