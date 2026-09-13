@@ -19,19 +19,19 @@ def uri(rel):
 
 DEVICES = [
     ('furnace', 'Furnace', 1, '熱処理の基本。箱、上面、覗き窓のある扉、煙突の4つで打ち止め'),
-    ('casting', 'Casting', 1, 'るつぼは先細りさせないと箱に見える。ただし4pxまで絞ると脚と側面がXを描くので6pxで止めた'),
+    ('casting', 'Casting', 1, '「るつぼ」と読ませているのは張り出したリップ。その下は底が平らな円筒で、リップの中は湯で満たしてある——ここに淡い行を1本でも入れると表示パネルに見え、装置が家電になる'),
     ('om', 'OM', 1, '重い台座・背後のアーム・前傾した接眼・載物台の4点が顕微鏡を顕微鏡たらしめる'),
     ('pc', 'PC', 1, '開いたノート。デッキは上面、画面は正面'),
-    ('arc', 'Arc Melt', 2, '横長チャンバーと覗き窓、右にコンソール'),
-    ('rolling', 'Rolling', 2, '圧延ロール2本。各々にインクを回し、間を通る材料で隙間を示す'),
-    ('sem', 'SEM', 2, '左に鏡筒と試料室、右にCRT。画面には組織像'),
+    ('arc', 'Arc Melt', 2, '横長チャンバーと覗き窓。右は真空ポンプで、間を配管と仕切弁でつないでいる'),
+    ('rolling', 'Rolling', 2, '1つの塊をインク1本で割ってロール2本にした。輪郭に使わない行はすべてロール径に回る'),
+    ('sem', 'SEM', 2, '左に鏡筒と試料室、右にCRT。検出器を上面に縦1本、側面に横1本挿している'),
     ('laser', 'Laser Dep', 3, '大きな窓の中にレーザーヘッドとビーム。台座はルーバー'),
-    ('magnet', 'Magnetizer', 3, '銅の巻線コイルと磁極。磁場は背後の淡い2本の弧'),
-    ('tem', 'TEM', 3, '積層レンズ段の鏡筒、上端に電子銃、下に蛍光板'),
-    ('phase', 'Phase-Shift', 4, '3本のガラス柱。中央が最も高く、中で場がうねる'),
-    ('qaa', 'Q-Accel', 4, '周回リングと8個の磁石ブロック、両脇にラック'),
+    ('magnet', 'Magnetizer', 3, 'コイル軸は横向き。巻線は軸に直交するので縞は縦。磁場は背後の淡い2本の弧'),
+    ('tem', 'TEM', 3, '実機の構成に合わせて全面改修。上から高圧タンクと電子銃、集束レンズ（絞りは水平挿入）、ゴニオメータ——側面から水平に突き出す試料ホルダーロッドが最も特徴的で、初稿ではこれが無かった——最も太い対物レンズとその絞り、制限視野絞り、中間・投影レンズ、傾いた鉛ガラス窓を持つ観察室。EDS検出器は試料直上に斜めから入る'),
+    ('phase', 'Phase-Shift', 4, '3本のガラス柱。筐体はLv4共通の黄土色で、紫の場は2px幅＋明るい芯として強調'),
+    ('qaa', 'Q-Accel', 4, 'リングが加速器本体なので、ビームラインが左右に伸びて両脇の筐体に入る。筐体はLv4共通の黄土色'),
     ('agt', 'AGT', 4, '輪・原子・結晶の3要素。原子は直交2軌道（3軌道は視野24px未満で癒着する）'),
-    ('mpss', 'MPSS', 5, 'ラボ最大。中央の窓に定在場、左右にラック、冠部に配管'),
+    ('mpss', 'MPSS', 5, 'ラボ最大。中央の窓では3本の帯が編み合う（各々1/3周期ずつ位相がずれるので窓の中で2回交差する）。左右のラックは上中下の3段で、中段は縦の配管と、その中を昇る気泡'),
 ]
 
 CAST = ['tom', 'lisa', 'ben', 'anna', 'mike', 'owen', 'pam',
@@ -49,7 +49,13 @@ FLOORS = [('lv1', '木造', '長尺の床板と木目。突きつけ目地は入
           ('lv3', '緑のラバー床', '8px間隔の丸い突起。実験室用ラバーシートの定番'),
           ('lv4', 'クリーム色シートビニル', '#ded4b7。4案の中で最も明るいものを採用。最も長く見る床なので模様は意図的に静か')]
 
+ANIM = [('laser', 'Laser Dep', 8, 1.1, 'レーザーヘッドがガントリー上を左右に走査し、ビームと溶融池が追従する'),
+        ('phase', 'Phase-Shift', 8, 1.4, '3本の柱の中で場の位相が送られる'),
+        ('agt', 'AGT', 8, 1.2, '直交2軌道の上を電子が回る。軌道そのものは静止したまま')]
+
 A = {'scene': uri('build/lab-scene.png')}
+for aid, *_ in ANIM:
+    A['a_' + aid] = uri('assets/pixel/anim/%s.png' % aid)
 for did, *_ in DEVICES:
     A['d_' + did] = uri('assets/pixel/%s.png' % did)
 for cid in CAST:
@@ -59,6 +65,24 @@ for cid in SHEETS:
 for key, *_ in FLOORS:
     A['f_' + key] = uri('assets/pixel/floor/%s.png' % key)
     A['fs_' + key] = uri('build/lab-scene-%s.png' % key)
+
+AZ = 6
+anim_css, anim_cells = [], []
+for aid, label, n, secs, note in ANIM:
+    w, h = {'laser': (32, 32), 'phase': (48, 32), 'agt': (48, 32)}[aid]
+    anim_css.append(f'''
+  #anim-{aid} {{ width:{w * AZ}px; height:{h * AZ}px;
+    background-image:url("{A['a_' + aid]}");
+    background-size:{w * n * AZ}px {h * AZ}px; background-repeat:no-repeat;
+    animation:play-{aid} {secs}s steps({n}) infinite; }}
+  @keyframes play-{aid} {{ from {{ background-position:0 0; }}
+                           to   {{ background-position:-{w * n * AZ}px 0; }} }}''')
+    anim_cells.append(f'''
+      <figure class="anim">
+        <div class="art"><div class="px" id="anim-{aid}"></div></div>
+        <figcaption><b>{label}</b><span class="tag">{n}フレーム · {secs}秒 · {w * n}×{h}</span><span class="note">{note}</span></figcaption>
+      </figure>''')
+anim_css = ''.join(anim_css)
 
 Z = 5
 dev_cells = []
@@ -211,6 +235,21 @@ HTML = f'''<title>LABolic ドット絵アセット</title>
   code {{ font-family:var(--mono); font-size:.88em; background:var(--panel);
           border:1px solid var(--line-2); padding:1px 5px; }}
 
+  .animgrid {{ display:grid; grid-template-columns:repeat(auto-fit,minmax(300px,1fr)); gap:1px;
+               background:var(--line); border:1px solid var(--line); }}
+  .anim {{ margin:0; background:var(--panel); }}
+  .anim .art {{ background:var(--lab); display:grid; place-items:center; padding:12px; }}
+  .anim figcaption {{ padding:10px 12px; font-size:13px; }}
+  .anim figcaption b {{ display:block; }}
+  .anim .tag {{ display:block; font-family:var(--mono); font-size:10.5px;
+                color:var(--ink-3); margin-bottom:5px; }}
+  .anim .note {{ display:block; color:var(--ink-2); font-size:12.5px; }}
+  #anim-laser, #anim-phase, #anim-agt {{ image-rendering:pixelated; }}
+  @media (prefers-reduced-motion: reduce) {{
+    #anim-laser, #anim-phase, #anim-agt {{ animation:none; }}
+  }}
+{anim_css}
+
   footer {{ margin-top:56px; padding-top:18px; border-top:1px solid var(--line);
             font-family:var(--mono); font-size:11.5px; color:var(--ink-3); }}
   footer ul {{ margin:8px 0 0; padding-left:18px; }}
@@ -256,6 +295,16 @@ HTML = f'''<title>LABolic ドット絵アセット</title>
   </section>
 
   <section>
+    <div class="sec-head"><h2>動的描画</h2><span>assets/pixel/anim/ · 横並びフレームシート</span></div>
+    <p class="lede">3点にアニメーションを付けました。各フレームを横に並べた1枚のPNGで、ゲーム側は <code>background-position</code> と <code>animation: steps(N)</code> で送ります——ドット絵では補間の入らない <code>steps()</code> が必須です。1フレーム目は静止版と同一なので、静止アセットとシートのどちらを使っても見た目は連続します。</p>
+    <div class="animgrid">{''.join(anim_cells)}</div>
+    <div class="note">
+      <h4>使い方</h4>
+      <p><code>background-size: (フレーム数 × 幅)px 100%</code> を指定し、<code>background-position-x</code> を 0 から −(フレーム数 × 幅)px まで <code>steps(N)</code> で送ります。このページの3点は実際にその方法で動いています。稼働中のみ動かすなら、<code>.equip</code> に状態クラスを足してアニメーションを切り替えるのが素直です。</p>
+    </div>
+  </section>
+
+  <section>
     <div class="sec-head"><h2>キャラクター 26体</h2><span>16×24 / 足元1×1マス</span></div>
     <p class="lede">襟にはゲームのロスター色をそのまま使っています。16pxでは2pxの前立てでは26着の白衣を見分けられませんが、6pxの襟なら見分けられ、しかもUIでその人物に使われている色と一致します。</p>
     <p class="lede">容姿は各キャラクターが既に持っているイラストアイコンから起こしました——Benは丸メガネ、Samはヘルメット、Daveはヘッドホン、Chenは角帽、Leeは幽霊、Murphyはバイク、Jeffは吹きこぼれたフラスコ。肌の色は3階調に散らしてあり、名前からは推定していません。ここは最も差し替えやすい箇所です。</p>
@@ -297,6 +346,7 @@ HTML = f'''<title>LABolic ドット絵アセット</title>
     <ul>
       <li>assets/pixel/ — 装置14点（furnace, casting, om, pc, arc, rolling, sem, laser, magnet, tem, phase, qaa, agt, mpss）</li>
       <li>assets/pixel/char/ — 26体のシート ＋ *_front.png</li>
+      <li>assets/pixel/anim/ — laser.png · phase.png · agt.png（各8フレーム）</li>
       <li>assets/pixel/floor/ — lv1.png · lv2.png · lv3.png · lv4.png</li>
       <li>tools/pixelart/spec.py（投射とグリッドの規約）· pixcore.py · pixshapes.py</li>
       <li>tools/pixelart/devices.py · sprites.py · floors.py</li>

@@ -73,6 +73,11 @@ P = {
     'ener_a':  (208, 246, 255),   # plasma / beam, hot core
     'ener_b':  (104, 196, 234),
     'ener_c':  (46, 120, 178),
+    # Ochre, the Lv4 house colour — taken off AGT's brass so the three
+    # end-game machines read as one family, with purple as their signature.
+    'och_hi':  (226, 200, 138),
+    'och':     (190, 162, 96),
+    'och_lo':  (144, 120, 64),
     'cu_hi':   (232, 168, 112),   # copper windings
     'cu':      (198, 124, 70),
     'cu_lo':   (144, 84, 46),
