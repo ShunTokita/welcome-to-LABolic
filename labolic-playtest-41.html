@@ -1434,14 +1434,58 @@
        colour, which was fine over a flat colour; over timber or rubber studs
        it fights the texture. Layout mode still draws it, where it is doing a
        job. */
+    --wall: calc(var(--tile) * 0.5);
     background: var(--floor) 0 0 / calc(var(--tile) * 2) calc(var(--tile) * 2),
                 var(--bg-lab);
     /* Inherited by every sprite in the lab, which is the point: all of them
        are pixel art and none of them may be smoothed. */
     image-rendering: pixelated;
-    border: 2px solid var(--line-strong);
+    /* No border: the room has walls now, and a rule around the floor as well
+       reads as a second, thinner room inside the first. */
     border-radius: 2px;
   }
+
+  /* -------------------------------------------------------------
+     The room.
+
+     Only the far wall shows a face in this projection, so only it carries
+     art — a four-tile strip repeated along the room, with the glass changing
+     between day and night. The other three walls are seen edge-on and are
+     bands of their level's colour, lit from the upper left like everything
+     else. The door is a length of the left band in a darker shade, lined up
+     with the mat that is already there.
+     ------------------------------------------------------------- */
+  .lab-walls { position: absolute; inset: 0; pointer-events: none; z-index: 1; }
+  /* background-color, not the `background` shorthand: the shorthand also
+     resets background-size, and it was landing on .w-top — whose size is what
+     makes the far wall one storey rather than three. */
+  .lab-walls i { position: absolute; display: block; background-color: var(--wall-side); }
+  .w-top {
+    left: calc(-1 * var(--wall)); right: calc(-1 * var(--wall));
+    bottom: 100%; height: calc(var(--tile) * 2);
+    /* Longhands, not the shorthand: `background: <color> repeat-x` is a
+       shorthand that also resets background-size, and the strip ended up
+       repeating down the wall as well as along it. */
+    background-color: var(--bg-lab);
+    background-repeat: repeat-x;
+    background-position: left bottom;
+    background-size: calc(var(--tile) * 4) calc(var(--tile) * 2);
+  }
+  .w-left, .w-right, .w-bottom, .w-door {
+    box-shadow: inset 1px 1px 0 rgba(255,255,255,0.20),
+                inset -1px -1px 0 rgba(0,0,0,0.28);
+  }
+  .w-left   { top: 0; bottom: calc(-1 * var(--wall)); left: calc(-1 * var(--wall));
+              width: var(--wall); }
+  .w-right  { top: 0; bottom: calc(-1 * var(--wall)); right: calc(-1 * var(--wall));
+              width: var(--wall); }
+  .w-bottom { left: calc(-1 * var(--wall)); right: calc(-1 * var(--wall));
+              bottom: calc(-1 * var(--wall)); height: var(--wall); }
+  .w-door   { left: calc(-1 * var(--wall)); width: var(--wall);
+              top: calc(var(--tile) * var(--door-top-row, 5));
+              height: calc(var(--tile) * 2);
+              background: var(--wall-door); }
+
   body.layout-mode .lab {
     background:
       linear-gradient(rgba(40,30,20,0.42) 1px, transparent 1px) 0 0 / var(--tile) var(--tile),
@@ -1634,13 +1678,26 @@
   .character[data-cw="smith"] { background-image: url('assets/pixel/char/smith.png'); }
   .character[data-cw="player"] { background-image: url('assets/pixel/char/player.png'); }
 
-  /* --- floor ---------------------------------------------------
-     32px tiles, so two lab tiles square: a pattern that repeats every tile
-     beats in time with the grid and reads as wallpaper. */
-  .lab[data-lv="1"] { --floor: url('assets/pixel/floor/lv1.png'); }
-  .lab[data-lv="2"] { --floor: url('assets/pixel/floor/lv2.png'); }
-  .lab[data-lv="3"] { --floor: url('assets/pixel/floor/lv3.png'); }
-  .lab[data-lv="4"] { --floor: url('assets/pixel/floor/lv4.png'); }
+  /* --- the room ------------------------------------------------
+     Floor tiles are 32px, two lab tiles square: a pattern that repeats every
+     tile beats in time with the grid and reads as wallpaper.
+
+     Of the four walls only the far one shows a face in this projection, so it
+     is the only one carrying art; left, right and near are edge-on and are
+     bands of colour. What is behind the glass follows the in-game clock. */
+  .lab[data-lv="1"] { --floor: url('assets/pixel/floor/lv1.png'); --wall-side: #8a6540; --wall-door: #5c3f22; }
+  .lab[data-lv="2"] { --floor: url('assets/pixel/floor/lv2.png'); --wall-side: #7c7870; --wall-door: #4e4a44; }
+  .lab[data-lv="3"] { --floor: url('assets/pixel/floor/lv3.png'); --wall-side: #7d8a72; --wall-door: #4f5a48; }
+  .lab[data-lv="4"] { --floor: url('assets/pixel/floor/lv4.png'); --wall-side: #b3ac98; --wall-door: #6d6656; }
+
+  .lab[data-lv="1"][data-time="day"] .w-top { background-image: url('assets/pixel/wall/top_lv1_day.png'); }
+  .lab[data-lv="1"][data-time="night"] .w-top { background-image: url('assets/pixel/wall/top_lv1_night.png'); }
+  .lab[data-lv="2"][data-time="day"] .w-top { background-image: url('assets/pixel/wall/top_lv2_day.png'); }
+  .lab[data-lv="2"][data-time="night"] .w-top { background-image: url('assets/pixel/wall/top_lv2_night.png'); }
+  .lab[data-lv="3"][data-time="day"] .w-top { background-image: url('assets/pixel/wall/top_lv3_day.png'); }
+  .lab[data-lv="3"][data-time="night"] .w-top { background-image: url('assets/pixel/wall/top_lv3_night.png'); }
+  .lab[data-lv="4"][data-time="day"] .w-top { background-image: url('assets/pixel/wall/top_lv4_day.png'); }
+  .lab[data-lv="4"][data-time="night"] .w-top { background-image: url('assets/pixel/wall/top_lv4_night.png'); }
 
   .equip:hover {
     box-shadow: 0 0 0 2px var(--accent-active);
@@ -1891,12 +1948,15 @@
   }
   .cw-bubble svg { display: block; }
   .cw-bubble .cw-bubble-glyph { font-size: 13px; line-height: 1; }
+  /* Every step carries scaleX(--flip): the bubble hangs off a node that
+     mirrors itself to face left, and without the counter-flip the words in it
+     came out backwards. */
   @keyframes cw-bubble-life {
-    0%   { opacity: 0; transform: translate(-50%, 5px) scale(0.4); }
-    14%  { opacity: 1; transform: translate(-50%, 0) scale(1.14); }
-    24%  { opacity: 1; transform: translate(-50%, 0) scale(1); }
-    76%  { opacity: 1; transform: translate(-50%, 0) scale(1); }
-    100% { opacity: 0; transform: translate(-50%, -7px) scale(0.92); }
+    0%   { opacity: 0; transform: translate(-50%, 5px) scale(0.4) scaleX(var(--flip, 1)); }
+    14%  { opacity: 1; transform: translate(-50%, 0) scale(1.14) scaleX(var(--flip, 1)); }
+    24%  { opacity: 1; transform: translate(-50%, 0) scale(1) scaleX(var(--flip, 1)); }
+    76%  { opacity: 1; transform: translate(-50%, 0) scale(1) scaleX(var(--flip, 1)); }
+    100% { opacity: 0; transform: translate(-50%, -7px) scale(0.92) scaleX(var(--flip, 1)); }
   }
   /* Reduce-motion keeps the bubble — it is the only cue that a drift
      happened — but drops the pop and the drift upward for a plain fade. */
@@ -1916,11 +1976,8 @@
      settings section. Belt and braces: the JS also refuses to create these. */
   body.reduce-motion .float-text { display: none; }
 
-  /* PCs */
-  .equip.pc {
-    background-color: var(--accent-active-bg);
-    border-color: var(--accent-active);
-  }
+  /* PCs — no tinted card. Same reason as Lv4 and MPSS: behind a transparent
+     sprite it is a blue crate the machine sits in. */
   .eq-plate.pc { color: #fff; background: rgba(20, 80, 140, 0.9); }
   .equip.pc .lv-badge { color: var(--accent-active); background: rgba(255,255,255,0.88); }
 
@@ -2029,7 +2086,10 @@
     height: calc(var(--tile) * 1.5);
     left: calc(var(--col) * var(--tile));
     top: calc((var(--row) - 0.5) * var(--tile));
-    cursor: pointer; z-index: 4;
+    /* Above the name plates (4) and a hovered device (5): a figure standing
+       in front of a machine has to occlude its plate, not the other way
+       round. */
+    cursor: pointer; z-index: 6;
     background-repeat: no-repeat;
     background-size: 300% 200%;
     background-position-x: 0%;
@@ -3369,7 +3429,7 @@
      aria-label="Tap to Start Experiments!">
   <div class="title-lab-layer">
     <div class="title-lab-stage" id="title-lab-stage">
-      <div class="lab title-lab" id="title-lab"><div class="door"></div></div>
+      <div class="lab title-lab" id="title-lab"><div class="lab-walls" aria-hidden="true"><i class="w-top"></i><i class="w-left"></i><i class="w-right"></i><i class="w-bottom"></i><i class="w-door"></i></div><div class="door"></div></div>
     </div>
   </div>
   <div class="title-scrim"></div>
@@ -3749,6 +3809,7 @@
           <div class="layout-banner">LAYOUT MODE — drag equipment freely. Press 確定 to commit, キャンセル to revert.</div>
           <div class="lab-stage" id="lab-stage">
             <div class="lab" id="lab">
+              <div class="lab-walls" aria-hidden="true"><i class="w-top"></i><i class="w-left"></i><i class="w-right"></i><i class="w-bottom"></i><i class="w-door"></i></div>
               <div class="door" id="door"></div>
               <!-- equipment, user tiles, characters injected by JS -->
             </div>
@@ -4130,9 +4191,13 @@ function setBaseTile() {
 // crawls as you zoom. Snapping the zoom to multiples of ART_TILE / baseTile
 // (thirds on desktop, halves on mobile) keeps every rendered pixel square and
 // the same size as its neighbour.
-function snapZoom(z) {
+function snapZoom(z, down) {
   const step = ART_TILE / baseTile();
-  const k = Math.max(1, Math.round(z / step));
+  // autoFit must round DOWN. Rounding to nearest can land a step above the
+  // size that actually fits, and the first thing to go over the edge is the
+  // far wall, which sits two tiles above the floor.
+  const raw = z / step;
+  const k = Math.max(1, down ? Math.floor(raw + 1e-6) : Math.round(raw));
   return Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, k * step));
 }
 
@@ -4167,7 +4232,11 @@ function applyTransform() {
 function getLabPxSize() {
   const tile = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--tile'));
   const { w, h } = effectiveLabSize();
-  return { w: tile * w, h: tile * h, tile };
+  // The walls stand outside the floor — half a tile at each side and below,
+  // two above for the far wall — so what has to be fitted on screen is the
+  // room, not the floor inside it.
+  return { w: tile * w, h: tile * h, tile,
+           padL: tile * 0.5, padR: tile * 0.5, padT: tile * 2, padB: tile * 0.5 };
 }
 
 function autoFit() {
@@ -4182,10 +4251,14 @@ function autoFit() {
   const chat = document.querySelector('.chat-overlay');
   const chatW = (chat && !chat.classList.contains('collapsed')) ? chat.offsetWidth + 16 : 0;
   const usableW = vw - chatW;
-  const fit = Math.min((usableW - 8) / lab.w, (vh - 8) / lab.h);
-  zoomLevel = snapZoom(fit);
-  panX = (usableW - lab.w * zoomLevel) / 2;
-  panY = (vh - lab.h * zoomLevel) / 2;
+  const roomW = lab.w + lab.padL + lab.padR;
+  const roomH = lab.h + lab.padT + lab.padB;
+  const fit = Math.min((usableW - 16) / roomW, (vh - 16) / roomH);
+  zoomLevel = snapZoom(fit, true);
+  // Centre the room, then step in by the wall so the floor's own origin lands
+  // where the pan expects it.
+  panX = (usableW - roomW * zoomLevel) / 2 + lab.padL * zoomLevel;
+  panY = (vh - roomH * zoomLevel) / 2 + lab.padT * zoomLevel;
   applyTransform();
 }
 
@@ -7140,6 +7213,16 @@ function createEquipNode(eq, lab) {
   };
 }
 
+// Light through the windows: the first half of a DAY is daylight, the second
+// half night. Nothing else in the game reads this, so it lives here rather
+// than in game state.
+function applyTimeOfDay() {
+  const lab = document.getElementById('lab');
+  if (!lab) return;
+  const t = ((gameStats.dayProgressMs || 0) / DAY_DURATION_MS) % 1 < 0.5 ? 'day' : 'night';
+  if (lab.dataset.time !== t) lab.dataset.time = t;
+}
+
 function renderLab() {
   const lab = document.getElementById('lab');
   if (!lab) return;
@@ -7147,6 +7230,7 @@ function renderLab() {
   // four, and a Lv5 lab should keep the Lv4 floor rather than lose it.
   const floorLv = String(Math.max(1, Math.min(4, gameStats.labLv || 1)));
   if (lab.dataset.lv !== floorLv) lab.dataset.lv = floorLv;
+  applyTimeOfDay();
 
   const seen = new Set();
 
@@ -7326,6 +7410,9 @@ function renderCharacters(lab) {
     setVar(el, '--col', cw.col);
     setVar(el, '--row', cw.row);
     faceFrom(el, cw.col, cw.row);
+    // At work they turn to the machine. Every device stands one tile above
+    // its work tile, so that is always the back view.
+    if (cw.state === 'busy') el.dataset.face = 'back';
     // The legs only move while there is a path left to walk. A looping
     // two-frame cycle on a standing figure reads as marching on the spot.
     el.classList.toggle('walking', isCwWalking(cw));
@@ -9279,13 +9366,32 @@ function showCollisionFeedback() {
   setTimeout(() => bubble.remove(), 1400);
 }
 
+let playerWalkTimer = null;
+
 function setPlayerTile(c, r) {
+  // The facing has to be worked out here. The player moves by writing --col
+  // and --row straight onto the node and never passes through
+  // renderCharacters, so the derivation that serves the Co-Workers never saw
+  // a player step and the sprite kept whatever way it happened to be facing.
+  const dc = c - playerCol, dr = r - playerRow;
   playerCol = c; playerRow = r;
   const player = document.getElementById('player');
-  if (player) {
-    player.style.setProperty('--col', c);
-    player.style.setProperty('--row', r);
+  if (!player) return;
+  player.style.setProperty('--col', c);
+  player.style.setProperty('--row', r);
+  if (!dc && !dr) return;
+  if (dc) {
+    player.dataset.face = 'side';
+    player.style.setProperty('--flip', dc < 0 ? -1 : 1);
+  } else {
+    player.dataset.face = dr > 0 ? 'front' : 'back';
   }
+  // Keep renderCharacters' own derivation in step, or it would read this move
+  // a second time on the next render and re-face the player from stale tiles.
+  player._pc = c; player._pr = r;
+  player.classList.add('walking');
+  clearTimeout(playerWalkTimer);
+  playerWalkTimer = setTimeout(() => player.classList.remove('walking'), 240);
 }
 
 function executePath(path, onArrive) {
@@ -11265,6 +11371,7 @@ let aiPaused = false; // can be toggled for debugging
 function tickDayClock() {
   if (aiPaused) return false;
   gameStats.dayProgressMs = (gameStats.dayProgressMs || 0) + AI_TICK_MS;
+  applyTimeOfDay();
   if (gameStats.dayProgressMs >= DAY_DURATION_MS) {
     const advance = Math.floor(gameStats.dayProgressMs / DAY_DURATION_MS);
     gameStats.day = (gameStats.day || 1) + advance;
@@ -16370,6 +16477,7 @@ function titleFitLab() {
   // ends. It is the same texture .lab paints, and the title lab is a Lv3
   // room, so it is the rubber floor.
   lab.dataset.lv = '3';
+  lab.dataset.time = 'day';
   const screen = document.getElementById('title-screen');
   if (screen) {
     // A floor tile is 32 art pixels: two lab tiles square.

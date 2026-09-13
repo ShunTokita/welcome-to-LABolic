@@ -63,10 +63,22 @@ for cid in CAST:
     w("  .character[data-cw=\"%s\"] { background-image: url('assets/pixel/char/%s.png'); }"
       % (cid, cid))
 w("")
-w("""  /* --- floor ---------------------------------------------------
-     32px tiles, so two lab tiles square: a pattern that repeats every tile
-     beats in time with the grid and reads as wallpaper. */""")
+w("""  /* --- the room ------------------------------------------------
+     Floor tiles are 32px, two lab tiles square: a pattern that repeats every
+     tile beats in time with the grid and reads as wallpaper.
+
+     Of the four walls only the far one shows a face in this projection, so it
+     is the only one carrying art; left, right and near are edge-on and are
+     bands of colour. What is behind the glass follows the in-game clock. */""")
+from walls import SIDE, DOOR
 for lv in (1, 2, 3, 4):
-    w("  .lab[data-lv=\"%d\"] { --floor: url('assets/pixel/floor/lv%d.png'); }" % (lv, lv))
+    w("  .lab[data-lv=\"%d\"] { --floor: url('assets/pixel/floor/lv%d.png');"
+      " --wall-side: %s; --wall-door: %s; }" % (lv, lv, SIDE[lv], DOOR[lv]))
+w("")
+for lv in (1, 2, 3, 4):
+    for tod in ('day', 'night'):
+        w("  .lab[data-lv=\"%d\"][data-time=\"%s\"] .w-top"
+          " { background-image: url('assets/pixel/wall/top_lv%d_%s.png'); }"
+          % (lv, tod, lv, tod))
 
 print('\n'.join(out))
