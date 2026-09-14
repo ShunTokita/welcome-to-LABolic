@@ -4210,6 +4210,14 @@ function setBaseTile() {
 // the same size as its neighbour.
 function snapZoom(z, down) {
   const step = ART_TILE / baseTile();
+  // Below one step there is no integer scale left to protect — an art pixel
+  // is already smaller than a screen pixel — so snapping there can only
+  // refuse to go small enough. It did: on a phone one step is 0.5, and a Lv4
+  // 16x12 floor at 0.5 is 192px tall against a 150px lab pane. The lab was
+  // drawn overflowing, "A" kept returning the same too-large value, and
+  // zoom-out could not go under it, so there was no way to see the whole
+  // floor at all. A clipped lab is worse than uneven art pixels.
+  if (z < step) return Math.min(step, Math.max(ZOOM_MIN, z));
   // autoFit must round DOWN. Rounding to nearest can land a step above the
   // size that actually fits, and the first thing to go over the edge is the
   // far wall, which sits two tiles above the floor.
@@ -4317,8 +4325,10 @@ function zoomAt(viewportX, viewportY, requestedZoom) {
   // dead buttons. When the caller clearly asked to move, move one whole step.
   if (Math.abs(newZoom - zoomLevel) < 1e-6 &&
       Math.abs(requestedZoom - zoomLevel) > 1e-6) {
+    // No floor of one step here: snapZoom already clamps, and flooring at one
+    // step made zoom-out *increase* the zoom once the fit had gone below it.
     const k = Math.round(zoomLevel / step) + (requestedZoom > zoomLevel ? 1 : -1);
-    newZoom = snapZoom(Math.max(step, k * step));
+    newZoom = snapZoom(k * step);
   }
   if (Math.abs(newZoom - zoomLevel) < 0.001) return;
   // A zoom the player chose. Stops the auto-fit below from overriding it when
