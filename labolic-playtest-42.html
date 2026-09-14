@@ -7606,6 +7606,15 @@ function lkCap(px, p, rows, hiRows) {
   for (const y of (hiRows === undefined ? [1] : hiRows))
     for (let x = 5; x < 8; x++) px(x, y, p.hair_hi);
 }
+// The hair that sits ON a shortened skull. lkLowerCrown() leaves row 3
+// covered; this carries it one row further down and puts the temples back, so
+// a lowered head still has a hairline rather than a painted stripe.
+function lkLowFringe(px, p, f) {
+  for (let x = 4; x < 12; x++) px(x, 4, p.hair);
+  if (f === 'side') { px(10, 4, p.hair); px(11, 4, p.hair); }
+  else if (f !== 'back') { px(4, 5, p.hair); px(11, 5, p.hair); }
+}
+
 const LOOK_HAIR = {
   short(px, p, f) {
     lkCap(px, p, [1, 2, 3]);
@@ -7649,23 +7658,48 @@ const LOOK_HAIR = {
       px(7, 11, p.hair_hi); px(8, 11, p.hair);
     }
   },
+  // A bun, a spike and a quiff are all hair standing ABOVE the skull, and the
+  // skull's top line is row 0 — so painting them there just recoloured the
+  // outline and the three styles came out looking like a plain cap. They
+  // lower the crown first, the same two rows the ears and the crest take.
   bun(px, p, f) {
-    lkCap(px, p, [1, 2, 3]);
-    px(4, 4, p.hair); px(11, 4, p.hair);
-    for (let x = 6; x < 10; x++) px(x, 0, p.hair);
-    px(7, 0, p.hair_hi);
-    if (f === 'back') for (let x = 5; x < 11; x++) px(x, 1, p.hair_hi);
+    lkLowerCrown(px, p); lkLowFringe(px, p, f);
+    for (let x = 6; x < 10; x++) { px(x, 1, p.hair); px(x, 2, p.hair); }
+    px(7, 0, p.hair); px(8, 0, p.hair);
+    px(7, 1, p.hair_hi);
+    px(5, 1, LOOK_INK); px(10, 1, LOOK_INK);
+    px(6, 0, LOOK_INK); px(9, 0, LOOK_INK);
   },
-  spiky(px, p) {
-    lkCap(px, p, [1, 2, 3]);
-    for (let x = 4; x < 12; x += 2) px(x, 0, p.hair);
-    px(4, 4, p.hair); px(11, 4, p.hair);
+  spiky(px, p, f) {
+    lkLowerCrown(px, p); lkLowFringe(px, p, f);
+    // four thin spikes with ink in every gap: two pixels wide they are a
+    // battlement, not hair
+    for (const x of [4, 6, 8, 10]) {
+      px(x, 2, p.hair); px(x, 1, p.hair); px(x, 0, p.hair_hi);
+      px(x - 1, 0, LOOK_INK); px(x - 1, 1, LOOK_INK);
+      px(x + 1, 0, LOOK_INK); px(x + 1, 1, LOOK_INK);
+    }
   },
-  pomp(px, p) {
-    lkCap(px, p, [1, 2, 3]);
+  pomp(px, p, f) {
+    lkLowerCrown(px, p); lkLowFringe(px, p, f);
+    // Swept up and back, so the mass is asymmetric: level with the crown at
+    // the back and two rows above it at the front. Symmetrical it is a bun.
+    if (f === 'side') {
+      for (let x = 4; x < 12; x++) px(x, 2, p.hair);
+      for (let x = 7; x < 13; x++) px(x, 1, p.hair);
+      for (let x = 9; x < 13; x++) px(x, 0, p.hair);
+      px(10, 0, p.hair_hi); px(11, 0, p.hair_hi);
+      px(6, 1, LOOK_INK); px(6, 2, LOOK_INK); px(8, 0, LOOK_INK);
+      px(13, 0, LOOK_INK); px(13, 1, LOOK_INK); px(13, 2, LOOK_INK);
+      return;
+    }
+    for (let x = 4; x < 12; x++) px(x, 2, p.hair);
+    for (let x = 4; x < 10; x++) px(x, 1, p.hair);
     for (let x = 4; x < 8; x++) px(x, 0, p.hair);
-    px(5, 0, p.hair_hi);
-    px(4, 4, p.hair); px(11, 4, p.hair);
+    px(4, 0, p.hair_hi); px(5, 0, p.hair_hi);
+    for (const y of [0, 1, 2]) px(3, y, LOOK_INK);
+    px(8, 0, LOOK_INK); px(10, 1, LOOK_INK);
+    px(9, 0, LOOK_INK);
   },
   horseshoe(px, p, f) {
     for (const x of [4, 5, 10, 11]) for (const y of [1, 2, 3]) px(x, y, p.hair);
@@ -7909,11 +7943,15 @@ const LOOK_WEAR = {
       for (let y = 4; y < 7; y++) for (let x = 5; x < 11; x++) px(x, y, lo);
       return;
     }
-    // the faceplate, inset two pixels so the dome shows all round it
-    for (let y = 4; y < 7; y++) for (let x = 5; x < 11; x++) px(x, y, VISOR);
-    for (let x = 5; x < 11; x++) { px(x, 3, LOOK_INK); px(x, 7, LOOK_INK); }
-    for (let y = 4; y < 7; y++) { px(4, y, LOOK_INK); px(11, y, LOOK_INK); }
-    px(6, 4, LOOK_GLASS); px(7, 4, LOOK_GLASS); px(6, 5, LOOK_GLASS);
+    // The faceplate follows the face. Centred in profile as well as head on,
+    // the two views were the same picture and the helmet read as eyeless: in
+    // profile the window belongs at the FRONT, with the back of the shell
+    // solid behind it.
+    const [vx0, vx1] = f === 'side' ? [8, 11] : [5, 10];
+    for (let y = 4; y < 7; y++) for (let x = vx0; x <= vx1; x++) px(x, y, VISOR);
+    for (let x = vx0; x <= vx1; x++) { px(x, 3, LOOK_INK); px(x, 7, LOOK_INK); }
+    for (let y = 4; y < 7; y++) { px(vx0 - 1, y, LOOK_INK); px(vx1 + 1, y, LOOK_INK); }
+    px(vx0 + 1, 4, LOOK_GLASS); px(vx0 + 2, 4, LOOK_GLASS); px(vx0 + 1, 5, LOOK_GLASS);
   }
 };
 
