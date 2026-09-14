@@ -7534,11 +7534,17 @@ function renderLab() {
 // canvas at load and handed to CSS as a data URL.
 //
 // This is a port of sprites.py's figure() and its parts, landmark for
-// landmark. The two must agree — a player drawn to different proportions
+// landmark. The proportions must agree — a player drawn to a different build
 // than the twenty-five Co-Workers standing next to them would read as a
-// different game — so LOOK_DEFAULT reproduces the 'player' row of that
-// file's CAST exactly, and assets/pixel/char/player.png is kept as the
-// reference to diff against.
+// different game — so every landmark below is that file's, and
+// assets/pixel/char/player.png stays the reference for the geometry.
+//
+// The FACE deliberately no longer matches it. sprites.py's `plain` eyes put a
+// hair-coloured brow directly above a two-pixel eye and a mouth below, which
+// on an eight-pixel face is a dark block on each cheek: every head the player
+// could pick came out looking bearded. The player's default is `dot` instead —
+// one pixel per eye, no brow, no mouth. The Co-Workers' own PNGs are
+// unchanged, so they still carry the old face.
 
 const LOOK_CELL_W = 16, LOOK_CELL_H = 24;
 // Landmarks. Mirrors sprites.py; see its header for why the head is wider
@@ -7692,6 +7698,18 @@ const LOOK_HAIR = {
   }
 };
 
+// The skull runs rows 0..9 and its top line IS row 0, so an ear, a crest or
+// an antenna has nowhere to stand. These options wipe rows 0..2 and redraw the
+// top of the head at row 2 — an eight-row skull instead of a ten-row one —
+// which frees two rows above it. Brow (5), eye (6) and mouth (8) all still sit
+// inside the shortened skin, so no other landmark has to move.
+function lkLowerCrown(px, p, fill) {
+  const top = fill || p.hair;
+  for (let x = 2; x < 14; x++) for (const y of [0, 1, 2]) px(x, y, null);
+  for (let x = 4; x < 12; x++) { px(x, 2, LOOK_INK); px(x, 3, top); }
+  for (let x = 5; x < 9; x++) px(x, 3, lkTint(top, 1.12));
+}
+
 // --- headwear, drawn over the hair ---------------------------------------
 const LOOK_WEAR = {
   hardhat(px, p) {
@@ -7741,87 +7759,111 @@ const LOOK_WEAR = {
     px(3, 4, LOOK_INK); px(12, 4, LOOK_INK);
     if (f !== 'back') for (let x = 4; x < 12; x++) px(x, 4, lkTint(p.hat, 0.8));
   },
-  // Row 0 is the top of the cell, so ears cannot go above the head — they go
-  // OUTSIDE it, into the three columns either side that the head never uses.
-  // Drawn inside the silhouette they vanished into the hair; drawn two pixels
-  // wide they read as horns. Three wide, mostly colour and only edged in ink,
-  // is the smallest that says "ear".
-  cat(px, p) {
-    for (let x = 4; x < 12; x++) { px(x, 1, p.hat); px(x, 2, p.hat); }
-    for (let x = 5; x < 9; x++) px(x, 1, lkTint(p.hat, 1.18));
-    for (const [ox, dir] of [[3, -1], [12, 1]]) {
-      px(ox, 0, p.hat);
+  // Ears have to stand above the skull, and the skull's own top *is* row 0 —
+  // there is no sky up there to draw into. So these options lower the crown
+  // first: rows 0..2 are wiped and the skull's top line is redrawn at row 2,
+  // an eight-row head instead of a ten-row one. Brow 5, eye 6 and mouth 8 all
+  // still fall inside the shortened skin, so nothing else moves, and rows 0
+  // and 1 are free for something that is unmistakably on top of the head.
+  cat(px, p, f) {
+    lkLowerCrown(px, p);
+    const fur = p.hat, inner = lkTint(p.hat, 0.62);
+    // Pointed: a three-wide base on the crown, two, then a single pixel. One
+    // pixel of apex is what separates a cat from a bear at this size.
+    for (const [ox, dir] of [[4, 1], [11, -1]]) {
+      for (let i = 0; i < 3; i++)
+        for (let j = 0; j <= 2 - i; j++) px(ox + dir * j, 2 - i, fur);
+      if (f !== 'back') px(ox + dir, 1, inner);
+      for (const y of [0, 1, 2]) px(ox - dir, y, LOOK_INK);
       px(ox + dir, 0, LOOK_INK);
-      px(ox, 1, p.hat); px(ox + dir, 1, p.hat);
       px(ox + dir * 2, 1, LOOK_INK);
-      px(ox, 2, lkTint(p.hat, 0.68)); px(ox + dir, 2, p.hat);
-      px(ox + dir * 2, 2, LOOK_INK);
-      px(ox + dir, 3, LOOK_INK);
     }
   },
-  bear(px, p) {
-    for (let x = 4; x < 12; x++) { px(x, 1, p.hat); px(x, 2, p.hat); }
-    for (let x = 5; x < 9; x++) px(x, 1, lkTint(p.hat, 1.15));
-    for (const [ox, dir] of [[3, -1], [12, 1]]) {
-      px(ox, 0, LOOK_INK); px(ox + dir, 0, LOOK_INK);
-      px(ox, 1, p.hat); px(ox + dir, 1, p.hat);
-      px(ox + dir * 2, 1, LOOK_INK);
-      px(ox, 2, p.hat); px(ox + dir, 2, lkTint(p.hat, 0.68));
-      px(ox + dir * 2, 2, LOOK_INK);
-      px(ox, 3, LOOK_INK); px(ox + dir, 3, LOOK_INK);
-      px(ox, 1, lkTint(p.hat, 1.2));
+  bear(px, p, f) {
+    lkLowerCrown(px, p);
+    const fur = p.hat, inner = lkTint(p.hat, 0.66);
+    // Round: three wide all the way up, with the top corners knocked off by
+    // the ink so the silhouette curves instead of squaring.
+    for (const [ox, dir] of [[4, 1], [11, -1]]) {
+      for (const y of [1, 2]) for (let j = 0; j < 3; j++) px(ox + dir * j, y, fur);
+      px(ox + dir, 0, fur);
+      if (f !== 'back') px(ox + dir, 1, inner);
+      for (const y of [0, 1, 2]) px(ox - dir, y, LOOK_INK);
+      px(ox, 0, LOOK_INK); px(ox + dir * 2, 0, LOOK_INK);
+      px(ox + dir * 3, 1, LOOK_INK);
     }
   },
   dino(px, p, f) {
-    // A hood in scale-green plus a sawtooth crest. The crest is what tells it
-    // apart from the plain hood at a glance.
-    for (let y = 0; y < 9; y++) { px(3, y, p.hat); px(12, y, p.hat); }
-    for (let x = 3; x < 13; x++) px(x, 0, p.hat);
-    for (let x = 4; x < 12; x++) px(x, 1, p.hat);
-    px(3, 1, lkTint(p.hat, 1.2));
-    for (let x = 5; x < 12; x += 2) px(x, 0, lkTint(p.hat, 1.35));
-    if (f !== 'back') {
-      px(4, 2, lkTint(p.hat, 0.8)); px(11, 2, lkTint(p.hat, 0.8));
-      px(13, LK.EYE, p.hat); px(13, LK.EYE + 1, LOOK_INK);   // snout
+    lkLowerCrown(px, p);
+    const sc = p.hat, hi = lkTint(sc, 1.2), lo = lkTint(sc, 0.76);
+    // The costume head is the whole head. Leaving a face inside it is what
+    // made this read as a person in a green cap.
+    for (let y = 2; y < 9; y++) {
+      for (let x = 4; x < 12; x++) px(x, y, sc);
+      px(11, y, lo);
+      px(3, y, LOOK_INK); px(12, y, LOOK_INK);
+    }
+    for (let x = 5; x < 9; x++) px(x, 2, hi);
+    // A sawtooth crest above the skull: two wide at the base, one at the tip,
+    // with ink in the notches, or the three plates merge into one green slab.
+    for (const a of [4, 7, 10]) {
+      px(a, 1, sc); px(a + 1, 1, sc); px(a, 0, sc);
+      px(a - 1, 0, LOOK_INK); px(a - 1, 1, LOOK_INK);
+      px(a + 1, 0, LOOK_INK); px(a + 2, 1, LOOK_INK);
+    }
+    if (f === 'back') return;
+    if (f === 'side') {
+      for (const y of [LK.EYE, LK.EYE + 1]) { px(12, y, sc); px(13, y, sc); }
+      px(13, LK.EYE, hi);
+      px(12, LK.EYE - 1, LOOK_INK); px(13, LK.EYE - 1, LOOK_INK);
+      px(14, LK.EYE, LOOK_INK); px(14, LK.EYE + 1, LOOK_INK);
+      px(12, LK.MOUTH, LOOK_INK); px(13, LK.MOUTH, LOOK_INK);
+      px(9, LK.EYE, [255, 214, 102]); px(10, LK.EYE, LOOK_INK);
+    } else {
+      for (const y of [LK.MOUTH - 1, LK.MOUTH]) for (let x = 6; x < 10; x++) px(x, y, hi);
+      for (const y of [LK.MOUTH - 1, LK.MOUTH]) { px(6, y, LOOK_INK); px(9, y, LOOK_INK); }
+      px(7, LK.MOUTH, LOOK_INK); px(8, LK.MOUTH, LOOK_INK);
+      for (const cx of [5, 9]) { px(cx, LK.EYE, [255, 214, 102]); px(cx + 1, LK.EYE, LOOK_INK); }
     }
   },
   space(px, p, f) {
-    // A bubble helmet is a RIM, not a lid: filling the front of it hid the
-    // face and the sprite became a white box. Only the shell is painted, and
-    // the face stays visible through it with one glint across the glass.
-    for (let x = 3; x < 13; x++) px(x, 0, LOOK_INK);
-    for (let x = 4; x < 12; x++) { px(x, 0, p.hat); px(x, 1, p.hat); }
-    for (let x = 5; x < 9; x++) px(x, 1, lkTint(p.hat, 1.25));
-    for (let y = 0; y < 9; y++) {
-      px(1, y, LOOK_INK); px(14, y, LOOK_INK);
-      px(2, y, p.hat); px(13, y, p.hat);
-      px(3, y, lkTint(p.hat, 0.8)); px(12, y, lkTint(p.hat, 0.8));
-    }
-    px(2, 1, lkTint(p.hat, 1.3)); px(2, 2, lkTint(p.hat, 1.3));
+    const sh = p.hat, hi = lkTint(sh, 1.28), lo = lkTint(sh, 0.76);
+    const VISOR = [52, 64, 94];
+    // A rectangle of shell around a rectangle of glass is a television. The
+    // rows have to narrow top and bottom before it reads as a bubble.
+    const SPAN = [[4, 11], [3, 12], [2, 13], [2, 13], [2, 13], [2, 13], [3, 12], [4, 11]];
+    for (let y = 0; y < 10; y++) for (let x = 1; x < 15; x++) px(x, y, null);
+    for (let x = 4; x < 12; x++) px(x, 0, LOOK_INK);
+    SPAN.forEach(([a, b], i) => {
+      const y = i + 1;
+      for (let x = a; x <= b; x++) px(x, y, sh);
+      px(b, y, lo);
+      px(a - 1, y, LOOK_INK); px(b + 1, y, LOOK_INK);
+    });
+    for (let x = 4; x < 9; x++) px(x, 1, hi);
+    for (let x = 4; x < 12; x++) px(x, 9, lkTint(sh, 0.64));   // the neck ring
+    px(3, 9, LOOK_INK); px(12, 9, LOOK_INK);
     if (f === 'back') {
-      for (let y = 2; y < 9; y++) for (let x = 4; x < 12; x++) px(x, y, lkTint(p.hat, 0.92));
-      for (let x = 5; x < 9; x++) px(x, 3, lkTint(p.hat, 1.1));
-    } else {
-      px(4, 2, LOOK_GLASS); px(5, 3, LOOK_GLASS);   // one diagonal glint, so
-      px(6, 4, LOOK_GLASS);                          // the glass reads as glass
+      for (let y = 4; y < 7; y++) for (let x = 5; x < 11; x++) px(x, y, lo);
+      return;
     }
-    for (let x = 2; x < 14; x++) px(x, 9, LOOK_INK);          // the neck ring
-    for (let x = 3; x < 13; x++) px(x, 9, lkTint(p.hat, 0.72));
+    // the faceplate, inset two pixels so the dome shows all round it
+    for (let y = 4; y < 7; y++) for (let x = 5; x < 11; x++) px(x, y, VISOR);
+    for (let x = 5; x < 11; x++) { px(x, 3, LOOK_INK); px(x, 7, LOOK_INK); }
+    for (let y = 4; y < 7; y++) { px(4, y, LOOK_INK); px(11, y, LOOK_INK); }
+    px(6, 4, LOOK_GLASS); px(7, 4, LOOK_GLASS); px(6, 5, LOOK_GLASS);
   },
   antenna(px, p, f) {
-    // Sweeping out past the head, not up: inside the silhouette there is one
-    // free row and the stalks disappeared into it. Out here they break the
-    // outline, which is what makes them read as antennae at all.
-    for (const [bx, dir] of [[5, -1], [10, 1]]) {
-      px(bx, 1, lkTint(p.skin, 1.1));
-      px(bx + dir, 1, p.skin);
-      px(bx + dir * 2, 0, p.skin);
-      px(bx + dir * 3, 0, p.skin);
-      px(bx + dir, 0, LOOK_INK);
-      px(bx + dir * 2, 1, LOOK_INK);
-      px(bx + dir * 3, 1, LOOK_INK);
-      px(bx + dir * 4, 0, LOOK_INK);
-      if (f === 'back') { px(bx + dir * 2, 0, p.skin_lo); px(bx + dir * 3, 0, p.skin_lo); }
+    // Bald, so the crown is scalp rather than hair.
+    lkLowerCrown(px, p, p.skin);
+    // One pixel of stalk is all there is room for; the ink either side of it
+    // is what keeps it from vanishing into the background.
+    for (const sx of [5, 10]) {
+      for (const y of [0, 1]) {
+        px(sx, y, p.skin);
+        px(sx - 1, y, LOOK_INK); px(sx + 1, y, LOOK_INK);
+      }
+      px(sx, 0, f === 'back' ? p.skin_lo : lkTint(p.skin, 1.12));
     }
   }
 };
@@ -7832,6 +7874,16 @@ function lkSideSpecs(px, p) {
   px(11, LK.EYE, LOOK_INK); px(9, LK.BROW, LOOK_INK);
 }
 const LOOK_EYES = {
+  // The default face. The Co-Workers' `plain` puts a hair-coloured brow row
+  // directly above a two-pixel eye, which makes a 2x2 dark block on each side
+  // of an eight-pixel face — at this size that reads as stubble, and every
+  // head came out bearded. One pixel per eye and no brow reads as a face.
+  dot(px, p, f) {
+    if (f === 'side') { px(10, LK.EYE, LOOK_INK); }
+    else { px(6, LK.EYE, LOOK_INK); px(9, LK.EYE, LOOK_INK); }
+  },
+  // A head whose face is behind a visor or a mask draws nothing.
+  none() {},
   plain(px, p, f) {
     if (f === 'side') { px(10, LK.BROW, p.hair); px(10, LK.EYE, LOOK_INK); px(11, LK.EYE, LOOK_INK); }
     else for (const x of [5, 6, 9, 10]) { px(x, LK.BROW, p.hair); px(x, LK.EYE, LOOK_INK); }
@@ -7915,6 +7967,9 @@ const LOOK_HEADS = [
   { id: 'horseshoe',  label: '後退',         hair: 'horseshoe' },
   { id: 'mohawk',     label: 'モヒカン',     hair: 'mohawk' },
   { id: 'skinhead',   label: 'スキンヘッド', hair: 'bald' },
+  { id: 'glasses',    label: 'メガネ',       hair: 'short', eyes: 'round' },
+  { id: 'goggles',    label: 'ゴーグル',     hair: 'short', eyes: 'goggles' },
+  { id: 'beard',      label: 'ひげ',         hair: 'short', face: 'beard' },
   { id: 'bandana',    label: 'バンダナ',     hair: 'short', wear: 'bandana', hat: '#6094c0' },
   { id: 'hood',       label: 'フード',       hair: 'short', wear: 'hood',    hat: '#6b6274' },
   { id: 'headphones', label: 'ヘッドホン',   hair: 'short', wear: 'headphones', hat: '#4a5470' },
@@ -7923,8 +7978,10 @@ const LOOK_HEADS = [
   { id: 'helmet',     label: 'ヘルメット',   hair: 'buzz',  wear: 'helmet',  hat: '#c0392b' },
   { id: 'cat',        label: '猫耳',         hair: 'short', wear: 'cat',     hat: '#b8b2c4' },
   { id: 'bear',       label: '熊耳',         hair: 'short', wear: 'bear',    hat: '#8a6242' },
-  { id: 'dino',       label: '恐竜',         hair: 'buzz',  wear: 'dino',    hat: '#6e9b5a' },
-  { id: 'space',      label: '宇宙服',       hair: 'buzz',  wear: 'space',   hat: '#e4e6ee' },
+  // Behind a mask there is no face to draw, and drawing one anyway is what
+  // made the dinosaur look like a person peering out of a costume.
+  { id: 'dino',       label: '恐竜',         hair: 'buzz',  wear: 'dino',    hat: '#6e9b5a', eyes: 'none' },
+  { id: 'space',      label: '宇宙服',       hair: 'buzz',  wear: 'space',   hat: '#e4e6ee', eyes: 'none' },
   { id: 'antenna',    label: '触角',         hair: 'bald',  wear: 'antenna' }
 ];
 
@@ -7932,15 +7989,26 @@ const LOOK_HEADS = [
 // the arms, `belly` paints a lighter front panel (what makes a costume read
 // as a costume), `placket` is what runs down the chest.
 const LOOK_BODIES = [
-  { id: 'labcoat', label: '白衣',       coat: '#ebe6d8', trouser: '#7884a0', shoe: '#68523c', placket: 'accent' },
-  { id: 'work',    label: '作業服',     coat: '#b8975a', trouser: '#9a7c44', shoe: '#5a4632', placket: 'pocket' },
-  { id: 'suit',    label: 'スーツ',     coat: '#3a4260', trouser: '#333a54', shoe: '#2b2218', placket: 'tie' },
-  { id: 'leather', label: 'レザー',     coat: '#343c56', trouser: '#4a4258', shoe: '#2b2218', placket: 'zip' },
-  { id: 'tank',    label: 'タンクトップ', coat: '#e8e8ee', trouser: '#6b7a94', shoe: '#68523c', bare: true, placket: 'strap' },
-  { id: 'cat',     label: '着ぐるみ(猫)',  coat: '#b8b2c4', trouser: '#b8b2c4', shoe: '#9a94a8', belly: '#e8e4ee', tail: true },
-  { id: 'bear',    label: '着ぐるみ(熊)',  coat: '#8a6242', trouser: '#8a6242', shoe: '#6b4a32', belly: '#c8a478' },
-  { id: 'dino',    label: '着ぐるみ(恐竜)', coat: '#6e9b5a', trouser: '#6e9b5a', shoe: '#547844', belly: '#c8d8a0', spikes: true },
-  { id: 'space',   label: '宇宙服',     coat: '#e4e6ee', trouser: '#dcdee8', shoe: '#9aa2b4', placket: 'panel', pack: true }
+  // `hem` is how far the coat runs past the waist, in rows: a lab coat that
+  // stops at the belt is a shirt, and the long one is the whole silhouette.
+  { id: 'labcoat', label: '白衣',        coat: '#ebe6d8', trouser: '#7884a0', shoe: '#68523c',
+    placket: 'accent', hem: 4 },
+  { id: 'work',    label: '作業服',      coat: '#2f3a5c', trouser: '#8a7248', shoe: '#5a4632',
+    placket: 'pocket' },
+  { id: 'suit',    label: 'スーツ',      coat: '#22242e', trouser: '#22242e', shoe: '#1c1a20',
+    placket: 'tie', shirt: '#eceaf0', tie: '#c0392b' },
+  { id: 'leather', label: 'レザー',      coat: '#343c56', trouser: '#4a4258', shoe: '#2b2218',
+    placket: 'zip' },
+  { id: 'tank',    label: 'タンクトップ', coat: '#e8e8ee', trouser: '#6b7a94', shoe: '#68523c',
+    bare: true, placket: 'strap' },
+  { id: 'cat',     label: '着ぐるみ(猫)',   coat: '#b8b2c4', trouser: '#b8b2c4', shoe: '#9a94a8',
+    belly: '#e8e4ee', tail: 'cat' },
+  { id: 'bear',    label: '着ぐるみ(熊)',   coat: '#8a6242', trouser: '#8a6242', shoe: '#6b4a32',
+    belly: '#c8a478', tail: 'bear' },
+  { id: 'dino',    label: '着ぐるみ(恐竜)', coat: '#6e9b5a', trouser: '#6e9b5a', shoe: '#547844',
+    belly: '#c8d8a0', spikes: true, tail: 'dino' },
+  { id: 'space',   label: '宇宙服',      coat: '#e4e6ee', trouser: '#dcdee8', shoe: '#9aa2b4',
+    placket: 'panel', pack: true, hem: 2 }
 ];
 
 const LOOK_DEFAULT = { head: 'short', body: 'labcoat', skin: SKIN_B, hair: 2, accent: '#1d9e75' };
@@ -7950,14 +8018,18 @@ const LOOK_DEFAULT = { head: 'short', body: 'labcoat', skin: SKIN_B, hair: 2, ac
 // two lists allow a cat-eared astronaut, which is the player's business, but
 // it should not be what the presets teach.
 const LOOK_PRESETS = [
-  { label: '新人',       look: { head: 'short',    body: 'labcoat', skin: SKIN_B, hair: 2,  accent: '#1d9e75' } },
-  { label: '現場',       look: { head: 'hardhat',  body: 'work',    skin: SKIN_C, hair: 1,  accent: '#d08a2c' } },
-  { label: '教授',       look: { head: 'horseshoe',body: 'suit',    skin: SKIN_A, hair: 14, accent: '#8a6adf' } },
-  { label: 'ロッカー',   look: { head: 'mohawk',   body: 'leather', skin: 5, hair: 11, accent: '#c0392b' } },
-  { label: '体育会',     look: { head: 'buzz',     body: 'tank',    skin: SKIN_D, hair: 0,  accent: '#2f86c8' } },
-  { label: 'ねこ',       look: { head: 'cat',      body: 'cat',     skin: SKIN_A, hair: 13, accent: '#b07fd0' } },
-  { label: 'きょうりゅう', look: { head: 'dino',    body: 'dino',    skin: 17, hair: 17, accent: '#4e9e84' } },
-  { label: '宇宙飛行士', look: { head: 'space',    body: 'space',   skin: SKIN_B, hair: 0,  accent: '#3f7fd0' } }
+  // Deliberately none of the Co-Workers' looks: they are all short/bob/bun
+  // hair in a lab coat, and a preset that hands the player Ben's head makes
+  // the roster look like a hall of mirrors. These lean on the parts only the
+  // player has.
+  { label: '新人',       look: { head: 'glasses',   body: 'labcoat', skin: SKIN_A, hair: 1,  accent: '#1d9e75' } },
+  { label: '現場',       look: { head: 'helmet',    body: 'work',    skin: SKIN_C, hair: 0,  accent: '#d08a2c' } },
+  { label: '重役',       look: { head: 'beard',     body: 'suit',    skin: SKIN_B, hair: 14, accent: '#8a6adf' } },
+  { label: 'ロッカー',   look: { head: 'mohawk',    body: 'leather', skin: 5,      hair: 11, accent: '#c0392b' } },
+  { label: '体育会',     look: { head: 'skinhead',  body: 'tank',    skin: SKIN_D, hair: 0,  accent: '#2f86c8' } },
+  { label: 'ねこ',       look: { head: 'cat',       body: 'cat',     skin: SKIN_A, hair: 13, accent: '#b07fd0' } },
+  { label: 'きょうりゅう', look: { head: 'dino',     body: 'dino',    skin: 17,     hair: 17, accent: '#4e9e84' } },
+  { label: '宇宙飛行士', look: { head: 'space',     body: 'space',   skin: SKIN_B, hair: 0,  accent: '#3f7fd0' } }
 ];
 
 function lookHead(id) { return LOOK_HEADS.find(h => h.id === id) || LOOK_HEADS[0]; }
@@ -7971,8 +8043,10 @@ function lookPalette(look) {
   const coat = lkHex(body.coat), acc = lkHex(look.accent || LOOK_DEFAULT.accent);
   const trouser = lkHex(body.trouser);
   return {
-    hair_style: head.hair, wear: head.wear || null, eyes: look.eyes || 'plain',
-    face: look.face || null, mouth_w: 2,
+    hair_style: head.hair, wear: head.wear || null,
+    // The face belongs to the head, not to the player: a visor has no eyes to
+    // choose and a beard is part of "this is what my head looks like".
+    eyes: head.eyes || 'dot', face: head.face || null, mouth_w: head.mouth || 0,
     hair, hair_hi: lkTint(hair, 1.28), hat: head.hat ? lkHex(head.hat) : hair,
     skin, skin_lo: skinLo, mouth: lkTint(skinLo, 0.78),
     coat, coat_hi: lkTint(coat, 1.07), coat_lo: lkTint(coat, 0.86),
@@ -7980,7 +8054,10 @@ function lookPalette(look) {
     trouser, trouser_hi: lkTint(trouser, 1.22), shoe: lkHex(body.shoe),
     belly: body.belly ? lkHex(body.belly) : null,
     bare: !!body.bare, placket: body.placket || null,
-    spikes: !!body.spikes, tail: !!body.tail, pack: !!body.pack
+    shirt: body.shirt ? lkHex(body.shirt) : null,
+    tie: body.tie ? lkHex(body.tie) : null,
+    spikes: !!body.spikes, tail: body.tail || null, pack: !!body.pack,
+    hem: body.hem || 0
   };
 }
 
@@ -8002,6 +8079,34 @@ function lookFigure(put, p, facing, frame) {
     px(x0 + 1, LK.LEG_TOP + 1, p.trouser_hi);
     rect(x0 + 1, bot - 1, x1 - 1, bot - 1, p.shoe);
     if (!raised) planted.push([x0, x1]);
+  }
+
+  // tails, behind the body. Three shapes, because that is the whole
+  // difference between the three costumes at this size: thin and waving,
+  // round, thick and triangular.
+  if (p.tail && facing !== 'front') {
+    const T = p.coat, TH = lkTint(T, 1.18), TL = lkTint(T, 0.78);
+    if (p.tail === 'cat') {
+      for (const [x, y] of [[3, 19], [2, 18], [1, 17], [0, 16], [0, 15], [1, 14]]) px(x, y, T);
+      px(1, 13, TH); px(2, 13, LOOK_INK); px(0, 13, LOOK_INK);
+      for (const [x, y] of [[3, 20], [2, 19], [1, 18], [0, 17], [2, 14]]) px(x, y, LOOK_INK);
+    } else if (p.tail === 'bear') {
+      for (let y = 17; y <= 19; y++) for (let x = 1; x <= 3; x++) px(x, y, T);
+      px(1, 17, TH); px(3, 19, TL);
+      for (const [x, y] of [[0, 17], [0, 18], [0, 19], [1, 16], [2, 16], [1, 20], [2, 20]])
+        px(x, y, LOOK_INK);
+    } else if (p.tail === 'dino') {
+      for (let i = 0; i <= 3; i++) {
+        const half = 3 - i;
+        for (let y = 18 - half; y <= 18 + half; y++) px(3 - i, y, T);
+        px(3 - i, 18 - half, TH);
+        px(3 - i, 18 + half, TL);
+      }
+      for (let i = 0; i <= 3; i++) {
+        const half = 3 - i;
+        px(3 - i, 17 - half, LOOK_INK); px(3 - i, 19 + half, LOOK_INK);
+      }
+    }
   }
 
   // torso
@@ -8032,9 +8137,14 @@ function lookFigure(put, p, facing, frame) {
   rect(tx1 - 1, LK.TORSO_TOP, tx1 - 1, LK.TORSO_TOP, p.accent_lo);
   if (facing === 'front') {
     if (p.placket === 'tie') {
-      rect(6, LK.TORSO_TOP + 1, 9, LK.TORSO_TOP + 1, [235, 235, 240]);
-      rect(7, LK.TORSO_TOP + 1, 8, LK.TORSO_BOT - 1, p.accent);
-      px(8, LK.TORSO_BOT - 1, p.accent_lo);
+      // Three colours in four pixels: the white of a collar, the red of a tie
+      // and the black of the jacket either side of both.
+      const shirt = p.shirt || [235, 235, 240], tie = p.tie || p.accent;
+      rect(6, LK.TORSO_TOP + 1, 9, LK.TORSO_TOP + 2, shirt);
+      rect(7, LK.TORSO_TOP + 1, 8, LK.TORSO_BOT - 1, tie);
+      px(7, LK.TORSO_TOP + 1, lkTint(tie, 1.2));
+      px(8, LK.TORSO_BOT - 1, lkTint(tie, 0.78));
+      px(6, LK.TORSO_TOP + 3, shirt); px(9, LK.TORSO_TOP + 3, shirt);
     } else if (p.placket === 'pocket') {
       rect(5, LK.TORSO_TOP + 2, 6, LK.TORSO_TOP + 3, lkTint(p.coat, 0.82));
       rect(9, LK.TORSO_TOP + 2, 10, LK.TORSO_TOP + 3, lkTint(p.coat, 0.82));
@@ -8069,6 +8179,22 @@ function lookFigure(put, p, facing, frame) {
     rect(ax0, LK.TORSO_TOP + 1 + dy, ax1, LK.TORSO_BOT - 3 + dy, sleeve);
     rect(ax0, LK.TORSO_TOP + 1 + dy, ax0, LK.TORSO_BOT - 3 + dy, sleeveHi);
     rect(ax0, LK.TORSO_BOT - 2 + dy, ax1, LK.TORSO_BOT - 1 + dy, p.skin);
+  }
+
+  // A long coat runs past the waist and over the legs, drawn after them so
+  // the hem overlaps. Stopped at the belt it is a shirt, and the whole point
+  // of a lab coat is the silhouette below the knee.
+  if (p.hem) {
+    const hx0 = facing === 'side' ? 5 : 4, hx1 = facing === 'side' ? 10 : 11;
+    const hy1 = Math.min(LK.LEG_BOT - 1, LK.LEG_TOP + p.hem);
+    rect(hx0, LK.LEG_TOP, hx1, hy1, LOOK_INK);
+    rect(hx0 + 1, LK.LEG_TOP, hx1 - 1, hy1 - 1, p.coat);
+    rect(hx0 + 1, LK.LEG_TOP, hx0 + 1, hy1 - 1, p.coat_hi);
+    rect(hx1 - 1, LK.LEG_TOP, hx1 - 1, hy1 - 1, p.coat_lo);
+    if (facing === 'front') {
+      rect(7, LK.LEG_TOP, 8, hy1 - 1, p.coat_lo);      // the front opening
+      px(8, LK.LEG_TOP, p.coat);
+    }
   }
 
   // head
