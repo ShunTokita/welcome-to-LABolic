@@ -58,6 +58,11 @@ def figure(c, ox, oy, p, facing, frame):
     def px(x, y, col):
         c.px(ox + x, oy + y, col)
 
+    # Canvas.px treats None as "leave it alone", so clearing needs its own
+    # door. Hung off px rather than passed as a fourth argument, because every
+    # hair and headwear routine takes exactly (px, p, facing).
+    px.clear = lambda x, y: c.d.pop((ox + x, oy + y), None)
+
     def rect(x0, y0, x1, y1, col):
         for y in range(y0, y1 + 1):
             for x in range(x0, x1 + 1):
@@ -111,18 +116,21 @@ def figure(c, ox, oy, p, facing, frame):
     # --- head ---------------------------------------------------------------
     # Wider than it is tall, and all four corners knocked off: a square head
     # on a body reads as a box, and a tall one reads as stretched.
+    # No neck. Row 9 used to be ink across the jaw with a two-pixel throat cut
+    # out of it, which pinched the silhouette and laid a dark bar directly
+    # under the mouth; between that bar and the brow the face read as bearded
+    # whatever was drawn on it. Row 9 is the jaw itself now.
     rect(3, HEAD_TOP, 12, HEAD_BOT, INK)
-    for cx, cy in ((3, HEAD_TOP), (12, HEAD_TOP), (3, HEAD_BOT), (12, HEAD_BOT)):
+    for cx, cy in ((3, HEAD_TOP), (12, HEAD_TOP)):
         c.d.pop((ox + cx, oy + cy), None)
-    rect(4, 1, 11, 8, p['skin'])
-    rect(11, 2, 11, 8, p['skin_lo'])                            # turned-away cheek
-    px(7, HEAD_BOT, p['skin']); px(8, HEAD_BOT, p['skin_lo'])   # the jaw opens for a neck
+    rect(4, 1, 11, HEAD_BOT, p['skin'])
+    rect(11, 2, 11, HEAD_BOT, p['skin_lo'])                     # turned-away cheek
 
     if facing == 'side':
-        rect(4, 1, 7, 8, p['hair'])                             # back of the skull
+        rect(4, 1, 7, HEAD_BOT, p['hair'])                      # back of the skull
         px(12, EYE, INK)                                        # nose, past the face line
     elif facing == 'back':
-        rect(4, 1, 11, 8, p['hair'])
+        rect(4, 1, 11, HEAD_BOT, p['hair'])
 
     HAIR[p['hair_style']](px, p, facing)
     if p['wear']:
@@ -168,6 +176,37 @@ def _cap(px, p, rows, hi_rows=(1,)):
     for y in hi_rows:                            # a short sheen on the lit side,
         for x in range(5, 8):                    # not a band across the crown
             px(x, y, p['hair_hi'])
+
+
+def lower_crown(px, p, fill=None):
+    """Drop the top of the skull by two rows.
+
+    A bun, a spike, a quiff — anything that stands ABOVE the head — has
+    nowhere to go: the skull's own top line is row 0. Painting there only
+    recoloured the outline, so every one of those styles came out looking like
+    a plain cap. This wipes rows 0..2 and redraws the crown at row 2, an
+    eight-row skull instead of a ten-row one. BROW (5), EYE (6) and MOUTH (8)
+    all still fall inside the shortened skin, so no other landmark moves.
+    """
+    top = fill or p['hair']
+    for x in range(2, 14):
+        for y in (0, 1, 2):
+            px.clear(x, y)
+    for x in range(4, 12):
+        px(x, 2, INK)
+        px(x, 3, top)
+    for x in range(5, 9):
+        px(x, 3, tint(top, 1.12))
+
+
+def low_fringe(px, p, f):
+    """The hairline on a shortened skull: one row past the crown, plus temples."""
+    for x in range(4, 12):
+        px(x, 4, p['hair'])
+    if f == 'side':
+        px(10, 4, p['hair']); px(11, 4, p['hair'])
+    elif f != 'back':
+        px(4, 5, p['hair']); px(11, 5, p['hair'])
 
 
 def h_short(px, p, f):
@@ -243,29 +282,51 @@ def h_ponytail(px, p, f):
 
 
 def h_bun(px, p, f):
-    _cap(px, p, (1, 2, 3))
-    px(4, 4, p['hair']); px(11, 4, p['hair'])
-    for x in range(6, 10):                       # the knot, riding the crown
-        px(x, 0, p['hair'])
-    px(7, 0, p['hair_hi'])
-    if f == 'back':
-        for x in range(5, 11):
-            px(x, 1, p['hair_hi'])
+    lower_crown(px, p); low_fringe(px, p, f)
+    for x in range(6, 10):                       # the knot, standing on the crown
+        px(x, 1, p['hair']); px(x, 2, p['hair'])
+    px(7, 0, p['hair']); px(8, 0, p['hair'])
+    px(7, 1, p['hair_hi'])
+    px(5, 1, INK); px(10, 1, INK)
+    px(6, 0, INK); px(9, 0, INK)
 
 
 def h_spiky(px, p, f):
-    _cap(px, p, (1, 2, 3))
-    for x in range(4, 12, 2):
-        px(x, 0, p['hair'])
-    px(4, 4, p['hair']); px(11, 4, p['hair'])
+    lower_crown(px, p); low_fringe(px, p, f)
+    # Four one-pixel spikes with ink in every gap. Two pixels wide they stop
+    # being hair and become a battlement.
+    for x in (4, 6, 8, 10):
+        px(x, 2, p['hair']); px(x, 1, p['hair']); px(x, 0, p['hair_hi'])
+        px(x - 1, 0, INK); px(x - 1, 1, INK)
+        px(x + 1, 0, INK); px(x + 1, 1, INK)
 
 
 def h_pomp(px, p, f):
-    _cap(px, p, (1, 2, 3))
-    for x in range(4, 8):                        # the quiff, swept up front
+    lower_crown(px, p); low_fringe(px, p, f)
+    # Swept up and back, so the mass is asymmetric: level with the crown
+    # behind and two rows above it at the front. Symmetrical it is a bun.
+    if f == 'side':
+        for x in range(4, 12):
+            px(x, 2, p['hair'])
+        for x in range(7, 13):
+            px(x, 1, p['hair'])
+        for x in range(9, 13):
+            px(x, 0, p['hair'])
+        px(10, 0, p['hair_hi']); px(11, 0, p['hair_hi'])
+        px(6, 1, INK); px(6, 2, INK); px(8, 0, INK)
+        for y in (0, 1, 2):
+            px(13, y, INK)
+        return
+    for x in range(4, 12):
+        px(x, 2, p['hair'])
+    for x in range(4, 10):
+        px(x, 1, p['hair'])
+    for x in range(4, 8):
         px(x, 0, p['hair'])
-    px(5, 0, p['hair_hi'])
-    px(4, 4, p['hair']); px(11, 4, p['hair'])
+    px(4, 0, p['hair_hi']); px(5, 0, p['hair_hi'])
+    for y in (0, 1, 2):
+        px(3, y, INK)
+    px(8, 0, INK); px(9, 0, INK); px(10, 1, INK)
 
 
 def h_horseshoe(px, p, f):
@@ -313,15 +374,32 @@ def w_gradcap(px, p, f):
 
 
 def w_headphones(px, p, f):
-    for x in range(5, 11):
+    # One pixel of ear cup, tucked inside the head's own outline column, was
+    # indistinguishable from the outline. A cup has to stand proud of the
+    # skull and be two pixels wide before it reads as a cup.
+    hi, lo = tint(p['hat'], 1.3), tint(p['hat'], 0.72)
+    for x in range(4, 12):
         px(x, 0, INK)
-    for x in range(6, 10):
+    for x in range(5, 11):
         px(x, 0, p['hat'])
-    for x, y0 in ((3, 4), (12, 4)):              # earcups
-        for y in (y0, y0 + 1, y0 + 2):
-            px(x, y, p['hat'])
-        px(x, y0, tint(p['hat'], 1.3))
-        px(x, y0 + 2, INK)
+    px(6, 0, hi)
+    if f == 'side':                              # in profile, one cup over the ear
+        for y in range(1, 7):
+            px(8, y, p['hat']); px(9, y, p['hat'])
+            px(7, y, INK); px(10, y, INK)
+        px(8, 7, INK); px(9, 7, INK)
+        px(8, 3, hi); px(9, 6, lo)
+        return
+    for y in (1, 2):
+        px(3, y, p['hat']); px(12, y, p['hat'])
+    for cx, dx in ((2, -1), (13, 1)):
+        for y in range(3, 7):
+            px(cx, y, p['hat']); px(cx - dx, y, p['hat'])
+        for y in range(2, 8):
+            px(cx + dx, y, INK)
+        px(cx, 2, INK); px(cx - dx, 2, INK)
+        px(cx, 7, INK); px(cx - dx, 7, INK)
+        px(cx, 3, hi); px(cx, 6, lo)
 
 
 def w_bandana(px, p, f):
@@ -332,15 +410,44 @@ def w_bandana(px, p, f):
         px(x, 1, tint(p['hat'], 1.2))
     if f != 'back':
         px(12, 2, p['hat']); px(13, 3, p['hat']); px(12, 3, INK)
+        return
+    # A bandana is tied at the BACK of the head, so from behind the knot and
+    # its two tails are the whole point. Without them this was a head of hair
+    # with a band laid across the top of it.
+    for x in range(6, 10):
+        px(x, 3, p['hat'])
+    px(7, 3, tint(p['hat'], 1.2))
+    for tx, ty in ((6, 4), (6, 5), (9, 4), (9, 5)):
+        px(tx, ty, p['hat'])
+    px(6, 5, tint(p['hat'], 0.78)); px(9, 5, tint(p['hat'], 0.78))
+    for ix, iy in ((5, 3), (10, 3), (7, 4), (8, 4), (5, 4), (10, 4),
+                   (5, 5), (7, 5), (8, 5), (10, 5), (6, 6), (9, 6)):
+        px(ix, iy, INK)
 
 
 def w_hood(px, p, f):
-    for y in range(0, 9):
+    # Fabric all the way round. The base sprite fills the head with hair for
+    # the side and back facings, and covering only the crown left a head of
+    # hair sitting inside the hood.
+    for y in range(0, HEAD_BOT + 1):
         px(3, y, p['hat']); px(12, y, p['hat'])
     for x in range(3, 13):
         px(x, 0, p['hat'])
+    if f == 'back':
+        for y in range(1, HEAD_BOT + 1):
+            for x in range(4, 12):
+                px(x, y, p['hat'])
+        for x in range(4, 9):
+            px(x, 1, tint(p['hat'], 1.2))
+        for y in range(2, HEAD_BOT + 1):
+            px(11, y, tint(p['hat'], 0.8))
+        return
     for x in range(4, 12):
-        px(x, 1, p['hat'] if f == 'back' else p['hair'])
+        px(x, 1, p['hair'])
+    if f == 'side':                              # only the face opening breaks it
+        for y in range(1, HEAD_BOT + 1):
+            for x in range(4, 9):
+                px(x, y, p['hat'])
     px(3, 1, tint(p['hat'], 1.2))
 
 
@@ -350,19 +457,21 @@ WEAR = {'hardhat': w_hardhat, 'gradcap': w_gradcap, 'headphones': w_headphones,
 
 # --- eyes ---------------------------------------------------------------
 def e_plain(px, p, f):
+    # One pixel per eye and no brow. The old version put a hair-coloured brow
+    # directly above a two-pixel eye, and on an eight-pixel face that is a 2x2
+    # dark block on each cheek: at this size it reads as stubble, and the whole
+    # roster came out bearded. The ones who are meant to have facial hair say
+    # so in CAST, through FACE.
     if f == 'side':
-        px(10, BROW, p['hair'])
-        px(10, EYE, INK); px(11, EYE, INK)
+        px(10, EYE, INK)
     else:
-        for x in (5, 6, 9, 10):
-            px(x, BROW, p['hair']); px(x, EYE, INK)
+        px(6, EYE, INK); px(9, EYE, INK)
 
 
 def e_tired(px, p, f):
     e_plain(px, p, f)
     if f != 'side':
-        for x in (5, 6, 9, 10):
-            px(x, EYE + 1, p['skin_lo'])
+        px(6, EYE + 1, p['skin_lo']); px(9, EYE + 1, p['skin_lo'])
     else:
         px(10, EYE + 1, p['skin_lo'])
 
@@ -448,8 +557,13 @@ def f_beard(px, p, f):
 
 
 def f_stubble(px, p, f):
+    # Dimmed, not the highlight tone. Stubble is a shadow on the jaw; in the
+    # bright tint three isolated dots on a pale face read as a rash, which is
+    # what Bobby's ginger came out as once the mouth line was gone.
+    shade = tint(p['hair'], 0.72)
     for x in range(5, 11, 2):
-        px(x, MOUTH, p['hair_hi'])
+        px(x, MOUTH, shade)
+    px(6, MOUTH, shade); px(8, MOUTH, tint(p['hair'], 0.55))
 
 
 FACE = {'moustache': f_moustache, 'beard': f_beard, 'stubble': f_stubble}
@@ -482,8 +596,11 @@ def hx(s):
     return tuple(int(s[i:i + 2], 16) for i in (1, 3, 5))
 
 
+# mouth defaults to 0: with the neck gone and the brow gone, a two-pixel line
+# under a two-dot face is the one mark left that still reads as stubble. The
+# people who are supposed to have facial hair get it from `face`.
 def cw(hair_style, hair, accent, skin='b', eyes='plain', wear=None, hat=None,
-       face=None, coat=None, mouth=2, trouser=(120, 132, 160)):
+       face=None, coat=None, mouth=0, trouser=(120, 132, 160)):
     sk, sk_lo = SKINS[skin]
     coat = coat or COAT
     acc = hx(accent)

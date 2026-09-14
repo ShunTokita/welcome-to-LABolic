@@ -8032,7 +8032,13 @@ const LOOK_FACE = {
     for (let x = 5; x < 11; x++) px(x, LK.MOUTH, p.hair);
     px(6, LK.MOUTH, p.hair_hi); px(9, LK.MOUTH, p.hair_hi);
   },
-  stubble(px, p) { for (let x = 5; x < 11; x += 2) px(x, LK.MOUTH, p.hair_hi); }
+  // Dimmed, not the highlight tone: three isolated bright dots on a pale jaw
+  // read as a rash rather than as stubble.
+  stubble(px, p) {
+    const shade = lkTint(p.hair, 0.72);
+    for (let x = 5; x < 11; x += 2) px(x, LK.MOUTH, shade);
+    px(6, LK.MOUTH, shade); px(8, LK.MOUTH, lkTint(p.hair, 0.55));
+  }
 };
 
 // =============================================================
