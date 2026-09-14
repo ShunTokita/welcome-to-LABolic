@@ -4222,6 +4222,8 @@ const ZOOM_MIN = 0.3;
 const ZOOM_MAX = 3.0;
 let zoomLevel = 1;
 let panX = 0, panY = 0;
+// The view is still whatever autoFit chose, i.e. nobody has zoomed by hand.
+let zoomIsAuto = true;
 
 // Labels are scaled by the stage transform along with everything else, which
 // is what made them unreadable at Lab Lv4: autoFit fits a 16x12 lab into the
@@ -4255,6 +4257,13 @@ function getLabPxSize() {
 function autoFit() {
   const viewport = document.getElementById('lab-viewport');
   if (!viewport) return;
+  // Settle the tile size first. Boot runs this before applyMobileLayout's
+  // deferred setBaseTile(), so on a phone the first fits were computed
+  // against the 48px desktop tile and the lab came out at the wrong scale
+  // until something else happened to re-fit it. Every caller wants the
+  // current tile, and setting it is idempotent, so it belongs here rather
+  // than in each of the seven call sites.
+  setBaseTile();
   const vw = viewport.clientWidth;
   const vh = viewport.clientHeight;
   const lab = getLabPxSize();
@@ -4271,6 +4280,7 @@ function autoFit() {
   zoomLevel = snapZoom(fit, true);
   panX = (usableW - lab.w * zoomLevel) / 2;
   panY = (vh - lab.h * zoomLevel) / 2;
+  zoomIsAuto = true;
   applyTransform();
 }
 
@@ -4297,9 +4307,23 @@ function clampPan() {
   }
 }
 
-function zoomAt(viewportX, viewportY, newZoom) {
-  newZoom = snapZoom(newZoom);
+function zoomAt(viewportX, viewportY, requestedZoom) {
+  const step = ART_TILE / baseTile();
+  let newZoom = snapZoom(requestedZoom);
+  // Snapping to the nearest whole step can land back on the zoom we already
+  // had, and then the control does nothing at all. A 1.25x press from the
+  // smallest step is 1.25 steps, which rounds straight back down to 1; 0.8x
+  // from two steps is 1.6, which rounds back up to 2. Both cases looked like
+  // dead buttons. When the caller clearly asked to move, move one whole step.
+  if (Math.abs(newZoom - zoomLevel) < 1e-6 &&
+      Math.abs(requestedZoom - zoomLevel) > 1e-6) {
+    const k = Math.round(zoomLevel / step) + (requestedZoom > zoomLevel ? 1 : -1);
+    newZoom = snapZoom(Math.max(step, k * step));
+  }
   if (Math.abs(newZoom - zoomLevel) < 0.001) return;
+  // A zoom the player chose. Stops the auto-fit below from overriding it when
+  // a side panel grows and the viewport changes size.
+  zoomIsAuto = false;
   // Keep the world point under (viewportX, viewportY) fixed
   const worldX = (viewportX - panX) / zoomLevel;
   const worldY = (viewportY - panY) / zoomLevel;
@@ -4330,6 +4354,26 @@ function clientToTile(clientX, clientY) {
 function setupViewportInteractions() {
   const viewport = document.getElementById('lab-viewport');
   if (!viewport) return;
+
+  // On a phone the side panels sit under the lab rather than beside it, and
+  // they are empty — so short — at the moment the game boots. By the time the
+  // chat and the experiment list have rows the viewport is a good deal
+  // shorter, but nothing fired: no window resize accompanies a sibling
+  // growing. The lab therefore kept the zoom it had computed for a screen
+  // that was mostly lab, which is the zoom the panels have when closed.
+  //
+  // Re-fit whenever the viewport's own box changes, but only while the view
+  // is still the automatic one, so this never fights a zoom the player set.
+  if (window.ResizeObserver) {
+    let lastW = 0, lastH = 0;
+    const ro = new ResizeObserver(() => {
+      const w = viewport.clientWidth, h = viewport.clientHeight;
+      if (w === lastW && h === lastH) return;
+      lastW = w; lastH = h;
+      if (zoomIsAuto) autoFit();
+    });
+    ro.observe(viewport);
+  }
 
   // Buttons
   document.getElementById('zoom-in').addEventListener('click', e => { e.stopPropagation(); zoomCenter(1.25); });
