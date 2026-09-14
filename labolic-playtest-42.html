@@ -5305,8 +5305,7 @@ function loadSettings() {
         head: LOOK_HEADS.some(h => h.id === l.head) ? l.head : LOOK_DEFAULT.head,
         body: LOOK_BODIES.some(b => b.id === l.body) ? l.body : LOOK_DEFAULT.body,
         skin: (Number.isInteger(l.skin) && l.skin >= 0 && l.skin < SKIN_TONES.length) ? l.skin : LOOK_DEFAULT.skin,
-        hair: (Number.isInteger(l.hair) && l.hair >= 0 && l.hair < HAIR_TONES.length) ? l.hair : LOOK_DEFAULT.hair,
-        accent: LOOK_DEFAULT.accent
+        hair: (Number.isInteger(l.hair) && l.hair >= 0 && l.hair < HAIR_TONES.length) ? l.hair : LOOK_DEFAULT.hair
       };
       userSettings.look = ok;
       playerLook = Object.assign({}, ok);
@@ -7690,19 +7689,31 @@ const LOOK_HAIR = {
     if (f !== 'back') { px(4, 3, p.skin_lo); px(11, 3, p.skin_lo); }
   },
   mohawk(px, p, f) {
-    for (let y = 1; y <= LK.HEAD_BOT; y++) for (let x = 4; x < 12; x++) px(x, y, p.skin);
-    for (let y = 2; y <= LK.HEAD_BOT; y++) px(11, y, p.skin_lo);
-    // Shaved sides, so the strip has to be narrow enough to read as a strip:
-    // at four pixels wide it is just a cap again. From behind the strip runs
-    // the length of the skull; from the front and the side only its top shows.
-    const cols = f === 'side' ? [5, 6, 7, 8] : [7, 8];
-    const bot = f === 'back' ? LK.HEAD_BOT : 4;
-    for (const x of cols) for (let y = 0; y <= bot; y++) px(x, y, p.hair);
-    for (const x of cols) px(x, 0, p.hair_hi);
-    // The shaved sides need a shadow where the strip meets them, or the strip
-    // reads as a stripe painted on the scalp rather than standing off it.
-    for (const x of cols) { px(x - 1, 1, p.skin_lo); px(x + 1, 1, p.skin_lo); }
-    for (const x of cols) { px(x, 1, p.hair); px(x, 2, p.hair); }
+    // A shaved head with a crest standing clear of it. The skull's own top is
+    // row 0, so the crown comes down two rows first; painted onto the scalp
+    // the strip is a stripe on a bald man, not a mohawk.
+    lkLowerCrown(px, p, p.skin);
+    for (let y = 3; y <= LK.HEAD_BOT; y++) for (let x = 4; x < 12; x++) px(x, y, p.skin);
+    for (let y = 4; y <= LK.HEAD_BOT; y++) px(11, y, p.skin_lo);
+    for (let x = 5; x < 9; x++) px(x, 3, lkTint(p.skin, 1.08));
+    if (f === 'side') {
+      // In profile the fin runs the length of the skull and rises in the
+      // middle. Squared off it is a cap; it needs the taper to read as a fin.
+      for (let x = 4; x < 11; x++) px(x, 2, p.hair);
+      for (let x = 5; x < 10; x++) px(x, 1, p.hair);
+      for (let x = 6; x < 9; x++) px(x, 0, p.hair);
+      px(6, 0, p.hair_hi); px(7, 0, p.hair_hi);
+      px(3, 2, LOOK_INK); px(11, 2, LOOK_INK);
+      px(4, 1, LOOK_INK); px(10, 1, LOOK_INK);
+      px(5, 0, LOOK_INK); px(9, 0, LOOK_INK);
+      return;
+    }
+    // Head on only the width of the strip shows; from behind it runs the
+    // length of the skull with the shaved scalp either side of it.
+    const bot = f === 'back' ? LK.HEAD_BOT : 2;
+    for (const x of [7, 8]) for (let y = 0; y <= bot; y++) px(x, y, p.hair);
+    px(7, 0, p.hair_hi);
+    for (let y = 0; y <= bot; y++) { px(6, y, LOOK_INK); px(9, y, LOOK_INK); }
   }
 };
 
@@ -7765,12 +7776,34 @@ const LOOK_WEAR = {
   bandana(px, p, f) {
     for (const y of [1, 2]) for (let x = 4; x < 12; x++) px(x, y, p.hat);
     for (let x = 5; x < 10; x++) px(x, 1, lkTint(p.hat, 1.2));
-    if (f !== 'back') { px(12, 2, p.hat); px(13, 3, p.hat); px(12, 3, LOOK_INK); }
+    if (f !== 'back') { px(12, 2, p.hat); px(13, 3, p.hat); px(12, 3, LOOK_INK); return; }
+    // A bandana is tied at the BACK of the head, so from behind the knot and
+    // its two tails are the whole point. Without them this was a head of hair
+    // with a blue band laid across the top of it.
+    for (let x = 6; x < 10; x++) px(x, 3, p.hat);
+    px(7, 3, lkTint(p.hat, 1.2));
+    for (const [tx, ty] of [[6, 4], [6, 5], [9, 4], [9, 5]]) px(tx, ty, p.hat);
+    px(6, 5, lkTint(p.hat, 0.78)); px(9, 5, lkTint(p.hat, 0.78));
+    for (const [ix, iy] of [[5, 3], [10, 3], [7, 4], [8, 4], [5, 4], [10, 4],
+                            [5, 5], [7, 5], [8, 5], [10, 5], [6, 6], [9, 6]])
+      px(ix, iy, LOOK_INK);
   },
   hood(px, p, f) {
-    for (let y = 0; y < 9; y++) { px(3, y, p.hat); px(12, y, p.hat); }
+    // Fabric all the way round. The base sprite fills the head with hair for
+    // the side and back facings, and covering only the crown left a head of
+    // hair sitting inside the hood.
+    for (let y = 0; y <= LK.HEAD_BOT; y++) { px(3, y, p.hat); px(12, y, p.hat); }
     for (let x = 3; x < 13; x++) px(x, 0, p.hat);
-    for (let x = 4; x < 12; x++) px(x, 1, f === 'back' ? p.hat : p.hair);
+    if (f === 'back') {
+      for (let y = 1; y <= LK.HEAD_BOT; y++) for (let x = 4; x < 12; x++) px(x, y, p.hat);
+      for (let x = 4; x < 9; x++) px(x, 1, lkTint(p.hat, 1.2));
+      for (let y = 2; y <= LK.HEAD_BOT; y++) px(11, y, lkTint(p.hat, 0.8));
+      return;
+    }
+    for (let x = 4; x < 12; x++) px(x, 1, p.hair);
+    // in profile only the face opening breaks the fabric
+    if (f === 'side') for (let y = 1; y <= LK.HEAD_BOT; y++)
+      for (let x = 4; x < 9; x++) px(x, y, p.hat);
     px(3, 1, lkTint(p.hat, 1.2));
   },
   // --- added for the player ---------------------------------------------
@@ -8007,7 +8040,7 @@ const LOOK_BODIES = [
   // `hem` is how far the coat runs past the waist, in rows: a lab coat that
   // stops at the belt is a shirt, and the long one is the whole silhouette.
   { id: 'labcoat', label: '白衣',        coat: '#ebe6d8', trouser: '#7884a0', shoe: '#68523c',
-    placket: 'accent', hem: 4 },
+    placket: 'coat', hem: 4 },
   { id: 'work',    label: '作業服',      coat: '#2f3a5c', trouser: '#8a7248', shoe: '#5a4632',
     placket: 'pocket' },
   { id: 'suit',    label: 'スーツ',      coat: '#22242e', trouser: '#22242e', shoe: '#1c1a20',
@@ -8026,7 +8059,7 @@ const LOOK_BODIES = [
     placket: 'panel', pack: true, hem: 2 }
 ];
 
-const LOOK_DEFAULT = { head: 'short', body: 'labcoat', skin: SKIN_B, hair: 2, accent: '#1d9e75' };
+const LOOK_DEFAULT = { head: 'short', body: 'labcoat', skin: SKIN_B, hair: 2 };
 
 // Eight ready-made people, so the screen opens on something rather than on a
 // form. They pair a costume head with its costume body — independently the
@@ -8037,14 +8070,14 @@ const LOOK_PRESETS = [
   // hair in a lab coat, and a preset that hands the player Ben's head makes
   // the roster look like a hall of mirrors. These lean on the parts only the
   // player has.
-  { label: '新人',       look: { head: 'glasses',   body: 'labcoat', skin: SKIN_A, hair: 1,  accent: '#1d9e75' } },
-  { label: '現場',       look: { head: 'helmet',    body: 'work',    skin: SKIN_C, hair: 0,  accent: '#d08a2c' } },
-  { label: '重役',       look: { head: 'beard',     body: 'suit',    skin: SKIN_B, hair: 14, accent: '#8a6adf' } },
-  { label: 'ロッカー',   look: { head: 'mohawk',    body: 'leather', skin: 5,      hair: 11, accent: '#c0392b' } },
-  { label: '体育会',     look: { head: 'skinhead',  body: 'tank',    skin: SKIN_D, hair: 0,  accent: '#2f86c8' } },
-  { label: 'ねこ',       look: { head: 'cat',       body: 'cat',     skin: SKIN_A, hair: 13, accent: '#b07fd0' } },
-  { label: 'きょうりゅう', look: { head: 'dino',     body: 'dino',    skin: 17,     hair: 17, accent: '#4e9e84' } },
-  { label: '宇宙飛行士', look: { head: 'space',     body: 'space',   skin: SKIN_B, hair: 0,  accent: '#3f7fd0' } }
+  { label: '新人',       look: { head: 'glasses',   body: 'labcoat', skin: SKIN_A, hair: 1 } },
+  { label: '現場',       look: { head: 'helmet',    body: 'work',    skin: SKIN_C, hair: 0 } },
+  { label: '重役',       look: { head: 'beard',     body: 'suit',    skin: SKIN_B, hair: 14 } },
+  { label: 'ロッカー',   look: { head: 'mohawk',    body: 'leather', skin: 5,      hair: 11 } },
+  { label: '体育会',     look: { head: 'skinhead',  body: 'tank',    skin: SKIN_D, hair: 0 } },
+  { label: 'ねこ',       look: { head: 'cat',       body: 'cat',     skin: SKIN_A, hair: 13 } },
+  { label: 'きょうりゅう', look: { head: 'dino',     body: 'dino',    skin: 17,     hair: 17 } },
+  { label: '宇宙飛行士', look: { head: 'space',     body: 'space',   skin: SKIN_B, hair: 0 } }
 ];
 
 function lookHead(id) { return LOOK_HEADS.find(h => h.id === id) || LOOK_HEADS[0]; }
@@ -8055,7 +8088,7 @@ function lookPalette(look) {
   const tone = SKIN_TONES[(look.skin | 0) % SKIN_TONES.length];
   const skin = lkHex(tone[0]), skinLo = lkHex(tone[1]);
   const hair = lkHex(HAIR_TONES[(look.hair | 0) % HAIR_TONES.length]);
-  const coat = lkHex(body.coat), acc = lkHex(look.accent || LOOK_DEFAULT.accent);
+  const coat = lkHex(body.coat);
   const trouser = lkHex(body.trouser);
   return {
     hair_style: head.hair, wear: head.wear || null,
@@ -8065,7 +8098,6 @@ function lookPalette(look) {
     hair, hair_hi: lkTint(hair, 1.28), hat: head.hat ? lkHex(head.hat) : hair,
     skin, skin_lo: skinLo, mouth: lkTint(skinLo, 0.78),
     coat, coat_hi: lkTint(coat, 1.07), coat_lo: lkTint(coat, 0.86),
-    accent: acc, accent_lo: lkTint(acc, 0.74),
     trouser, trouser_hi: lkTint(trouser, 1.22), shoe: lkHex(body.shoe),
     belly: body.belly ? lkHex(body.belly) : null,
     bare: !!body.bare, placket: body.placket || null,
@@ -8096,33 +8128,55 @@ function lookFigure(put, p, facing, frame) {
     if (!raised) planted.push([x0, x1]);
   }
 
-  // tails, behind the body. Three shapes, because that is the whole
-  // difference between the three costumes at this size: thin and waving,
-  // round, thick and triangular.
-  if (p.tail && facing !== 'front') {
-    const T = p.coat, TH = lkTint(T, 1.18), TL = lkTint(T, 0.78);
-    if (p.tail === 'cat') {
-      for (const [x, y] of [[3, 19], [2, 18], [1, 17], [0, 16], [0, 15], [1, 14]]) px(x, y, T);
-      px(1, 13, TH); px(2, 13, LOOK_INK); px(0, 13, LOOK_INK);
-      for (const [x, y] of [[3, 20], [2, 19], [1, 18], [0, 17], [2, 14]]) px(x, y, LOOK_INK);
-    } else if (p.tail === 'bear') {
-      for (let y = 17; y <= 19; y++) for (let x = 1; x <= 3; x++) px(x, y, T);
-      px(1, 17, TH); px(3, 19, TL);
-      for (const [x, y] of [[0, 17], [0, 18], [0, 19], [1, 16], [2, 16], [1, 20], [2, 20]])
-        px(x, y, LOOK_INK);
-    } else if (p.tail === 'dino') {
-      for (let i = 0; i <= 3; i++) {
-        const half = 3 - i;
-        for (let y = 18 - half; y <= 18 + half; y++) px(3 - i, y, T);
-        px(3 - i, 18 - half, TH);
-        px(3 - i, 18 + half, TL);
-      }
-      for (let i = 0; i <= 3; i++) {
-        const half = 3 - i;
-        px(3 - i, 17 - half, LOOK_INK); px(3 - i, 19 + half, LOOK_INK);
-      }
+  // Tails. Three shapes, because that is the whole difference between the
+  // three costumes at this size: thin and waving, round, thick and
+  // triangular. Rooted where a tail is rooted — in profile at the top of the
+  // leg, from behind at the middle of the back.
+  //
+  // The two facings are drawn at different moments. In profile the tail is
+  // behind the figure, so it goes down before the torso and its root tucks
+  // under the costume. From behind it is in FRONT of the suit, and drawing it
+  // early put every pixel inside the body under the torso and the legs: all
+  // that survived was a few specks out past the hip, which is why it had to
+  // be rooted off at the left edge to be visible at all.
+  const TAILS = {
+    cat: {
+      side: [[4, 17], [3, 17], [2, 16], [1, 15], [1, 14], [2, 13]],
+      back: [[7, 17], [8, 17], [9, 17], [9, 18], [10, 18], [11, 19], [12, 19],
+             [13, 19], [13, 18], [13, 17]]
+    },
+    bear: {
+      side: [[3, 16], [2, 16], [3, 17], [2, 17], [1, 17], [3, 18], [2, 18]],
+      back: [[7, 17], [8, 17], [9, 17], [10, 16], [11, 16], [12, 16],
+             [10, 17], [11, 17], [12, 17], [11, 18], [12, 18]]
+    },
+    dino: {
+      side: [[4, 14], [4, 15], [4, 16], [4, 17], [4, 18], [4, 19], [4, 20],
+             [3, 15], [3, 16], [3, 17], [3, 18], [3, 19],
+             [2, 16], [2, 17], [2, 18], [1, 17]],
+      back: [[6, 17], [7, 17], [8, 17], [9, 17], [6, 18], [7, 18], [8, 18],
+             [9, 18], [10, 18], [9, 19], [10, 19], [11, 19],
+             [11, 20], [12, 20], [13, 20]]
     }
-  }
+  };
+  const drawTail = () => {
+    if (!p.tail || facing === 'front') return;
+    const T = p.coat, TH = lkTint(T, 1.2), TL = lkTint(T, 0.76);
+    const cells = TAILS[p.tail][facing === 'side' ? 'side' : 'back'];
+    const seen = new Set(cells.map(([x, y]) => x + ',' + y));
+    // One ink ring around whatever the shape is, rather than a hand-written
+    // outline per tail: at six to sixteen pixels the outline is most of the
+    // drawing, and getting it wrong by a pixel is what turns a tail into a
+    // smudge.
+    for (const [x, y] of cells)
+      for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]])
+        if (!seen.has((x + dx) + ',' + (y + dy))) px(x + dx, y + dy, LOOK_INK);
+    for (const [x, y] of cells) px(x, y, T);
+    px(cells[0][0], cells[0][1], TL);                       // the root, shaded
+    const tip = cells[cells.length - 1];
+    px(tip[0], tip[1], TH);
+  };
+  if (facing === 'side') drawTail();
 
   // torso
   const [tx0, tx1] = facing === 'side' ? [5, 10] : [4, 11];
@@ -8140,21 +8194,17 @@ function lookFigure(put, p, facing, frame) {
     const sx = facing === 'side' ? tx0 + 1 : tx0 + 1;
     for (let y = LK.TORSO_TOP + 1; y <= LK.TORSO_BOT - 1; y += 2) px(sx - 1, y, lkTint(p.coat, 1.3));
   }
-  if (p.tail && facing !== 'front') {
-    px(tx0 - 1, LK.TORSO_BOT - 1, p.coat); px(tx0 - 2, LK.TORSO_BOT - 2, p.coat);
-    px(tx0 - 2, LK.TORSO_BOT - 3, lkTint(p.coat, 1.15));
-  }
-
-  // the chest: the collar carries the accent so a figure on the floor can be
-  // matched to its row in the UI without reading the label
-  rect(tx0 + 1, LK.TORSO_TOP, tx1 - 1, LK.TORSO_TOP, p.accent);
-  rect(tx0 + 1, LK.TORSO_TOP, tx0 + 1, LK.TORSO_TOP, lkTint(p.accent, 1.18));
-  rect(tx1 - 1, LK.TORSO_TOP, tx1 - 1, LK.TORSO_TOP, p.accent_lo);
+  // The neckline used to carry a per-character accent, which is how a figure
+  // on the lab floor is matched to its row in the Co-Worker list. The player
+  // has no row to match, so those pixels go back to the garment: the collar
+  // is the coat's own light tone and nothing else.
+  rect(tx0 + 1, LK.TORSO_TOP, tx1 - 1, LK.TORSO_TOP, p.coat_hi);
+  px(tx1 - 1, LK.TORSO_TOP, p.coat_lo);
   if (facing === 'front') {
     if (p.placket === 'tie') {
       // Three colours in four pixels: the white of a collar, the red of a tie
       // and the black of the jacket either side of both.
-      const shirt = p.shirt || [235, 235, 240], tie = p.tie || p.accent;
+      const shirt = p.shirt || [235, 235, 240], tie = p.tie || p.coat_lo;
       rect(6, LK.TORSO_TOP + 1, 9, LK.TORSO_TOP + 2, shirt);
       rect(7, LK.TORSO_TOP + 1, 8, LK.TORSO_BOT - 1, tie);
       px(7, LK.TORSO_TOP + 1, lkTint(tie, 1.2));
@@ -8172,12 +8222,15 @@ function lookFigure(put, p, facing, frame) {
     } else if (p.placket === 'panel') {
       rect(6, LK.TORSO_TOP + 2, 9, LK.TORSO_TOP + 4, lkTint(p.coat, 0.72));
       px(7, LK.TORSO_TOP + 3, [104, 196, 234]); px(9, LK.TORSO_TOP + 3, [255, 154, 60]);
-    } else if (!p.belly) {
-      rect(7, LK.TORSO_TOP + 1, 8, LK.TORSO_BOT - 1, p.accent);
-      rect(8, LK.TORSO_TOP + 1, 8, LK.TORSO_BOT - 1, p.accent_lo);
+    } else if (p.placket === 'coat') {
+      // the front opening of a long coat, carried on down by the hem below
+      rect(7, LK.TORSO_TOP + 1, 8, LK.TORSO_BOT - 1, p.coat_lo);
+      px(8, LK.TORSO_TOP + 1, p.coat);
+      px(6, LK.TORSO_TOP + 2, lkTint(p.coat, 0.9));
+      px(9, LK.TORSO_TOP + 2, lkTint(p.coat, 0.9));
     }
-  } else if (facing === 'side' && !p.belly) {
-    rect(9, LK.TORSO_TOP + 1, 9, LK.TORSO_BOT - 1, p.accent);
+  } else if (facing === 'side' && p.placket === 'coat') {
+    rect(9, LK.TORSO_TOP + 1, 9, LK.TORSO_BOT - 1, p.coat_lo);
   }
   if (p.pack && facing === 'back') {
     rect(tx0 + 2, LK.TORSO_TOP + 1, tx1 - 2, LK.TORSO_BOT - 2, lkTint(p.coat, 0.8));
@@ -8195,6 +8248,7 @@ function lookFigure(put, p, facing, frame) {
     rect(ax0, LK.TORSO_TOP + 1 + dy, ax0, LK.TORSO_BOT - 3 + dy, sleeveHi);
     rect(ax0, LK.TORSO_BOT - 2 + dy, ax1, LK.TORSO_BOT - 1 + dy, p.skin);
   }
+  if (facing === 'back') drawTail();
 
   // A long coat runs past the waist and over the legs, drawn after them so
   // the hem overlaps. Stopped at the belt it is a shirt, and the whole point
