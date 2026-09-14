@@ -7679,17 +7679,25 @@ const LOOK_HAIR = {
   // --- added for the player ---------------------------------------------
   // Bald is not "no hair routine": the scalp still needs its own shading, or
   // the head reads as an unfinished sprite rather than a shaved one.
+  // Both of these have to clear the WHOLE head, not the two rows a fringe
+  // would have covered: for the side and back facings the base sprite fills
+  // rows 1..9 with hair, so wiping only the crown left a shaved man with a
+  // full head of hair seen from behind.
   bald(px, p, f) {
-    for (let x = 4; x < 12; x++) { px(x, 1, p.skin); px(x, 2, p.skin); }
+    for (let y = 1; y <= LK.HEAD_BOT; y++) for (let x = 4; x < 12; x++) px(x, y, p.skin);
+    for (let y = 2; y <= LK.HEAD_BOT; y++) px(11, y, p.skin_lo);
     for (let x = 5; x < 9; x++) px(x, 1, lkTint(p.skin, 1.1));
     if (f !== 'back') { px(4, 3, p.skin_lo); px(11, 3, p.skin_lo); }
   },
   mohawk(px, p, f) {
+    for (let y = 1; y <= LK.HEAD_BOT; y++) for (let x = 4; x < 12; x++) px(x, y, p.skin);
+    for (let y = 2; y <= LK.HEAD_BOT; y++) px(11, y, p.skin_lo);
     // Shaved sides, so the strip has to be narrow enough to read as a strip:
-    // at four pixels wide it is just a cap again.
-    for (let x = 4; x < 12; x++) { px(x, 1, p.skin); px(x, 2, p.skin); }
+    // at four pixels wide it is just a cap again. From behind the strip runs
+    // the length of the skull; from the front and the side only its top shows.
     const cols = f === 'side' ? [5, 6, 7, 8] : [7, 8];
-    for (const x of cols) for (let y = 0; y < 5; y++) px(x, y, p.hair);
+    const bot = f === 'back' ? LK.HEAD_BOT : 4;
+    for (const x of cols) for (let y = 0; y <= bot; y++) px(x, y, p.hair);
     for (const x of cols) px(x, 0, p.hair_hi);
     // The shaved sides need a shadow where the strip meets them, or the strip
     // reads as a stripe painted on the scalp rather than standing off it.
@@ -7699,7 +7707,7 @@ const LOOK_HAIR = {
 };
 
 // The skull runs rows 0..9 and its top line IS row 0, so an ear, a crest or
-// an antenna has nowhere to stand. These options wipe rows 0..2 and redraw the
+// a crest has nowhere to stand. These options wipe rows 0..2 and redraw the
 // top of the head at row 2 — an eight-row skull instead of a ten-row one —
 // which frees two rows above it. Brow (5), eye (6) and mouth (8) all still sit
 // inside the shortened skin, so no other landmark has to move.
@@ -7728,13 +7736,30 @@ const LOOK_WEAR = {
     px(4, 1, lkTint(p.hat, 1.5));
     if (f !== 'back') { px(12, 2, LOOK_BRASS); px(12, 3, LOOK_BRASS_HI); }
   },
-  headphones(px, p) {
-    for (let x = 5; x < 11; x++) px(x, 0, LOOK_INK);
-    for (let x = 6; x < 10; x++) px(x, 0, p.hat);
-    for (const [x, y0] of [[3, 4], [12, 4]]) {
-      for (const y of [y0, y0 + 1, y0 + 2]) px(x, y, p.hat);
-      px(x, y0, lkTint(p.hat, 1.3));
-      px(x, y0 + 2, LOOK_INK);
+  headphones(px, p, f) {
+    // One pixel of ear cup, tucked inside the head's own outline column, was
+    // indistinguishable from the outline. A cup has to stand proud of the
+    // skull and be two pixels wide before it reads as a cup.
+    const hi = lkTint(p.hat, 1.3), lo = lkTint(p.hat, 0.72);
+    for (let x = 4; x < 12; x++) px(x, 0, LOOK_INK);
+    for (let x = 5; x < 11; x++) px(x, 0, p.hat);
+    px(6, 0, hi);
+    if (f === 'side') {
+      // In profile the band runs front to back and one cup covers the ear.
+      for (const y of [1, 2]) { px(8, y, p.hat); px(9, y, p.hat); }
+      for (let y = 3; y <= 6; y++) { px(8, y, p.hat); px(9, y, p.hat); }
+      for (let y = 1; y <= 6; y++) { px(7, y, LOOK_INK); px(10, y, LOOK_INK); }
+      px(8, 7, LOOK_INK); px(9, 7, LOOK_INK);
+      px(8, 3, hi); px(9, 6, lo);
+      return;
+    }
+    for (const y of [1, 2]) { px(3, y, p.hat); px(12, y, p.hat); }
+    for (const [cx, dir] of [[2, -1], [13, 1]]) {
+      for (let y = 3; y <= 6; y++) { px(cx, y, p.hat); px(cx - dir, y, p.hat); }
+      for (let y = 2; y <= 7; y++) px(cx + dir, y, LOOK_INK);
+      px(cx, 2, LOOK_INK); px(cx - dir, 2, LOOK_INK);
+      px(cx, 7, LOOK_INK); px(cx - dir, 7, LOOK_INK);
+      px(cx, 3, hi); px(cx, 6, lo);
     }
   },
   bandana(px, p, f) {
@@ -7768,15 +7793,19 @@ const LOOK_WEAR = {
   cat(px, p, f) {
     lkLowerCrown(px, p);
     const fur = p.hat, inner = lkTint(p.hat, 0.62);
-    // Pointed: a three-wide base on the crown, two, then a single pixel. One
-    // pixel of apex is what separates a cat from a bear at this size.
+    // Pointed, and leaning in. A tip sitting straight above the outer corner
+    // came out as a spike off the side of the head; stepping the outer edge
+    // one pixel inward on the way up puts the point over the ear instead,
+    // which is where a cat's is.
     for (const [ox, dir] of [[4, 1], [11, -1]]) {
-      for (let i = 0; i < 3; i++)
-        for (let j = 0; j <= 2 - i; j++) px(ox + dir * j, 2 - i, fur);
-      if (f !== 'back') px(ox + dir, 1, inner);
+      for (let j = 0; j < 3; j++) px(ox + dir * j, 2, fur);        // base
+      px(ox + dir, 1, fur); px(ox + dir * 2, 1, fur);              // edge steps in
+      px(ox + dir, 0, fur);                                        // the tip
+      if (f !== 'back') px(ox + dir * 2, 1, inner);
       for (const y of [0, 1, 2]) px(ox - dir, y, LOOK_INK);
-      px(ox + dir, 0, LOOK_INK);
-      px(ox + dir * 2, 1, LOOK_INK);
+      px(ox, 0, LOOK_INK); px(ox, 1, LOOK_INK);                    // the slope
+      px(ox + dir * 2, 0, LOOK_INK);
+      px(ox + dir * 3, 1, LOOK_INK);
     }
   },
   bear(px, p, f) {
@@ -7852,19 +7881,6 @@ const LOOK_WEAR = {
     for (let x = 5; x < 11; x++) { px(x, 3, LOOK_INK); px(x, 7, LOOK_INK); }
     for (let y = 4; y < 7; y++) { px(4, y, LOOK_INK); px(11, y, LOOK_INK); }
     px(6, 4, LOOK_GLASS); px(7, 4, LOOK_GLASS); px(6, 5, LOOK_GLASS);
-  },
-  antenna(px, p, f) {
-    // Bald, so the crown is scalp rather than hair.
-    lkLowerCrown(px, p, p.skin);
-    // One pixel of stalk is all there is room for; the ink either side of it
-    // is what keeps it from vanishing into the background.
-    for (const sx of [5, 10]) {
-      for (const y of [0, 1]) {
-        px(sx, y, p.skin);
-        px(sx - 1, y, LOOK_INK); px(sx + 1, y, LOOK_INK);
-      }
-      px(sx, 0, f === 'back' ? p.skin_lo : lkTint(p.skin, 1.12));
-    }
   }
 };
 
@@ -7981,8 +7997,7 @@ const LOOK_HEADS = [
   // Behind a mask there is no face to draw, and drawing one anyway is what
   // made the dinosaur look like a person peering out of a costume.
   { id: 'dino',       label: '恐竜',         hair: 'buzz',  wear: 'dino',    hat: '#6e9b5a', eyes: 'none' },
-  { id: 'space',      label: '宇宙服',       hair: 'buzz',  wear: 'space',   hat: '#e4e6ee', eyes: 'none' },
-  { id: 'antenna',    label: '触角',         hair: 'bald',  wear: 'antenna' }
+  { id: 'space',      label: '宇宙服',       hair: 'buzz',  wear: 'space',   hat: '#e4e6ee', eyes: 'none' }
 ];
 
 // A body is a set of garment colours plus a few switches. `bare` puts skin on
@@ -8197,16 +8212,17 @@ function lookFigure(put, p, facing, frame) {
     }
   }
 
-  // head
+  // head, sitting straight on the shoulders. sprites.py puts a two-pixel neck
+  // in row 9 and inks the rest of it, which pinches the silhouette and lays a
+  // dark bar right under the mouth — between that bar and the brow the face
+  // read as bearded whatever was drawn on it. Here row 9 is the jaw itself.
   rect(3, LK.HEAD_TOP, 12, LK.HEAD_BOT, LOOK_INK);
-  for (const [cx, cy] of [[3, LK.HEAD_TOP], [12, LK.HEAD_TOP], [3, LK.HEAD_BOT], [12, LK.HEAD_BOT]])
-    px(cx, cy, null);
-  rect(4, 1, 11, 8, p.skin);
-  rect(11, 2, 11, 8, p.skin_lo);
-  px(7, LK.HEAD_BOT, p.skin); px(8, LK.HEAD_BOT, p.skin_lo);
+  for (const [cx, cy] of [[3, LK.HEAD_TOP], [12, LK.HEAD_TOP]]) px(cx, cy, null);
+  rect(4, 1, 11, LK.HEAD_BOT, p.skin);
+  rect(11, 2, 11, LK.HEAD_BOT, p.skin_lo);
 
-  if (facing === 'side') { rect(4, 1, 7, 8, p.hair); px(12, LK.EYE, LOOK_INK); }
-  else if (facing === 'back') rect(4, 1, 11, 8, p.hair);
+  if (facing === 'side') { rect(4, 1, 7, LK.HEAD_BOT, p.hair); px(12, LK.EYE, LOOK_INK); }
+  else if (facing === 'back') rect(4, 1, 11, LK.HEAD_BOT, p.hair);
 
   LOOK_HAIR[p.hair_style](px, p, facing);
   if (p.wear) LOOK_WEAR[p.wear](px, p, facing);
@@ -14133,11 +14149,34 @@ function bindStoryEventPopup() {
 // (t1 and t2) it is still better than an empty box.
 const PRODUCT_ART_TIERS = new Set(['real', 't3']);
 
+// Spelt out one path per icon rather than built from disc.id at run time. The
+// path has to appear in the source as a literal or nothing that reads this
+// file can see it: tools/check.sh cannot verify a file that is named only at
+// run time, and tools/build_standalone.py — which inlines every asset for the
+// Artifact preview — could only find the directory, which is not a file. Keep
+// this list in step with products.py's SHIPPED.
+const PRODUCT_ART = {
+  brass:         'assets/pixel/product/brass.png',
+  cupronickel:   'assets/pixel/product/cupronickel.png',
+  monel:         'assets/pixel/product/monel.png',
+  invar:         'assets/pixel/product/invar.png',
+  permalloy:     'assets/pixel/product/permalloy.png',
+  nichrome:      'assets/pixel/product/nichrome.png',
+  ferritic_ss:   'assets/pixel/product/ferritic_ss.png',
+  austenitic_ss: 'assets/pixel/product/austenitic_ss.png',
+  ti_cr_beta:    'assets/pixel/product/ti_cr_beta.png',
+  nitinol:       'assets/pixel/product/nitinol.png',
+  inconel_like:  'assets/pixel/product/inconel_like.png',
+  azoth:         'assets/pixel/product/azoth.png',
+  quintessence:  'assets/pixel/product/quintessence.png',
+  lapis:         'assets/pixel/product/lapis.png'
+};
+
 function setDiscoveryIcon(icon, disc, spec) {
-  if (PRODUCT_ART_TIERS.has(disc.tier)) {
+  if (PRODUCT_ART_TIERS.has(disc.tier) && PRODUCT_ART[disc.id]) {
     icon.classList.add('is-art');
     icon.style.cssText = '';
-    icon.style.backgroundImage = `url('assets/pixel/product/${disc.id}.png')`;
+    icon.style.backgroundImage = `url('${PRODUCT_ART[disc.id]}')`;
   } else if (spec) {
     icon.classList.remove('is-art');
     icon.style.cssText = specimenIconStyle(spec.elements);

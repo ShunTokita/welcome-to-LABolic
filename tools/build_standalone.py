@@ -48,7 +48,12 @@ def main() -> None:
     missing = set()
     for path in sorted(paths, key=len, reverse=True):
         blob_path = root / path
-        if not blob_path.exists():
+        if not blob_path.is_file():
+            # is_file(), not exists(): a reference the regex could only trim
+            # back to a directory (a path built at run time) is not a missing
+            # asset, and read_bytes() on it raises IsADirectoryError, which
+            # took the whole preview down rather than one image.
+            #
             # Warn and carry on rather than abort. check.sh is the gate that
             # decides whether a missing asset blocks a release; a preview whose
             # only fault is one absent file is still worth looking at, and
