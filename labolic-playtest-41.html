@@ -1771,6 +1771,12 @@
   /* MPSS — distinctive oversized synth. Background image is set via [data-id^="mpss"] above;
      background-color provides a fallback color in case the image fails or device-art is disabled. */
 
+  /* Ben's attendance stands in for the busy state here. Same timing as the
+     generated .busy rule above, so the two are indistinguishable when both
+     apply. */
+  .equip:not(.broken)[data-id^="mpss"].ben-running .eq-sprite {
+    animation: eqrun 2.0s steps(8, jump-none) infinite;
+  }
   .eq-plate.mpss { color: #fff; background: rgba(30, 10, 70, 0.9); }
   .equip.mpss .lv-badge { color: #7c4dff; background: rgba(255,255,255,0.85); }
   /* Broken devices deliberately hide the artwork behind red stripes; the
@@ -6791,6 +6797,12 @@ function bindUdmSkills() {
 // Helper: Co-Workers visible in the lab (and right panel) — present === true.
 // Per spec §10.5, only attending Co-Workers appear; max labLv*2.
 function presentCoworkers() { return coworkers.filter(c => c.present); }
+// MPSS is Ben's machine: it cannot be run at all without him in. Asked in two
+// places now — the popup that refuses to open, and the idle animation below.
+function isBenPresent() {
+  const ben = coworkers.find(c => c.id === 'ben');
+  return !!(ben && ben.hired && ben.present);
+}
 function hiredCoworkers()   { return coworkers.filter(c => c.hired); }
 
 // Max attendance per spec §10.6 / §5.1
@@ -7151,7 +7163,7 @@ const charNodes = new Map();
 
 // Classes renderLab() owns. Everything else on a .equip node belongs to
 // somebody else and must not be touched here.
-const EQUIP_MANAGED_CLASSES = ['lv4', 'mpss', 'pc', 'busy', 'broken'];
+const EQUIP_MANAGED_CLASSES = ['lv4', 'mpss', 'pc', 'busy', 'broken', 'ben-running'];
 
 // Explicit teardown. Not needed by any current call site (nothing wipes #lab
 // and `equipment` is only ever mutated in place), but kept so a future feature
@@ -7288,6 +7300,11 @@ function renderLab() {
     node.root.classList.toggle('lv4',    eq.lv >= 4);
     node.root.classList.toggle('mpss',   eq.type === 'mpss');
     node.root.classList.toggle('pc',     eq.type === 'pc');
+    // Every other machine animates while a Co-Worker stands at it. MPSS has
+    // no work tile — it is driven from a popup — so its animation would only
+    // ever run unwatched. It runs whenever Ben is in instead, which is also
+    // exactly when the machine is usable.
+    node.root.classList.toggle('ben-running', eq.type === 'mpss' && isBenPresent());
     // The plate is no longer a descendant of .equip, so the per-device tints
     // have to be mirrored onto it.
     node.plate.classList.toggle('lv4',  eq.lv >= 4);
@@ -10955,9 +10972,7 @@ function renderMpssPopup(meta) {
   const popup = document.getElementById('popup');
   popup.classList.add('lv4');
   popup.classList.remove('wide');
-  const ben = coworkers.find(c => c.id === 'ben');
-  const benPresent = ben && ben.hired && ben.present;
-  if (!benPresent) {
+  if (!isBenPresent()) {
     popup.innerHTML = `
       <div class="popup-header">
         <div class="equip-mini"><div>MPSS</div><div>Sp</div></div>
