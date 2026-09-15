@@ -135,6 +135,18 @@ def figure(c, ox, oy, p, facing, frame):
     HAIR[p['hair_style']](px, p, facing)
     if p['wear']:
         WEAR[p['wear']](px, p, facing)
+
+    # A chin with its corners taken off. Row 9 used to be the neck; filling it
+    # in left every face ending in a flat eight-pixel block, and a square jaw
+    # on all twenty-six is a stronger statement than it looks. One pixel off
+    # each corner rounds it, which is all the roster needs to separate the
+    # gentler half from the rest. After the hair and the headwear, or a style
+    # that reaches the jaw line paints the corner straight back on.
+    if p.get('jaw') == 'round':
+        for x in (0, 1, 2, 3, 12, 13, 14, 15):
+            px.clear(x, HEAD_BOT)
+        px(4, HEAD_BOT, INK); px(11, HEAD_BOT, INK)
+
     if facing != 'back':
         EYES[p['eyes']](px, p, facing)
         if p['face']:
@@ -600,12 +612,13 @@ def hx(s):
 # under a two-dot face is the one mark left that still reads as stubble. The
 # people who are supposed to have facial hair get it from `face`.
 def cw(hair_style, hair, accent, skin='b', eyes='plain', wear=None, hat=None,
-       face=None, coat=None, mouth=0, trouser=(120, 132, 160)):
+       face=None, coat=None, mouth=0, trouser=(120, 132, 160), jaw='square'):
     sk, sk_lo = SKINS[skin]
     coat = coat or COAT
     acc = hx(accent)
     return dict(
         hair_style=hair_style, wear=wear, eyes=eyes, face=face, mouth_w=mouth,
+        jaw=jaw,
         hair=hair, hair_hi=tint(hair, 1.28), hat=hat or hair,
         skin=sk, skin_lo=sk_lo, mouth=tint(sk_lo, 0.78),
         coat=coat, coat_hi=tint(coat, 1.07), coat_lo=tint(coat, 0.86),
@@ -620,32 +633,32 @@ CARDIGAN = (109, 100, 190)
 CAST = {
     # --- Tier 1 -------------------------------------------------------
     'tom':    cw('short', LBROWN, '#a89b6e', 'b'),
-    'lisa':   cw('bob', LBROWN, '#e8a896', 'a'),
-    'ben':    cw('bowl', BROWN, '#7e603c', 'b', eyes='round', mouth=0),
-    'anna':   cw('bun', DBROWN, '#c9b88f', 'c', eyes='square'),
+    'lisa':   cw('bob', LBROWN, '#e8a896', 'a', jaw='round'),
+    'ben':    cw('bowl', BROWN, '#7e603c', 'b', eyes='round', mouth=0, jaw='round'),
+    'anna':   cw('bun', DBROWN, '#c9b88f', 'c', eyes='square', jaw='round'),
     'mike':   cw('short', BLACK, '#a8c4d8', 'c', wear='bandana', hat=(96, 148, 192)),
     'owen':   cw('spiky', DBROWN, '#a8b878', 'b', eyes='tired', coat=HOODIE),
-    'pam':    cw('ponytail', BROWN, '#f0c878', 'd'),
+    'pam':    cw('ponytail', BROWN, '#f0c878', 'd', jaw='round'),
     # --- Tier 2 -------------------------------------------------------
-    'kate':   cw('bob', GINGER, '#f0997b', 'a'),
+    'kate':   cw('bob', GINGER, '#f0997b', 'a', jaw='round'),
     'sam':    cw('short', BROWN, '#3a8da8', 'c', wear='hardhat', hat=(232, 190, 60)),
-    'carol':  cw('bun', SAND, '#bf7a99', 'b'),
+    'carol':  cw('bun', SAND, '#bf7a99', 'b', jaw='round'),
     'dave':   cw('short', BLACK, '#85b7eb', 'd', wear='headphones', hat=(150, 120, 204)),
-    'eve':    cw('long', (58, 60, 92), '#9d8ab8', 'a'),
+    'eve':    cw('long', (58, 60, 92), '#9d8ab8', 'a', jaw='round'),
     'frank':  cw('buzz', GREY, '#6e8590', 'b', coat=UNIFORM),
-    'grace':  cw('ponytail', GOLD, '#e8c878', 'a'),
+    'grace':  cw('ponytail', GOLD, '#e8c878', 'a', jaw='round'),
     'hank':   cw('short', GREY, '#5c8a5c', 'b', eyes='square', face='moustache'),
-    'iris':   cw('bun', BLACK, '#97c459', 'c', eyes='square'),
+    'iris':   cw('bun', BLACK, '#97c459', 'c', eyes='square', jaw='round'),
     'joe':    cw('short', BROWN, '#d8804a', 'd', coat=TRACK),
     # --- Tier 3 -------------------------------------------------------
     'jeff':   cw('spiky', GINGER, '#d85a30', 'b', eyes='goggles'),
     'murphy': cw('pomp', BLACK, '#185fa5', 'c', face='stubble', coat=LEATHER),
     'chen':   cw('short', BLACK, '#0f6e56', 'c', wear='gradcap', hat=(46, 48, 70)),
     'lee':    cw('long', PALE, '#a8a4b0', 'a', eyes='closed', wear='hood',
-                 hat=(208, 208, 218), coat=PALECOAT, mouth=0),
+                 hat=(208, 208, 218), coat=PALECOAT, mouth=0, jaw='round'),
     'watson': cw('short', GREY, '#993c1d', 'b', face='moustache', coat=VEST),
     'bobby':  cw('spiky', RED, '#e8704a', 'b', face='stubble'),
-    'ingrid': cw('long', LILAC, '#a89bd1', 'a'),
+    'ingrid': cw('long', LILAC, '#a89bd1', 'a', jaw='round'),
     'smith':  cw('horseshoe', WHITE, '#534ab7', 'b', eyes='half_rim', face='beard',
                  coat=CARDIGAN, mouth=0, trouser=(96, 90, 124)),
     # --- The player ---------------------------------------------------
