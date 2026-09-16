@@ -8484,11 +8484,16 @@ function lookFigure(put, p, facing, frame) {
       // A coat with `shirt` set is worn open over it, so the opening shows
       // the garment underneath instead of the coat's own shadow tone; the
       // lab coat has no `shirt` and keeps the shadow, as before.
-      rect(7, LK.TORSO_TOP + 1, 8, LK.TORSO_BOT - 1, p.shirt || p.coat_lo);
-      // The collar still fastens at the throat whatever is under it, so the
-      // top right pixel stays the coat — without it the opening runs into
-      // the neckline and the coat reads as a red tabard rather than a coat.
-      px(8, LK.TORSO_TOP + 1, p.coat);
+      //
+      // With a garment behind it the opening owns both middle columns
+      // outright, from the collar row down: at two pixels wide a single
+      // coat-coloured pixel left in the column does not read as a lapel,
+      // it reads as a hole in the shirt. The lab coat keeps that pixel,
+      // where the opening is the coat's own shadow and the break IS the
+      // lapel.
+      rect(7, p.shirt ? LK.TORSO_TOP : LK.TORSO_TOP + 1, 8, LK.TORSO_BOT - 1,
+           p.shirt || p.coat_lo);
+      if (!p.shirt) px(8, LK.TORSO_TOP + 1, p.coat);
       px(6, LK.TORSO_TOP + 2, lkTint(p.coat, 0.9));
       px(9, LK.TORSO_TOP + 2, lkTint(p.coat, 0.9));
     }
@@ -8527,7 +8532,10 @@ function lookFigure(put, p, facing, frame) {
       // Same opening, same garment behind it: stopping the inner colour at
       // the waist would put a seam across the middle of one open coat.
       rect(7, LK.LEG_TOP, 8, hy1 - 1, p.shirt || p.coat_lo);
-      px(8, LK.LEG_TOP, p.coat);
+      // This pixel starts the lab coat's opening again below the waist. On a
+      // coat worn over something it lands in the middle of the shirt column
+      // instead — one red pixel at the belt, which is what a dropout is.
+      if (!p.shirt) px(8, LK.LEG_TOP, p.coat);
     }
     // Then the hem walks. A coat that reaches past the knee covers the whole
     // leg, and with the legs hidden the only thing left moving between the
