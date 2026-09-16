@@ -8299,7 +8299,7 @@ const LOOK_BODIES = [
   // at 1.05 contrast and disappears into its own outline, taking the footfall
   // with it. This sits at 1.67, next to the lab coat's 1.70.
   { id: 'redcoat', label: '赤ロングコート', coat: '#a8342c', trouser: '#3a3442', shoe: '#6b4f3a',
-    placket: 'coat', hem: 3 },
+    placket: 'coat', hem: 3, shirt: '#1c1a20' },
   { id: 'tank',    label: 'タンクトップ', coat: '#e8e8ee', trouser: '#6b7a94', shoe: '#68523c',
     bare: true, placket: 'strap' },
   { id: 'cat',     label: '着ぐるみ(猫)',   coat: '#b8b2c4', trouser: '#b8b2c4', shoe: '#9a94a8',
@@ -8480,8 +8480,14 @@ function lookFigure(put, p, facing, frame) {
       rect(6, LK.TORSO_TOP + 2, 9, LK.TORSO_TOP + 4, lkTint(p.coat, 0.72));
       px(7, LK.TORSO_TOP + 3, [104, 196, 234]); px(9, LK.TORSO_TOP + 3, [255, 154, 60]);
     } else if (p.placket === 'coat') {
-      // the front opening of a long coat, carried on down by the hem below
-      rect(7, LK.TORSO_TOP + 1, 8, LK.TORSO_BOT - 1, p.coat_lo);
+      // The front opening of a long coat, carried on down by the hem below.
+      // A coat with `shirt` set is worn open over it, so the opening shows
+      // the garment underneath instead of the coat's own shadow tone; the
+      // lab coat has no `shirt` and keeps the shadow, as before.
+      rect(7, LK.TORSO_TOP + 1, 8, LK.TORSO_BOT - 1, p.shirt || p.coat_lo);
+      // The collar still fastens at the throat whatever is under it, so the
+      // top right pixel stays the coat — without it the opening runs into
+      // the neckline and the coat reads as a red tabard rather than a coat.
       px(8, LK.TORSO_TOP + 1, p.coat);
       px(6, LK.TORSO_TOP + 2, lkTint(p.coat, 0.9));
       px(9, LK.TORSO_TOP + 2, lkTint(p.coat, 0.9));
@@ -8518,7 +8524,9 @@ function lookFigure(put, p, facing, frame) {
     rect(hx0 + 1, LK.LEG_TOP, hx0 + 1, hy1 - 1, p.coat_hi);
     rect(hx1 - 1, LK.LEG_TOP, hx1 - 1, hy1 - 1, p.coat_lo);
     if (facing === 'front') {
-      rect(7, LK.LEG_TOP, 8, hy1 - 1, p.coat_lo);      // the front opening
+      // Same opening, same garment behind it: stopping the inner colour at
+      // the waist would put a seam across the middle of one open coat.
+      rect(7, LK.LEG_TOP, 8, hy1 - 1, p.shirt || p.coat_lo);
       px(8, LK.LEG_TOP, p.coat);
     }
     // Then the hem walks. A coat that reaches past the knee covers the whole
