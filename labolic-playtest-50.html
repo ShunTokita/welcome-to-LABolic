@@ -13031,6 +13031,12 @@ function reserveEquipForTask(eq, cw, task, overrideSec) {
   // equipment. Throttling in sfx() keeps a burst of co-workers starting
   // together from stacking into a mess.
   sfx(task.kind === 'synth' ? 'synth.start' : 'ui.click');
+  // A task is set on arrival, inside a walk callback, and the walk tick only
+  // redraws — the next save is whenever aiTick next sees something change,
+  // which may be after this task has already ended. In UDM that gap is where
+  // a reload eats a pre-charged synthesis, so close it here: this is the one
+  // place every task start passes through.
+  if (udmActive) saveUdm();
   return true;
 }
 
@@ -15185,6 +15191,22 @@ function saveUdm() {
       // additive and read defensively, so a run saved here still opens in a
       // build that predates it.
       ownedEquipment: { ...gameStats.ownedEquipment },
+      // Breakdown and work-in-progress. The main game keeps `broken` in its
+      // own key (saveEquipmentState) and drops the rest; here both matter,
+      // because a synthesis charges its elements up front — drop the task and
+      // the coins are gone with no specimen to show for them. `task` is plain
+      // data (kind, ids, elements, params, label, cost), so it round-trips.
+      // pendingReservedBy is deliberately absent: it marks a walk in progress,
+      // and the walk does not survive the reload that this is being read back
+      // from.
+      equipState: equipment.map(e => ({
+        id: e.id,
+        broken: !!e.broken,
+        task: e.task || null,
+        busyStartedAt: e.busyStartedAt ?? null,
+        busyUntil: e.busyUntil ?? null,
+        reservedBy: e.reservedBy || null,
+      })),
     };
     localStorage.setItem(UDM_RUN_KEY, JSON.stringify(data));
   } catch(e) { console.warn('saveUdm failed:', e); }
@@ -15272,6 +15294,35 @@ function loadUdm() {
       for (const eq of equipment) {
         const p = byId.get(eq.id);
         if (p) { eq.col = p.col; eq.row = p.row; }
+      }
+    }
+    // Breakdown and work in progress, both cleared by applyUdmStartState a
+    // moment ago. Last, because it needs the equipment array in its final
+    // shape — duplicates restored above included.
+    if (Array.isArray(d.equipState)) {
+      const byId = new Map(d.equipState.map(e => [e.id, e]));
+      for (const eq of equipment) {
+        const sv = byId.get(eq.id);
+        if (!sv) continue;
+        eq.broken = !!sv.broken;
+        if (!sv.task || typeof sv.busyUntil !== 'number') continue;
+        eq.task = sv.task;
+        eq.busyStartedAt = (typeof sv.busyStartedAt === 'number') ? sv.busyStartedAt : null;
+        eq.busyUntil = sv.busyUntil;
+        eq.reservedBy = sv.reservedBy || null;
+        // Put the Co-Worker back on the job. applyUdmStartState set everyone
+        // idle, and an idle holder is exactly what the stale-reservation sweep
+        // in aiTick looks for: it would free the specimen this task is about to
+        // commit, and the AI would hand the same person a second task while
+        // this one is still counting down. busyUntil is wall-clock, so a task
+        // whose time passed while the tab was away commits on the next tick,
+        // which is what would have happened had the tab stayed open.
+        const cw = coworkers.find(c => c.id === eq.reservedBy);
+        if (cw) {
+          cw.state = 'busy';
+          cw.stateLabel = sv.task.label || eq.short || 'Work';
+          cw._path = null; cw._onArrive = null; cw._walkAcc = 0;
+        }
       }
     }
   } catch(e) { console.warn('loadUdm failed:', e); }
