@@ -2212,8 +2212,32 @@
      this Co-Worker's unique skill is doing something. Same colour as before:
      currentColor, so each one lights in their own. */
   .character.skill-active {
-    filter: drop-shadow(0 0 2px currentColor) drop-shadow(0 0 4px currentColor);
+    filter: drop-shadow(0 0 3px currentColor) drop-shadow(0 0 6px currentColor);
     z-index: 10;
+  }
+  /* A passive skill holds a steady light; the two that come and go breathe.
+     At a glance that is the difference between "this person has a skill" and
+     "something is happening right now" — and it covers Frank's waiting state
+     as well, which has no moment of its own to show.
+
+     Both keyframes carry the same two drop-shadows so the filter list
+     interpolates instead of snapping between them. The sprite is a
+     transparent background-image, and the old highlight learned the hard way
+     that scaling one while a drop-shadow is on it re-rasters every frame and
+     flickers; the radius alone is cheap enough at this size, and nothing here
+     touches transform. */
+  .character.skill-active.skill-pulse {
+    animation: skill-aura-pulse 1.6s ease-in-out infinite;
+  }
+  @keyframes skill-aura-pulse {
+    0%, 100% { filter: drop-shadow(0 0 2px currentColor) drop-shadow(0 0 4px currentColor); }
+    50%      { filter: drop-shadow(0 0 5px currentColor) drop-shadow(0 0 9px currentColor); }
+  }
+  /* Reduced motion keeps the light, loses the breathing: the glow is
+     information, the pulse is only emphasis. */
+  body.reduce-motion .character.skill-active.skill-pulse { animation: none; }
+  @media (prefers-reduced-motion: reduce) {
+    .character.skill-active.skill-pulse { animation: none; }
   }
   .speech-bubble {
     position: absolute; bottom: 110%; left: 50%; transform: translateX(-50%);
@@ -6960,7 +6984,10 @@ function udmUniqueGlowing(ownerId) {
 function udmUpdateSkillGlow() {
   for (const [id, el] of charNodes) {
     if (!el || id === 'player') continue;
-    el.classList.toggle('skill-active', udmActive && udmUniqueGlowing(id));
+    const on = udmActive && udmUniqueGlowing(id);
+    el.classList.toggle('skill-active', on);
+    // Passive is steady; burst and ready breathe.
+    el.classList.toggle('skill-pulse', on && UDM_UNIQUE_GLOW[id] !== 'passive');
   }
   // Put the light out by itself when the last burst ends, rather than leaving
   // it to whatever happens to render next.
