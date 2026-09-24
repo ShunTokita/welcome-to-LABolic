@@ -6909,18 +6909,21 @@ function canOperateEquip(cw, eq) {
 //   ready    the player spends it by hand. Lit while pressing it would
 //            actually do something.
 //
-// The 極意 four sit in `passive` although the batch they enable is an event:
-// their specialisation, and the SP waiver that comes with it, never switches
-// off, and the batch itself needs システム段階4 — keyed to the batch they
-// would stay dark all run in any build without it.
+// The 極意 four are `burst`, on the batch itself. That batch needs
+// システム段階4「LABの司令塔」to exist at all, so in a build without it they
+// stay dark all run — which is the point rather than a gap: the light is what
+// the build is for, and lighting them on their standing SP waiver instead
+// would say the same thing whether or not the pieces were ever assembled.
+// Chen is the exception among the specialists: his three-sample analysis does
+// not wait on a batch designation, so his fires in any build.
 const UDM_UNIQUE_BURST_MS = 5000;
 
 const UDM_UNIQUE_GLOW = {
   tom:'passive', anna:'passive', mike:'passive', owen:'passive', pam:'passive',
   kate:'passive', carol:'passive', lee:'passive', murphy:'passive', watson:'passive',
-  sam:'passive', joe:'passive', eve:'passive', iris:'passive',
   ben:'burst', dave:'burst', smith:'burst', jeff:'burst', bobby:'burst',
   hank:'burst', lisa:'burst', grace:'burst', chen:'burst', ingrid:'burst',
+  sam:'burst', joe:'burst', eve:'burst', iris:'burst',
   frank:'ready',
 };
 
@@ -13584,6 +13587,11 @@ function commitTask(eq) {
         by: cw ? cw.id : null, at: Date.now() });
     });
     if (ids.length > 1 && cw) {
+      // Only a 極意 holder on a batch-designated step ever gets more than one
+      // specimen into a single proc task (tryStartProc gates the grouping on
+      // `mastery && isBatch` and refuses a partial set), so this is exactly
+      // their skill landing.
+      udmFlashUnique(cw.id);
       enqueueChat(cw, 'work',
         `${eq.name} を ${params.map(p => `L${p}`).join('/')} で3条件まとめて処理した。`);
     }
