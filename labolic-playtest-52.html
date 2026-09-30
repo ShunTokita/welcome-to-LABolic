@@ -14115,6 +14115,10 @@ const STORY_SPEAKERS = {
 
 // Story state. `storyFlags[id] === true` means "already fired".
 let storyFlags = {};
+// The Day ST18 fired: its notice says 「クリアタイム：Day N」, and a replay from
+// 会話ギャラリー should say the Day of the clear, not today's. null when the clear
+// predates this field (the replay then falls back to today's Day).
+let storyClearDay = null;
 let pendingStoryEvents = [];
 let storyDialogActive = false;
 // ST_FOCUS's gate — see armFocusStory(). Declared up here with the rest of the
@@ -14164,7 +14168,7 @@ function saveStoryFlags() {
   if (udmActive) return; // frozen during UDM
   try {
     localStorage.setItem(STORY_KEY,
-      JSON.stringify({ version: 1, flags: storyFlags }));
+      JSON.stringify({ version: 1, flags: storyFlags, clearDay: storyClearDay }));
   } catch(e) {}
 }
 function loadStoryFlags() {
@@ -14189,6 +14193,7 @@ function loadStoryFlags() {
     const d = JSON.parse(raw);
     if (d?.version === 1 && d.flags && typeof d.flags === 'object') {
       storyFlags = { ...d.flags };
+      storyClearDay = Number.isFinite(d.clearDay) ? d.clearDay : null;
     }
   } catch(e) {}
 }
@@ -14668,6 +14673,7 @@ function fireStoryEvent(ev) {
   // multiple specimens to 'analyzed' or trigger several Discoveries in
   // one frame) caused the same event to fire twice in a row.
   storyFlags[ev.id] = true;
+  if (ev.id === 'ST18') storyClearDay = Number(gameStats.day || 1);
   saveStoryFlags();
   pauseAi();
   // Story events play as a conversation scene (CONV). The first-hire tutorial
@@ -15290,7 +15296,13 @@ function beatThen(n) {
   beat = setTimeout(() => { beat = null; mode = 'dialogue'; showLine(idx = n); }, SPACER_BEAT_MS);
 }
 
-const popupText = () => EV.popup ? EV.popup.replace(/\{currentDay\}/g, String(gameStats.day || 1)) : null;
+// {currentDay} is the clear time on ST18's notice: today on the first showing,
+// the Day of the clear on a replay.
+const popupText = () => {
+  if (!EV.popup) return null;
+  const day = OPTS.replay && storyClearDay != null ? storyClearDay : (gameStats.day || 1);
+  return EV.popup.replace(/\{currentDay\}/g, String(day));
+};
 
 function showNotice() {
   mode = 'notice';
@@ -17025,6 +17037,7 @@ async function resetAllGame() {
 
   // --- 2) Story engine state ---
   storyFlags = {};
+  storyClearDay = null;
   pendingStoryEvents = [];
   storyDialogActive = false;
   saveStoryFlags();
