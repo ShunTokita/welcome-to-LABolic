@@ -2564,7 +2564,9 @@
     line-height: calc(12px * 1.4); }   /* a tab's line (12px text), so the strip is exactly a tab strip's height */
   .dis-head-title { font-size: 13px; font-weight: 700; letter-spacing: .5px; }
   .dis-head-count { font-size: 11px; font-weight: 600; color: var(--text-secondary); white-space: nowrap; }
-  .dis-strip .dis-head.udm { justify-content: center; color: var(--accent-purple); font-weight: 800; }
+  .dis-strip .dis-head.udm .dis-head-title { color: var(--accent-purple); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .dis-strip .dis-head.udm .dis-head-count b { color: var(--accent-purple); font-size: 13px; line-height: 1; vertical-align: top; }
+  body.mobile-mode .dis-strip .dis-head.udm .dis-head-count b { font-size: 10px; }
   body.mobile-mode .dis-strip .dis-head { padding-left: 6px; padding-right: 6px; line-height: calc(9px * 1.4); }
   body.mobile-mode .dis-head-title { font-size: 11px; letter-spacing: .3px; }
   body.mobile-mode .dis-head-count { font-size: 9px; }
@@ -2594,6 +2596,37 @@
   .store-title { font-weight: 800; font-size: 15px; letter-spacing: .06em; }
   .store-coins { margin-left: auto; font-weight: 700; color: var(--accent-coin); font-variant-numeric: tabular-nums; }
   .store-panel .dev-list { min-height: 200px; }
+  /* The store has a popup's width to itself, so its text is set larger than the old
+     narrow left panel allowed — and the same on a phone, where the panel was smallest.
+     #store-backdrop outranks the body.mobile-mode rules. */
+  #store-backdrop .dev-list { padding: 12px; }
+  #store-backdrop #lpanel-tabs .tab { font-size: 14px; padding: 12px 4px; letter-spacing: .3px; }
+  #store-backdrop .dev-card { font-size: 14px; padding: 12px 14px; margin-bottom: 8px; }
+  #store-backdrop .dev-card .title, #store-backdrop .dev-card-header .title { font-size: 15px; margin-bottom: 4px; }
+  #store-backdrop .dev-card .desc { font-size: 13px; line-height: 1.55; margin-bottom: 6px; }
+  #store-backdrop .dev-card .row { margin-top: 6px; }
+  #store-backdrop .dev-card .cost, #store-backdrop .dev-cost { font-size: 14px; }
+  #store-backdrop .btn-owned, #store-backdrop .btn-locked { font-size: 13px; }
+  #store-backdrop .dev-section-note, #store-backdrop .dev-group-header { font-size: 12px; }
+  #store-backdrop .eqp-lv-badge, #store-backdrop .elm-lv-badge { font-size: 11px; }
+  #store-backdrop .dev-buy-btn { font-size: 13px; padding: 6px 14px; }
+  #store-backdrop .dev-buy-btn.small { font-size: 11px; padding: 4px 9px; }
+  #store-backdrop .dev-empty-title { font-size: 15px; }
+  #store-backdrop .dev-empty-hint { font-size: 13px; }
+  #store-backdrop .hire-summary-row { font-size: 13px; }
+  #store-backdrop .hire-summary-num { font-size: 14px; }
+  #store-backdrop .hire-summary-hint, #store-backdrop .hire-group-sub { font-size: 12px; }
+  #store-backdrop .hire-group-title { font-size: 13px; }
+  #store-backdrop .hire-card { font-size: 13px; padding: 9px 11px; }
+  #store-backdrop .hire-card .cw-avatar { width: 28px; height: 28px; }
+  #store-backdrop .hire-card .cw-name-block .nick { font-size: 11px; }
+  #store-backdrop .hire-card .cw-name-block .name { font-size: 14px; }
+  #store-backdrop .hire-card .stat-icon { font-size: 10px; }
+  #store-backdrop .hire-card .stat-stars { height: 7px; }
+  #store-backdrop .hire-card .star { width: 7px; height: 7px; }
+  #store-backdrop .hire-cost, #store-backdrop .hire-btn { font-size: 13px; }
+  #store-backdrop .hire-btn { padding: 5px 14px; }
+  #store-backdrop .coin-icon-small { width: 11px; height: 11px; }
 
   /* === DisFx: a recipe part opening on a Dis card ===
      An orb flies from the bulb over a worker's head to the part, the black plate shatters,
@@ -10863,13 +10896,17 @@ function renderRPanel() {
 function renderDisPanel() {
   const el = document.getElementById('dis-content');
   if (!el) return;
-  // The heading: the achieved count outside UDM; in UDM the Variant list carries its own.
+  // The heading: "Discoveries  X / 21 達成", or in UDM "Discovery Variants  SCORE n".
   const head = document.getElementById('dis-strip-label');
   if (head) {
     head.classList.toggle('udm', !!udmActive);
-    document.getElementById('dis-head-title').textContent = udmActive ? 'Var' : 'Discoveries';
-    const achieved = discoveries.filter(d => (discoveryState[d.id]?.stage ?? 0) === 4).length;
-    document.getElementById('dis-head-count').textContent = udmActive ? '' : `${achieved} / ${discoveries.length} 達成`;
+    document.getElementById('dis-head-title').textContent = udmActive ? 'Discovery Variants' : 'Discoveries';
+    const count = document.getElementById('dis-head-count');
+    if (udmActive) count.innerHTML = `SCORE <b>${((udm && udm.score) || 0).toLocaleString()}</b>`;
+    else {
+      const achieved = discoveries.filter(d => (discoveryState[d.id]?.stage ?? 0) === 4).length;
+      count.textContent = `${achieved} / ${discoveries.length} 達成`;
+    }
   }
   if (udmActive) renderUdmVariants(el);
   else if (!isStoryUnlocked('distab')) {
@@ -17562,11 +17599,8 @@ function renderUdmVariants(targetEl) {
   const stock = udm.variants.length;
   const limit = udmStockLimit();
   const stockCls = stock >= limit - 1 ? 'danger' : (stock >= limit - 3 ? 'warn' : '');
-  let html = `<div class="d-header udm">
-    <div class="d-title">🟣 Discovery Variants</div>
-    <div class="udm-score-box">SCORE <b>${(udm.score||0).toLocaleString()}</b></div>
-  </div>
-  <div class="udm-stock-row ${stockCls}">ストック <b>${stock} / ${limit}</b><span class="udm-stock-hint">${limit + 1}個目でゲームオーバー。発見し続けましょう。</span></div>`
+  // The title and the score are in the panel heading (renderDisPanel).
+  let html = `<div class="udm-stock-row ${stockCls}">ストック <b>${stock} / ${limit}</b><span class="udm-stock-hint">${limit + 1}個目でゲームオーバー。発見し続けましょう。</span></div>`
   + (udmDriftCounterActive()
     ? `<div class="udm-drift-row">失敗カウント <b>${udm.driftCount || 0} / ${UDM_DRIFT_THRESHOLD}</b><span class="udm-stock-hint">到達で最高報酬のVariantが全て判明します。</span></div>`
     : '');
