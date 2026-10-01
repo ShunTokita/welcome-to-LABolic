@@ -2631,25 +2631,27 @@
   /* === DisFx: a recipe part opening on a Dis card ===
      An orb flies from the bulb over a worker's head to the part, the black plate shatters,
      the answer pops up big and slams into place. On 💡 the card lights up, the recipe's
-     parts line up above it as plates, the recipe ripples and the workers hop. */
+     parts line up above it as plates, the recipe ripples and the workers hop.
+     The colours come from --fx-* (set per show by DisFx): gold unless a UDM skill (purple)
+     or Jeff and Bobby (red) opened it. */
   .disfx-canvas { position: fixed; inset: 0; width: 100vw; height: 100vh; pointer-events: none; z-index: 150; }
   /* A part waiting for its orb is shown as the plate it was. */
   .d-recipe .fx-veil { display: inline-block; min-width: 26px; color: transparent !important; background: #2f2b3a;
     border-radius: 2px; vertical-align: middle; line-height: 12px; box-shadow: inset 0 0 0 1px rgba(255,255,255,.08); }
   .d-card.fx-target .fx-veil { animation: fx-charge .42s ease-in-out infinite alternate; }
-  @keyframes fx-charge { to { box-shadow: inset 0 0 0 1px rgba(255,230,140,.5), 0 0 7px 1px rgba(255,210,90,.75); } }
-  .d-card.fx-target { border-color: #e2b84a; box-shadow: 0 0 0 2px rgba(226,184,74,.35), 0 0 14px rgba(226,184,74,.45);
+  @keyframes fx-charge { to { box-shadow: inset 0 0 0 1px rgba(var(--fx-rgb2, 255,230,140),.5), 0 0 7px 1px rgba(var(--fx-rgb2, 255,210,90),.75); } }
+  .d-card.fx-target { border-color: rgb(var(--fx-rim, 242,193,78)); box-shadow: 0 0 0 2px rgba(var(--fx-rgb2, 226,184,74),.35), 0 0 14px rgba(var(--fx-rgb2, 226,184,74),.45);
     transition: box-shadow .2s, border-color .2s; }
   /* Plate broken, big text on its way: the slot glows, empty. */
   .d-recipe .fx-wait { display: inline-block; color: transparent !important; border-radius: 3px;
-    background: rgba(255,226,120,.35); box-shadow: 0 0 8px 1px rgba(255,200,60,.55); }
+    background: rgba(var(--fx-bg, 255,226,120),.35); box-shadow: 0 0 8px 1px rgba(var(--fx-rgb, 255,200,60),.55); }
   /* The big text: readable over anything, a dark plate with a gold rim. */
   .fx-big { position: fixed; z-index: 160; pointer-events: none; white-space: nowrap; transform-origin: 50% 50%;
     font-family: ui-monospace, 'SFMono-Regular', Menlo, Consolas, monospace; font-weight: 800; line-height: 1.2;
-    padding: 2px 10px; border-radius: 6px; color: #fff4c8; letter-spacing: .02em;
-    background: linear-gradient(#3b3350, #231e30); border: 2px solid #f2c14e;
-    text-shadow: 0 0 6px rgba(255,210,80,.9), 0 2px 0 #6b4200;
-    box-shadow: 0 0 0 2px rgba(35,30,48,.6), 0 0 22px 4px rgba(255,196,50,.75); }
+    padding: 2px 10px; border-radius: 6px; color: rgb(var(--fx-text, 255,244,200)); letter-spacing: .02em;
+    background: linear-gradient(#3b3350, #231e30); border: 2px solid rgb(var(--fx-rim, 242,193,78));
+    text-shadow: 0 0 6px rgba(var(--fx-rgb2, 255,210,80),.9), 0 2px 0 #6b4200;
+    box-shadow: 0 0 0 2px rgba(35,30,48,.6), 0 0 22px 4px rgba(var(--fx-rgb, 255,196,50),.75); }
   /* The 💡 burst plates: the same plate, a little smaller, above the shards and stars. */
   .fx-big.fx-burst { z-index: 161; padding: 1px 8px; border-radius: 5px; }
   body.mobile-mode .fx-big.fx-burst { padding: 1px 6px; border-width: 1.5px; }
@@ -2658,12 +2660,12 @@
   .d-recipe .fx-snap { display: inline-block; border-radius: 3px; animation: fx-snap 1.6s ease-out both; }
   @keyframes fx-snap {
     0%   { transform: scale(1.22, .8); color: #fff; background: #fff7d6; text-shadow: 0 0 6px #fff;
-           box-shadow: 0 0 0 2px #fff, 0 0 24px 9px rgba(255,200,60,1); }
+           box-shadow: 0 0 0 2px #fff, 0 0 24px 9px rgba(var(--fx-rgb, 255,200,60),1); }
     5%   { transform: scale(.97, 1.04); }
-    9%   { transform: none; color: #7a4c00; background: rgba(255,226,120,.9); text-shadow: 0 0 4px rgba(255,200,60,.9);
-           box-shadow: 0 0 0 1.5px rgba(255,236,160,.9), 0 0 14px 4px rgba(255,196,50,.8); }
-    100% { transform: none; color: var(--text-primary); background: rgba(255,226,120,0); text-shadow: 0 0 0 rgba(255,200,60,0);
-           box-shadow: 0 0 0 0 rgba(255,236,160,0), 0 0 0 0 rgba(255,196,50,0); }
+    9%   { transform: none; color: var(--fx-ink, #7a4c00); background: rgba(var(--fx-bg, 255,226,120),.9); text-shadow: 0 0 4px rgba(var(--fx-rgb, 255,200,60),.9);
+           box-shadow: 0 0 0 1.5px rgba(var(--fx-rgb2, 255,236,160),.9), 0 0 14px 4px rgba(var(--fx-rgb, 255,196,50),.8); }
+    100% { transform: none; color: var(--text-primary); background: rgba(var(--fx-bg, 255,226,120),0); text-shadow: 0 0 0 rgba(var(--fx-rgb, 255,200,60),0);
+           box-shadow: 0 0 0 0 rgba(var(--fx-rgb2, 255,236,160),0), 0 0 0 0 rgba(var(--fx-rgb, 255,196,50),0); }
   }
   .d-card.fx-shake { animation: fx-shake .28s linear; }
   @keyframes fx-shake { 20% { translate: -2px 1px; } 40% { translate: 2px -1px; } 60% { translate: -1px 0; } 80% { translate: 1px 0; } 100% { translate: 0 0; } }
@@ -2672,10 +2674,10 @@
   .d-card.fx-bulb { position: relative; animation: fx-bulb 1.6s ease-out; }
   @keyframes fx-bulb {
     0%   { transform: scale(1); }
-    10%  { transform: scale(1.045); background: #fff3c4; border-color: #f2c14e;
-           box-shadow: 0 0 0 3px rgba(255,214,90,.9), 0 0 30px 10px rgba(255,196,50,.85); }
-    35%  { transform: scale(1); background: #fbe9b0; box-shadow: 0 0 0 2px rgba(255,214,90,.6), 0 0 16px 4px rgba(255,196,50,.5); }
-    55%  { background: #fff0bd; box-shadow: 0 0 0 3px rgba(255,214,90,.85), 0 0 26px 8px rgba(255,196,50,.75); }
+    10%  { transform: scale(1.045); background: rgba(var(--fx-bg, 255,226,120),.5); border-color: rgb(var(--fx-rim, 242,193,78));
+           box-shadow: 0 0 0 3px rgba(var(--fx-rgb2, 255,214,90),.9), 0 0 30px 10px rgba(var(--fx-rgb, 255,196,50),.85); }
+    35%  { transform: scale(1); background: rgba(var(--fx-bg, 255,226,120),.32); box-shadow: 0 0 0 2px rgba(var(--fx-rgb2, 255,214,90),.6), 0 0 16px 4px rgba(var(--fx-rgb, 255,196,50),.5); }
+    55%  { background: rgba(var(--fx-bg, 255,226,120),.44); box-shadow: 0 0 0 3px rgba(var(--fx-rgb2, 255,214,90),.85), 0 0 26px 8px rgba(var(--fx-rgb, 255,196,50),.75); }
     100% { transform: scale(1); }
   }
   .d-card.fx-bulb::after { content: ''; position: absolute; inset: 0; pointer-events: none; border-radius: inherit;
@@ -2683,16 +2685,29 @@
     background-size: 260% 100%; background-position: 130% 0; animation: fx-sweep .8s ease-out .08s both; }
   @keyframes fx-sweep { from { background-position: 130% 0; } to { background-position: -30% 0; } }
   .d-card.fx-bulb .d-badge { animation: fx-badge .7s cubic-bezier(.2,1.6,.4,1); }
-  @keyframes fx-badge { 0% { transform: scale(1); } 30% { transform: scale(1.7) rotate(-10deg); box-shadow: 0 0 14px 5px rgba(255,214,90,.95); } 100% { transform: none; } }
+  @keyframes fx-badge { 0% { transform: scale(1); } 30% { transform: scale(1.7) rotate(-10deg); box-shadow: 0 0 14px 5px rgba(var(--fx-rgb2, 255,214,90),.95); } 100% { transform: none; } }
   .d-recipe .fx-wg { white-space: nowrap; }
   .d-recipe .fx-w { display: inline-block; white-space: pre; animation: fx-wave .56s ease-out both; animation-delay: calc(var(--i) * 30ms); }
   @keyframes fx-wave {
     0%   { transform: none; }
-    30%  { transform: translateY(-7px) scale(1.22); color: #b06e00; text-shadow: 0 0 6px rgba(255,200,60,.95); }
+    30%  { transform: translateY(-7px) scale(1.22); color: var(--fx-ink2, #b06e00); text-shadow: 0 0 6px rgba(var(--fx-rgb, 255,200,60),.95); }
     55%  { transform: translateY(1px) scale(.96); }
     75%  { transform: translateY(-1px); }
     100% { transform: none; }
   }
+  /* UDM, Jeff and Bobby: the orbs land with a harder shake, and the 失敗カウント row at
+     100 / 100 pulses red twice before they go. */
+  .d-card.fx-quake { animation: fx-quake .42s linear; }
+  @keyframes fx-quake { 10% { translate: -5px 2px; } 25% { translate: 5px -2px; } 40% { translate: -4px 1px; }
+    55% { translate: 3px -1px; } 70% { translate: -2px 0; } 85% { translate: 1px 0; } 100% { translate: 0 0; } }
+  .udm-drift-row.fx-drift { animation: fx-drift .8s ease-in-out; }
+  .udm-drift-row.fx-drift b { display: inline-block; color: #c0301a; animation: fx-drift-n .8s ease-in-out; }
+  @keyframes fx-drift { 0%, 100% { box-shadow: none; }
+    25%, 70% { background: #ffe1d8; box-shadow: 0 0 0 2px rgba(255,90,50,.9), 0 0 18px 5px rgba(255,80,40,.8); }
+    48% { box-shadow: 0 0 0 1px rgba(255,90,50,.5); } }
+  @keyframes fx-drift-n { 0%, 100% { transform: none; } 25%, 70% { transform: scale(1.35); text-shadow: 0 0 8px rgba(255,80,40,.9); } 48% { transform: scale(1.1); } }
+  body.reduce-motion .d-card.fx-quake, body.reduce-motion .udm-drift-row.fx-drift,
+  body.reduce-motion .udm-drift-row.fx-drift b { animation: none; }
   body.reduce-motion .d-recipe .fx-pop { animation: fx-fade .5s ease-out both; }
   body.reduce-motion .d-card.fx-shake { animation: none; }
   body.reduce-motion .d-card.fx-bulb { animation: none; }
@@ -6500,14 +6515,22 @@ function showHintBubbles(spec, analyst) {
 
 // The parts of a Discovery's recipe its card shows in the open, by data-seg key
 // (el / syn / p0… / ana) — the same rules renderRecipeForCard draws by.
-function revealedSegs(disc) {
-  const st = discoveryState[disc.id];
-  const all = ['el', 'syn', ...disc.recipe.processing.map((_, i) => 'p' + i), 'ana'];
+function revealedSegs(disc) { return segsOpen(discoveryState[disc.id], disc.recipe); }
+// The same for anything with { stage, hintsRevealed } and a recipe — a UDM Variant too.
+function segsOpen(st, recipe) {
+  const all = ['el', 'syn', ...recipe.processing.map((_, i) => 'p' + i), 'ana'];
   if (!st || st.stage < 2) return new Set();
   if (st.stage >= 3) return new Set(all);
   const h = st.hintsRevealed || {};
   return new Set(all.filter(k => k === 'el' ? h.elements : k === 'syn' ? h.synthesis : k === 'ana' ? h.analysis
     : (h.processing || (h.perStep && h.perStep[+k.slice(1)]))));
+}
+// A Variant opened by something other than a specimen — a unique's skill, or Jeff and
+// Bobby's count. `before` is segsOpen() taken before the change.
+function udmRevealFx(v, before, sources, theme, extra) {
+  const segs = [...segsOpen(v, v.recipe)].filter(k => !before.has(k));
+  if (!segs.length && v.stage < 3) return;
+  DisFx.reveal({ discId: 'v:' + v.id, segs, full: v.stage >= 3, sources, theme, ...(extra || {}) });
 }
 // One specimen's analysis opened these parts: the bulbs go up over everyone who
 // worked it, and the orbs fly from there (DisFx).
@@ -6523,7 +6546,7 @@ const DisFx = (() => {
   const orbs = [], bits = [], rings = [];
   const veiled = new Map();            // discId -> Set(seg) still under a plate
   const waiting = new Map();           // discId -> Set(seg) plate broken, the big text not yet in
-  const queue = []; let busy = false, current = null;   // current: the discId being played
+  const queue = []; let busy = false, current = null;   // current: the job being played
 
   function canvas() {
     if (cv) return;
@@ -6534,14 +6557,38 @@ const DisFx = (() => {
   }
   const rnd = (a, b) => a + Math.random() * (b - a);
   const box = () => document.getElementById('dis-content');
-  const segEl = (discId, seg) => box()?.querySelector(`.d-card[data-disc="${discId}"] [data-seg="${seg}"]`);
-  const cardEl = discId => box()?.querySelector(`.d-card[data-disc="${discId}"]`);
+  // A Variant's id is 'v:<id>' (its card is data-variant), a Discovery's is its own (data-disc).
+  const sel = id => id.startsWith('v:') ? `.d-card[data-variant="${id.slice(2)}"]` : `.d-card[data-disc="${id}"]`;
+  const segEl = (id, seg) => box()?.querySelector(`${sel(id)} [data-seg="${seg}"]`);
+  const cardEl = id => box()?.querySelector(sel(id));
   const center = r => ({ x: r.left + r.width / 2, y: r.top + r.height / 2 });
+
+  // Colour by what opened the part: gold for an analysis, purple for a Co-Worker's skill
+  // (UDM uniques), red for Jeff and Bobby's hundred failures. Canvas colours are rgb
+  // triplets; `vars` repaints the CSS side (rims, glows, the big text) on the card and plates.
+  const THEMES = {
+    gold:   { core: '255,240,170', mid: '255,190,60', edge: '255,170,40', trail: '255,210,90', spark: '255,236,160',
+              ring: '255,214,90', light: '255,244,200', star: '255,246,200', ray: '255,236,150', r: 16, vars: null },
+    purple: { core: '240,226,255', mid: '170,110,255', edge: '140,80,240', trail: '185,140,255', spark: '226,206,255',
+              ring: '190,150,255', light: '240,230,255', star: '246,236,255', ray: '214,186,255', r: 16,
+              vars: { rgb: '170,110,255', rgb2: '190,150,255', bg: '214,190,255', rim: '176,140,255', ink: '#4b1f8f', ink2: '#6a35c4', text: '243,232,255' } },
+    red:    { core: '255,226,206', mid: '255,80,40', edge: '230,40,20', trail: '255,100,60', spark: '255,180,130',
+              ring: '255,120,80', light: '255,236,220', star: '255,232,214', ray: '255,170,130', r: 34,
+              vars: { rgb: '255,80,40', rgb2: '255,120,80', bg: '255,190,170', rim: '255,110,80', ink: '#8a1408', ink2: '#c0301a', text: '255,236,226' } },
+  };
+  const themeOf = job => THEMES[job.theme] || THEMES.gold;
+  function paint(el, job) {
+    const v = themeOf(job).vars;
+    if (!el) return;
+    for (const k of ['rgb', 'rgb2', 'bg', 'rim', 'ink', 'ink2', 'text']) {
+      if (v) el.style.setProperty('--fx-' + k, v[k]); else el.style.removeProperty('--fx-' + k);
+    }
+  }
 
   // After any re-render, parts still waiting for their orb go back under a plate, and
   // the card being played keeps its gold rim.
   function reapply() {
-    if (current) cardEl(current)?.classList.add('fx-target');
+    if (current) { const c = cardEl(current.discId); if (c) { c.classList.add('fx-target'); paint(c, current); } }
     for (const [id, segs] of veiled) for (const s of segs) segEl(id, s)?.classList.add('fx-veil');
     for (const [id, segs] of waiting) for (const s of segs) segEl(id, s)?.classList.add('fx-wait');
   }
@@ -6584,7 +6631,15 @@ const DisFx = (() => {
   function tone(o) { try { if (userSettings.sfx && Sfx.unlocked) sfxTone(o); } catch (e) {} }
   function noise(o) { try { if (userSettings.sfx && Sfx.unlocked) sfxNoise(o); } catch (e) {} }
   const SND = {
-    launch: i => tone({ type: 'sine', freq: 520 + i * 60, sweepTo: 1250 + i * 80, dur: .2, gain: .16 }),
+    launch: (i, theme) => { tone({ type: 'sine', freq: 520 + i * 60, sweepTo: 1250 + i * 80, dur: .2, gain: .16 });
+      if (theme === 'purple') tone({ type: 'triangle', freq: 1760 + i * 90, sweepTo: 2637, dur: .16, gain: .07, delay: .04 }); },
+    // Jeff and Bobby's orbs: a low boom with a rumble under it.
+    boom: i => { tone({ type: 'sine', freq: 110 - i * 12, sweepTo: 38, dur: .55, gain: .6 });
+      tone({ type: 'sawtooth', freq: 70, sweepTo: 34, dur: .4, gain: .14 });
+      noise({ dur: .45, freq: 260, q: .7, type: 'lowpass', gain: .35 }); },
+    // The 失敗カウント filling up to 100.
+    charge: () => { tone({ type: 'sawtooth', freq: 140, sweepTo: 620, dur: .7, gain: .1 });
+      tone({ type: 'square', freq: 280, sweepTo: 1240, dur: .7, gain: .05 }); },
     shatter: i => { noise({ dur: .16, freq: 4200, q: .6, type: 'highpass', gain: .22 });
       tone({ type: 'triangle', freq: 1568 + i * 110, sweepTo: 2349 + i * 110, dur: .09, gain: .18 });
       tone({ type: 'sine', freq: 2637 + i * 110, dur: .12, gain: .10, delay: .03 }); },
@@ -6601,7 +6656,7 @@ const DisFx = (() => {
   // The parts go under a plate at once, so a re-render before the orb arrives cannot show
   // the answer early; the show itself waits its turn in the queue.
   function reveal(job) {
-    if ((!job.segs.length && !job.full) || udmActive) return;
+    if (!job.segs.length && !job.full) return;
     veiled.set(job.discId, new Set([...(veiled.get(job.discId) || []), ...job.segs]));
     reapply();
     queue.push(job);
@@ -6621,7 +6676,7 @@ const DisFx = (() => {
       await wait(80);
       while (blocked()) await wait(200);
       const job = queue.shift();
-      current = job.discId;
+      current = job;
       try { await play(job); }
       catch (e) { console.warn(e); finish(job); }
       current = null;
@@ -6642,34 +6697,57 @@ const DisFx = (() => {
     canvas();
     try { renderDisPanel(); } catch (e) {}
     if (!cardEl(job.discId)) { finish(job); return; }
+    if (job.drift) await driftFlash();
     await scrollToCard(job.discId);
     const card = cardEl(job.discId);
     card?.classList.add('fx-target');
+    paint(card, job);
     if (reduce()) {                                  // no flight, no shards: the parts fade in
       for (const s of job.segs) land(job, s, true);
       if (job.full) cardEl(job.discId)?.classList.add('fx-bulb');
+      if (job.drift) { const row = box()?.querySelector('.udm-drift-row'); row?.classList.add('fx-drift'); }
       await wait(700);
       cleanup(job);
       return;
     }
     const srcs = job.sources.length ? job.sources : ['player'];
+    const pal = themeOf(job);
     let chain = Promise.resolve(), first = true;
-    const flights = job.segs.map((seg, i) => new Promise(done => {
-      setTimeout(() => {
-        const from = sourcePoint(srcs[i % srcs.length]);
-        rings.push({ x: from.x, y: from.y, t0: performance.now(), dur: 260, r0: 4, r1: 18, col: '255,214,90' });
-        SND.launch(i);
-        orbs.push({ job, seg, from, t0: performance.now(), dur: 560 + Math.min(260, Math.hypot(innerWidth, innerHeight) * .12),
-          bend: rnd(.28, .42) * (i % 2 ? -1 : 1), trail: [], done: () => {
-            land(job, seg, false, i);
-            const lead = first; first = false;
-            chain = chain.then(() => snapIn(job, seg, lead, i));
-            chain.then(done);
-          } });
-        kick();
-      }, i * 110);
-    }));
-    await Promise.all(flights);
+    if (job.drift) {
+      // Jeff and Bobby: one big red orb each, both at the card — DOON — every plate breaks
+      // at once, then the answers slam in one after another.
+      await new Promise(done => {
+        let left = srcs.length;
+        srcs.forEach((id, i) => setTimeout(() => {
+          const from = sourcePoint(id);
+          rings.push({ x: from.x, y: from.y, t0: performance.now(), dur: 420, r0: 8, r1: 46, col: pal.ring });
+          SND.boom(i);
+          orbs.push({ job, seg: null, toCard: true, from, t0: performance.now(), dur: 950, bend: (i % 2 ? -1 : 1) * .3, trail: [], pal,
+            done: () => { if (--left === 0) done(); } });
+          kick();
+        }, i * 200));
+      });
+      impact(job);
+      job.segs.forEach((seg, i) => { land(job, seg, false, i, true); });
+      await Promise.all(job.segs.map((seg, i) => (chain = chain.then(() => snapIn(job, seg, i === 0, i, 90)))));
+    } else {
+      const flights = job.segs.map((seg, i) => new Promise(done => {
+        setTimeout(() => {
+          const from = sourcePoint(srcs[i % srcs.length]);
+          rings.push({ x: from.x, y: from.y, t0: performance.now(), dur: 260, r0: 4, r1: 18, col: pal.ring });
+          SND.launch(i, job.theme);
+          orbs.push({ job, seg, from, t0: performance.now(), dur: 560 + Math.min(260, Math.hypot(innerWidth, innerHeight) * .12),
+            bend: rnd(.28, .42) * (i % 2 ? -1 : 1), trail: [], pal, done: () => {
+              land(job, seg, false, i);
+              const lead = first; first = false;
+              chain = chain.then(() => snapIn(job, seg, lead, i));
+              chain.then(done);
+            } });
+          kick();
+        }, i * 110);
+      }));
+      await Promise.all(flights);
+    }
     if (job.full) {
       await wait(160);
       const c = cardEl(job.discId);
@@ -6679,14 +6757,14 @@ const DisFx = (() => {
         for (let k = 0; k < 26; k++) {
           const a = rnd(0, Math.PI * 2), v = rnd(1.6, 4.2);
           bits.push({ kind: 'spark', x: m.x + rnd(-r.width / 3, r.width / 3), y: m.y, vx: Math.cos(a) * v, vy: Math.sin(a) * v - 1.5,
-            g: .06, life: rnd(600, 950), t0: performance.now(), size: rnd(1.5, 3), col: Math.random() < .5 ? '255,226,120' : '255,255,255' });
+            g: .06, life: rnd(600, 950), t0: performance.now(), size: rnd(1.5, 3), col: Math.random() < .5 ? pal.spark : '255,255,255' });
         }
-        rings.push({ x: m.x, y: m.y, t0: performance.now(), dur: 520, r0: 10, r1: Math.max(r.width, 60) * .75, col: '255,214,90' });
-        rings.push({ x: m.x, y: m.y, t0: performance.now() + 120, dur: 700, r0: 20, r1: Math.max(r.width, 80) * 1.05, col: '255,240,190' });
-        rings.push({ rays: true, x: m.x, y: m.y, t0: performance.now(), dur: 900, len: Math.max(90, r.width * .95), spin: .5 });
+        rings.push({ x: m.x, y: m.y, t0: performance.now(), dur: 520, r0: 10, r1: Math.max(r.width, 60) * .75, col: pal.ring });
+        rings.push({ x: m.x, y: m.y, t0: performance.now() + 120, dur: 700, r0: 20, r1: Math.max(r.width, 80) * 1.05, col: pal.light });
+        rings.push({ rays: true, x: m.x, y: m.y, t0: performance.now(), dur: 900, len: Math.max(90, r.width * .95), spin: .5, col: pal.ray });
         SND.bulb(); kick();
         for (const id of job.sources) cheer(id);
-        burst(job.discId);
+        burst(job);
         setTimeout(() => wave(job.discId), 150);
       }
       await wait(1900);
@@ -6696,8 +6774,9 @@ const DisFx = (() => {
   // 💡: the recipe's parts pop out of the card as big plates, one after another — pop, pop,
   // pop — and line up in recipe order, each a little higher or lower and a little tilted so
   // the row looks laid down by hand. A row too wide for the screen wraps to a second one.
-  function burst(discId) {
-    const card = cardEl(discId); if (!card) return;
+  function burst(job) {
+    const card = cardEl(job.discId); if (!card) return;
+    const pal = themeOf(job);
     const parts = [...card.querySelectorAll('.d-recipe [data-seg]')].map(e => e.textContent.trim()).filter(Boolean);
     if (!parts.length) return;
     const mobile = document.body.classList.contains('mobile-mode');
@@ -6706,7 +6785,7 @@ const DisFx = (() => {
     // measure every plate first, then lay the rows out
     const plates = parts.map(t => {
       const el = document.createElement('div');
-      el.className = 'fx-big fx-burst'; el.textContent = t; el.style.fontSize = fs + 'px'; el.style.visibility = 'hidden';
+      el.className = 'fx-big fx-burst'; el.textContent = t; el.style.fontSize = fs + 'px'; el.style.visibility = 'hidden'; paint(el, job);
       document.body.appendChild(el);
       return { el, w: el.offsetWidth, h: el.offsetHeight };
     });
@@ -6746,9 +6825,9 @@ const DisFx = (() => {
             { transform: `translate(${dx}px,${dy - 16}px) scale(.9) rotate(${tilt}deg)`, opacity: 0 },
           ], { duration: dur, fill: 'forwards' }).onfinish = () => big.remove();   // easing per keyframe: one on the whole would pull the fade forward
           const now = performance.now();
-          rings.push({ x: ex, y: ey + jy, t0: now + 200, dur: 260, r0: 4, r1: 26, col: '255,236,170' });
+          rings.push({ x: ex, y: ey + jy, t0: now + 200, dur: 260, r0: 4, r1: 26, col: pal.light });
           for (let j = 0; j < 3; j++) bits.push({ kind: 'star', x: ex + rnd(-p.w / 2, p.w / 2), y: ey + jy + rnd(-p.h, p.h), vx: 0, vy: -.15, g: 0,
-            life: rnd(500, 800), t0: now + 220 + j * 60, size: rnd(3, 5.5) });
+            life: rnd(500, 800), t0: now + 220 + j * 60, size: rnd(3, 5.5), col: pal.star });
           SND.pop(idx); kick();
         }, 60 + idx * 85);
       }
@@ -6793,16 +6872,17 @@ const DisFx = (() => {
   }
   function cleanup(job) {
     const c = cardEl(job.discId);
-    c?.classList.remove('fx-target', 'fx-bulb', 'fx-shake');
+    c?.classList.remove('fx-target', 'fx-bulb', 'fx-shake', 'fx-quake');
+    box()?.querySelector('.udm-drift-row.fx-drift')?.classList.remove('fx-drift');
   }
 
   // The answer, big: it pops up over its slot, holds long enough to read, then slams into
   // the slot and stops dead. Font-size ratio sets the end scale, so it lands at the slot's size.
-  function bigText(el, text, hold) {
+  function bigText(el, text, hold, job) {
     return new Promise(res => {
       const mobile = document.body.classList.contains('mobile-mode');
       const big = document.createElement('div');
-      big.className = 'fx-big'; big.textContent = text;
+      big.className = 'fx-big'; big.textContent = text; paint(big, job);
       let fs = mobile ? 26 : 34;
       big.style.fontSize = fs + 'px';
       document.body.appendChild(big);
@@ -6826,11 +6906,12 @@ const DisFx = (() => {
       }, 170 + hold);
     });
   }
-  async function snapIn(job, seg, lead, i) {
+  async function snapIn(job, seg, lead, i, holdNext = 150) {
     let el = segEl(job.discId, seg);
     if (!el) return;
     const text = el.textContent;
-    await bigText(el, text, lead ? 260 : 150);
+    const pal = themeOf(job);
+    await bigText(el, text, lead ? 260 : holdNext, job);
     const set = waiting.get(job.discId); set?.delete(seg); if (set && !set.size) waiting.delete(job.discId);
     el = segEl(job.discId, seg);
     if (!el) return;
@@ -6840,22 +6921,22 @@ const DisFx = (() => {
     if (card) { card.classList.remove('fx-shake'); void card.offsetWidth; card.classList.add('fx-shake'); }
     SND.snap(i);
     const r = el.getBoundingClientRect(), m = center(r), now = performance.now();
-    rings.push({ rays: true, x: m.x, y: m.y, t0: now, dur: 620, len: Math.max(46, r.width * 1.3), spin: rnd(-.6, .6) });
-    rings.push({ x: m.x, y: m.y, t0: now, dur: 240, r0: r.width * .45, r1: r.width * .9 + 10, col: '255,250,220' });
+    rings.push({ rays: true, x: m.x, y: m.y, t0: now, dur: 620, len: Math.max(46, r.width * 1.3), spin: rnd(-.6, .6), col: pal.ray });
+    rings.push({ x: m.x, y: m.y, t0: now, dur: 240, r0: r.width * .45, r1: r.width * .9 + 10, col: pal.light });
     for (let k = 0; k < 8; k++) {                  // dust kicked out sideways by the hit
       const side = k % 2 ? 1 : -1;
       bits.push({ kind: 'spark', x: side > 0 ? r.right : r.left, y: r.bottom - 1, vx: side * rnd(1, 2.6), vy: -rnd(.3, 1.4), g: .08,
-        life: rnd(260, 420), t0: now, size: rnd(1.4, 2.4), col: '255,238,170' });
+        life: rnd(260, 420), t0: now, size: rnd(1.4, 2.4), col: pal.spark });
     }
     for (let k = 0; k < 6; k++) {
       bits.push({ kind: 'star', x: r.left + rnd(-6, r.width + 6), y: r.top + rnd(-10, r.height + 8), vx: 0, vy: -.12, g: 0,
-        life: rnd(650, 1000), t0: now + 90 + k * 70, size: rnd(3.5, 6.5) });
+        life: rnd(650, 1000), t0: now + 90 + k * 70, size: rnd(3.5, 6.5), col: pal.star });
     }
     kick();
   }
 
   // The orb arrives: the plate cracks into shards, a flash, and the answer underneath.
-  function land(job, seg, quiet, i = 0) {
+  function land(job, seg, quiet, i = 0, hush = false) {
     const set = veiled.get(job.discId); set?.delete(seg); if (set && !set.size) veiled.delete(job.discId);
     const el = segEl(job.discId, seg);
     if (!el) return;
@@ -6864,9 +6945,10 @@ const DisFx = (() => {
     if (quiet) { void el.offsetWidth; el.classList.add('fx-pop'); return; }
     waiting.set(job.discId, new Set([...(waiting.get(job.discId) || []), seg]));
     el.classList.add('fx-wait');
-    SND.shatter(i);
+    if (!hush) SND.shatter(i);
+    const pal = themeOf(job);
     const now = performance.now(), m = center(r);
-    rings.push({ x: m.x, y: m.y, t0: now, dur: 300, r0: 3, r1: Math.max(22, r.width * .7), col: '255,244,200' });
+    rings.push({ x: m.x, y: m.y, t0: now, dur: 300, r0: 3, r1: Math.max(22, r.width * .7), col: pal.light });
     rings.push({ flash: r, t0: now, dur: 140 });
     // shards: the plate cut into a grid of triangles, each blown outward from the hit
     const cols = Math.max(3, Math.round(r.width / 7)), rows = 2;
@@ -6888,8 +6970,36 @@ const DisFx = (() => {
     for (let k = 0; k < 10; k++) {
       const a = rnd(0, Math.PI * 2), v = rnd(1.2, 3.4);
       bits.push({ kind: 'spark', x: m.x, y: m.y, vx: Math.cos(a) * v, vy: Math.sin(a) * v - .8, g: .05,
-        life: rnd(380, 620), t0: now, size: rnd(1.2, 2.4), col: '255,232,140' });
+        life: rnd(380, 620), t0: now, size: rnd(1.2, 2.4), col: pal.spark });
     }
+    kick();
+  }
+
+  // The drift payout: the 失敗カウント row lights up at 100 / 100 before the orbs go.
+  async function driftFlash() {
+    const b0 = box(); if (!b0) return;
+    if (b0.scrollTop > 0) { b0.scrollTo({ top: 0, behavior: 'smooth' }); await wait(350); }
+    const row = b0.querySelector('.udm-drift-row');
+    if (!row) return;
+    const n = row.querySelector('b');
+    if (n) n.textContent = `${UDM_DRIFT_THRESHOLD} / ${UDM_DRIFT_THRESHOLD}`;
+    row.classList.remove('fx-drift'); void row.offsetWidth; row.classList.add('fx-drift');
+    SND.charge();
+    await wait(800);
+  }
+  // Both big orbs in: a shockwave off the whole card and a hard shake.
+  function impact(job) {
+    const c = cardEl(job.discId); if (!c) return;
+    const pal = themeOf(job), r = c.getBoundingClientRect(), m = center(r), now = performance.now();
+    rings.push({ x: m.x, y: m.y, t0: now, dur: 520, r0: 10, r1: Math.max(r.width, 90) * .9, col: pal.ring });
+    rings.push({ x: m.x, y: m.y, t0: now + 90, dur: 640, r0: 24, r1: Math.max(r.width, 110) * 1.2, col: pal.light });
+    rings.push({ flash: r, t0: now, dur: 220 });
+    for (let k = 0; k < 30; k++) {
+      const a = rnd(0, Math.PI * 2), v = rnd(2, 5.5);
+      bits.push({ kind: 'spark', x: m.x, y: m.y, vx: Math.cos(a) * v, vy: Math.sin(a) * v - 1, g: .07,
+        life: rnd(450, 800), t0: now, size: rnd(1.6, 3.2), col: Math.random() < .5 ? pal.spark : '255,255,255' });
+    }
+    c.classList.remove('fx-quake'); void c.offsetWidth; c.classList.add('fx-quake');
     kick();
   }
 
@@ -6901,24 +7011,26 @@ const DisFx = (() => {
     cx.clearRect(0, 0, innerWidth, innerHeight);
     // orbs — the target is looked up every frame, so a scroll or re-render mid-flight is followed
     for (let i = orbs.length - 1; i >= 0; i--) {
-      const o = orbs[i], el = segEl(o.job.discId, o.seg);
+      const o = orbs[i], el = o.toCard ? cardEl(o.job.discId) : segEl(o.job.discId, o.seg);
       const to = el ? center(el.getBoundingClientRect()) : o.lastTo || o.from; o.lastTo = to;
+      const pal = o.pal || THEMES.gold, R = pal.r;
       const t = Math.min(1, (now - o.t0) / o.dur), e = easeIn(t);
       const mx = (o.from.x + to.x) / 2, my = (o.from.y + to.y) / 2, dx = to.x - o.from.x, dy = to.y - o.from.y;
       const c1 = { x: mx - dy * o.bend, y: my + dx * o.bend - Math.hypot(dx, dy) * .18 };
       const x = (1 - e) ** 2 * o.from.x + 2 * (1 - e) * e * c1.x + e * e * to.x;
       const y = (1 - e) ** 2 * o.from.y + 2 * (1 - e) * e * c1.y + e * e * to.y;
       o.trail.unshift({ x, y }); if (o.trail.length > 14) o.trail.pop();
-      if (Math.random() < .55) bits.push({ kind: 'spark', x, y, vx: rnd(-.5, .5), vy: rnd(-.5, .5), g: 0, life: rnd(220, 380), t0: now, size: rnd(1, 1.8), col: '255,236,160' });
+      const sparks = R > 20 ? 3 : 1;
+      for (let s2 = 0; s2 < sparks; s2++) if (Math.random() < .55) bits.push({ kind: 'spark', x: x + rnd(-R / 3, R / 3), y: y + rnd(-R / 3, R / 3), vx: rnd(-.5, .5), vy: rnd(-.5, .5), g: 0, life: rnd(220, 380), t0: now, size: rnd(1, R > 20 ? 2.6 : 1.8), col: pal.spark });
       cx.globalCompositeOperation = 'lighter';
       o.trail.forEach((p, k) => {
-        const a = (1 - k / o.trail.length) * .5, rr = 7 * (1 - k / o.trail.length) + 1;
-        cx.fillStyle = `rgba(255,210,90,${a})`; cx.beginPath(); cx.arc(p.x, p.y, rr, 0, Math.PI * 2); cx.fill();
+        const a = (1 - k / o.trail.length) * .5, rr = (R * .44) * (1 - k / o.trail.length) + 1;
+        cx.fillStyle = `rgba(${pal.trail},${a})`; cx.beginPath(); cx.arc(p.x, p.y, rr, 0, Math.PI * 2); cx.fill();
       });
-      const g = cx.createRadialGradient(x, y, 0, x, y, 16);
-      g.addColorStop(0, 'rgba(255,255,255,1)'); g.addColorStop(.28, 'rgba(255,240,170,.95)');
-      g.addColorStop(.6, 'rgba(255,190,60,.35)'); g.addColorStop(1, 'rgba(255,170,40,0)');
-      cx.fillStyle = g; cx.beginPath(); cx.arc(x, y, 16, 0, Math.PI * 2); cx.fill();
+      const g = cx.createRadialGradient(x, y, 0, x, y, R);
+      g.addColorStop(0, 'rgba(255,255,255,1)'); g.addColorStop(.28, `rgba(${pal.core},.95)`);
+      g.addColorStop(.6, `rgba(${pal.mid},.35)`); g.addColorStop(1, `rgba(${pal.edge},0)`);
+      cx.fillStyle = g; cx.beginPath(); cx.arc(x, y, R, 0, Math.PI * 2); cx.fill();
       cx.globalCompositeOperation = 'source-over';
       if (t >= 1) { orbs.splice(i, 1); o.done(); }
     }
@@ -6933,7 +7045,7 @@ const DisFx = (() => {
         for (let k = 0; k < n; k++) {
           const a = a0 + k * Math.PI * 2 / n, w = k % 2 ? .07 : .12;
           const g = cx.createLinearGradient(r.x, r.y, r.x + Math.cos(a) * L, r.y + Math.sin(a) * L);
-          g.addColorStop(0, `rgba(255,236,150,${.75 * (1 - t)})`); g.addColorStop(1, 'rgba(255,200,60,0)');
+          g.addColorStop(0, `rgba(${r.col || '255,236,150'},${.75 * (1 - t)})`); g.addColorStop(1, `rgba(${r.col || '255,200,60'},0)`);
           cx.fillStyle = g; cx.beginPath(); cx.moveTo(r.x, r.y);
           cx.lineTo(r.x + Math.cos(a - w) * L, r.y + Math.sin(a - w) * L);
           cx.lineTo(r.x + Math.cos(a + w) * L, r.y + Math.sin(a + w) * L); cx.closePath(); cx.fill();
@@ -6953,7 +7065,7 @@ const DisFx = (() => {
       if (b.kind === 'star') {                      // a twinkle: a four-point star that swells and shrinks
         b.y += b.vy;
         const s = b.size * Math.sin(t * Math.PI);
-        cx.globalCompositeOperation = 'lighter'; cx.fillStyle = `rgba(255,246,200,${.95 * Math.sin(t * Math.PI)})`;
+        cx.globalCompositeOperation = 'lighter'; cx.fillStyle = `rgba(${b.col || '255,246,200'},${.95 * Math.sin(t * Math.PI)})`;
         cx.beginPath(); cx.moveTo(b.x, b.y - s); cx.lineTo(b.x + s * .22, b.y - s * .22); cx.lineTo(b.x + s, b.y);
         cx.lineTo(b.x + s * .22, b.y + s * .22); cx.lineTo(b.x, b.y + s); cx.lineTo(b.x - s * .22, b.y + s * .22);
         cx.lineTo(b.x - s, b.y); cx.lineTo(b.x - s * .22, b.y - s * .22); cx.closePath(); cx.fill();
@@ -17204,8 +17316,11 @@ function udmAnalyzeHook(spec, cw) {
   // every respect but sequence as "you have found the conditions" — the 💡,
   // not the discovery. The recipe still has to be rebuilt in the right order.
   const orderInsight = udmUniqueActive('lisa');
+  const opened = [];   // DisFx jobs: what this specimen opened, Variant by Variant
   for (const v of udm.variants) {
     if (v.stage >= 4) continue;
+    const before = segsOpen(v, v.recipe), wasBulb = v.stage >= 3;
+    let byHank = false;
     const cmp = compareToRecipe(spec, v.recipe);
     let exact = isExactMatch(cmp);
     // Tracked so the two lights only fire when their owner's rule is what made
@@ -17226,6 +17341,7 @@ function udmAnalyzeHook(spec, cw) {
     } else if (partial) {
       if (v.stage < 2) { v.stage = 2; v.hintsRevealed = v.hintsRevealed || {}; if (!firstHint) firstHint = v; markUdmVariantBadge(v.id);
         if (looseHints && !strictPartial) udmFlashUnique('hank'); }
+      if (looseHints && !strictPartial) byHank = true;
       if (v.stage === 2) {
         const h = v.hintsRevealed || (v.hintsRevealed = {});
         if (cmp.elements)   h.elements   = true;
@@ -17241,11 +17357,21 @@ function udmAnalyzeHook(spec, cw) {
         }
       }
     }
+    // Any part newly in the open gets the show, as in the main game. Lisa's and Hank's
+    // rules opening it make it theirs: a purple orb from them, not gold from the workers.
+    const segs = [...segsOpen(v, v.recipe)].filter(k => !before.has(k));
+    const bulbNow = v.stage >= 3 && !wasBulb;
+    if (segs.length || bulbNow) {
+      const skill = byLisa ? 'lisa' : byHank ? 'hank' : null;
+      opened.push({ discId: 'v:' + v.id, segs, full: v.stage >= 3,
+        sources: skill ? [skill] : specimenWorkerIds(spec, cw), theme: skill ? 'purple' : 'gold' });
+    }
   }
   // The bulb goes over everyone who touched the specimen, not just the
   // analyst: in a divided lab the person who ran the OM had nothing to do
   // with choosing the elements that turned out to matter.
-  if (firstBulb || firstHint) showHintBubbles(spec, cw);
+  if (firstBulb || firstHint || opened.length) showHintBubbles(spec, cw);
+  for (const o of opened) DisFx.reveal(o);
   if (firstBulb) {
     const msg = `💡 D${firstBulb.baseNo}-V${firstBulb.vLevel} の条件が全て揃いました！Submitで発見です。`;
     cw ? enqueueChat(cw, 'discovery_hint', msg) : botChat(msg, 'discovery_hint');
@@ -17351,9 +17477,11 @@ function udmTickBenReveal() {
   const cands = udmElementUnknownVariants();
   if (!cands.length) return;
   const v = cands.reduce((best, x) => (x.score > best.score ? x : best), cands[0]);
+  const before = segsOpen(v, v.recipe);
   if (!udmRevealElements(v)) return;
   udm.benRevealDay = gameStats.day;
   udmFlashUnique('ben');
+  udmRevealFx(v, before, ['ben'], 'purple');
   const ben = coworkers.find(c => c.id === 'ben');
   const msg = `🔬 MPSSで D${v.baseNo}-V${v.vLevel} の元素を特定しました。`;
   ben ? enqueueChat(ben, 'discovery_hint', msg) : botChat(msg, 'discovery_hint');
@@ -17368,9 +17496,11 @@ function udmTickDaveReveal() {
   const cands = udmElementUnknownVariants();
   if (!cands.length) return;
   const v = cands[Math.floor(Math.random() * cands.length)];
+  const before = segsOpen(v, v.recipe);
   if (!udmRevealElements(v)) return;
   udm.daveRevealDay = gameStats.day;
   udmFlashUnique('dave');
+  udmRevealFx(v, before, ['dave'], 'purple');
   const dave = coworkers.find(c => c.id === 'dave');
   const msg = `💬 雑談から D${v.baseNo}-V${v.vLevel} の元素が見えてきました。`;
   dave ? enqueueChat(dave, 'discovery_hint', msg) : botChat(msg, 'discovery_hint');
@@ -17403,10 +17533,13 @@ function udmCountDrift() {
   if (!cands.length) return;              // nothing to spend it on; hold the count
   udm.driftCount = 0;
   const v = cands.reduce((best, x) => (x.score > best.score ? x : best), cands[0]);
+  const before = segsOpen(v, v.recipe);
   v.stage = 3;
   v.hintsRevealed = {};
   markUdmVariantBadge(v.id);
   udmFlashUnique('jeff'); udmFlashUnique('bobby');
+  // The count lights up, then a big red orb from each of them — the whole recipe at once.
+  udmRevealFx(v, before, ['jeff', 'bobby'], 'red', { drift: true });
   const jeff = coworkers.find(c => c.id === 'jeff');
   const msg = `💡 失敗${UDM_DRIFT_THRESHOLD}回の果てに D${v.baseNo}-V${v.vLevel} の条件が全部見えた！`;
   jeff ? enqueueChat(jeff, 'discovery', msg) : botChat(msg, 'discovery');
@@ -17648,17 +17781,18 @@ function renderUdmVariantCard(v) {
   const h = v.hintsRevealed || {};
   const revealAll = v.stage >= 3;
   // Element / synthesis / analysis (staged reveal)
+  // Every part carries data-seg, as on a Discovery card, for DisFx.
   const elementsHTML = (revealAll || h.elements)
-    ? `<span class="reveal">[${r.elements.map(e => ELEM_NAME[e]).join('+')}]</span>`
-    : `<span class="masked">[${'?'.repeat(r.elements.length)}]</span>`;
+    ? `<span class="reveal" data-seg="el">[${r.elements.map(e => ELEM_NAME[e]).join('+')}]</span>`
+    : `<span class="masked" data-seg="el">[${'?'.repeat(r.elements.length)}]</span>`;
   const synthHTML = (revealAll || h.synthesis)
-    ? `<span class="reveal">${SYNTH_SHORT[r.synthesis]}</span>` : `<span class="masked">???</span>`;
+    ? `<span class="reveal" data-seg="syn">${SYNTH_SHORT[r.synthesis]}</span>` : `<span class="masked" data-seg="syn">???</span>`;
   const anaHTML = (revealAll || h.analysis)
-    ? `<span class="reveal">${ANA_SHORT[r.analysis]}</span>` : `<span class="masked">???</span>`;
+    ? `<span class="reveal" data-seg="ana">${ANA_SHORT[r.analysis]}</span>` : `<span class="masked" data-seg="ana">???</span>`;
   const sep = r.orderMatters ? ' → ' : ' + ';
   const procHTML = r.processing.map((s, i) => {
     const shown = revealAll || h.processing || (h.perStep && h.perStep[i]);
-    return shown ? `<span class="reveal">${PROC_SHORT[s.equip]}(${s.param})</span>` : '<span class="silhouette-box"></span>';
+    return shown ? `<span class="reveal" data-seg="p${i}">${PROC_SHORT[s.equip]}(${s.param})</span>` : `<span class="silhouette-box" data-seg="p${i}"></span>`;
   }).join(sep);
   const recipeHTML = `${elementsHTML} / ${synthHTML} / ${procHTML} / ${anaHTML}`;
   const orderTag = r.orderMatters ? '<span class="udm-order-tag" title="工程の順序が一致する必要があります">順序固定</span>' : '';
