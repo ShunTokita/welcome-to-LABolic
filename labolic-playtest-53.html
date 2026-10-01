@@ -10236,7 +10236,10 @@ function purchaseLabUpgrade(targetLv) {
   renderLPanel();
   renderLab();
   botChat(`Lab Lv ${targetLv} に昇格しました！新しいスペースにレイアウトを調整できます。`, 'submit');
-  // Story engine: Lab Lv 2/3/4 events fire on purchase (ST06/ST09/ST13).
+  // Story engine: Lab Lv 2/3/4 events fire on purchase (ST06/ST09/ST13). The upgrade is
+  // bought in the store, and a story waits for an open store — so it closes here and
+  // the scene comes up at once.
+  closeStore();
   checkStoryTriggers();
 }
 
