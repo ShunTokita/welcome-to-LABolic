@@ -2557,11 +2557,18 @@
      The left panel used to be the store (Lab / Eqp / Elm / Co tabs). In play it is the
      Discovery list that gets looked at, and the reveal effects (DisFx) land on it, so it
      stays put and the store became a popup. In UDM the same panel shows the Variants. */
-  .dis-strip .tab { cursor: default; }
-  .dis-strip .tab.udm { color: var(--accent-purple); font-weight: 800; }
+  /* Not a tab: the heading of the Dis panel, "Discoveries  X / 21 達成". It keeps the
+     tab strip's box so its top lines up with the right panel's tabs. */
+  .dis-strip .dis-head { cursor: default; display: flex; align-items: center; justify-content: space-between; gap: 6px;
+    padding-left: 10px; padding-right: 10px; color: var(--text-primary); box-shadow: none; text-transform: none;
+    line-height: calc(12px * 1.4); }   /* a tab's line (12px text), so the strip is exactly a tab strip's height */
+  .dis-head-title { font-size: 13px; font-weight: 700; letter-spacing: .5px; }
+  .dis-head-count { font-size: 11px; font-weight: 600; color: var(--text-secondary); white-space: nowrap; }
+  .dis-strip .dis-head.udm { justify-content: center; color: var(--accent-purple); font-weight: 800; }
+  body.mobile-mode .dis-strip .dis-head { padding-left: 6px; padding-right: 6px; line-height: calc(9px * 1.4); }
+  body.mobile-mode .dis-head-title { font-size: 11px; letter-spacing: .3px; }
+  body.mobile-mode .dis-head-count { font-size: 9px; }
   .dis-locked { padding: 24px 12px; text-align: center; color: var(--text-muted); font-size: 12px; line-height: 1.7; }
-  .dis-locked b { display: block; font-size: 13px; color: var(--text-secondary); margin-bottom: 4px; letter-spacing: .04em; }
-  .dis-strip .tab { cursor: default; }
   .store-btn {
     flex-shrink: 0; display: flex; align-items: center; gap: 8px; width: calc(100% - 16px); margin: 6px 8px 8px;
     padding: 10px 12px; font: inherit; font-size: 13px; font-weight: 700; letter-spacing: .04em; cursor: pointer;
@@ -4306,7 +4313,7 @@
 
   <div class="main" id="main">
     <div class="panel-left">
-      <div class="tabs dis-strip" id="dis-strip"><div class="tab active" id="dis-strip-label">Dis</div></div>
+      <div class="tabs dis-strip" id="dis-strip"><div class="tab active dis-head" id="dis-strip-label"><span class="dis-head-title" id="dis-head-title">Discoveries</span><span class="dis-head-count" id="dis-head-count"></span></div></div>
       <div class="rpanel-content dis-content" id="dis-content"></div>
       <button class="store-btn" id="store-btn" type="button"><span class="store-ico" aria-hidden="true">🛒</span>ストア<span class="store-sub">Lab / Eqp / Elm / Co</span></button>
     </div>
@@ -10853,11 +10860,17 @@ function renderRPanel() {
 function renderDisPanel() {
   const el = document.getElementById('dis-content');
   if (!el) return;
-  const label = document.getElementById('dis-strip-label');
-  if (label) { label.textContent = udmActive ? 'Var' : 'Dis'; label.classList.toggle('udm', !!udmActive); }
+  // The heading: the achieved count outside UDM; in UDM the Variant list carries its own.
+  const head = document.getElementById('dis-strip-label');
+  if (head) {
+    head.classList.toggle('udm', !!udmActive);
+    document.getElementById('dis-head-title').textContent = udmActive ? 'Var' : 'Discoveries';
+    const achieved = discoveries.filter(d => (discoveryState[d.id]?.stage ?? 0) === 4).length;
+    document.getElementById('dis-head-count').textContent = udmActive ? '' : `${achieved} / ${discoveries.length} 達成`;
+  }
   if (udmActive) renderUdmVariants(el);
   else if (!isStoryUnlocked('distab')) {
-    const html = '<div class="dis-locked"><b>Discoveries</b>まだ何も見つかっていない。<br>実験を続けよう。</div>';
+    const html = '<div class="dis-locked">まだ何も見つかっていない。<br>実験を続けよう。</div>';
     if (el._html !== html) { el._html = html; el.innerHTML = html; }
   } else renderDiscoveries(el);
   try { DisFx.reapply(); } catch (e) {}
@@ -11713,14 +11726,8 @@ function renderDiscoveries(el = document.getElementById('dis-content')) {
     { key:'t3',   label:'Level 4 Tier 3 / 4元素・プロセス順序固定', filter: d => d.tier === 't3' },
   ];
 
-  // Counters for header
-  const total = discoveries.length;
-  const achieved = discoveries.filter(d => (discoveryState[d.id]?.stage ?? 0) === 4).length;
-
-  let html = `<div class="d-header">
-    <div class="d-title">Discoveries</div>
-    <div class="d-progress">${achieved} / ${total} 達成</div>
-  </div>`;
+  // The achieved count is in the panel heading (renderDisPanel), not repeated here.
+  let html = '';
 
   for (const g of groups) {
     const items = discoveries.filter(g.filter);
