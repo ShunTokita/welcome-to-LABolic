@@ -7217,6 +7217,9 @@ const VarResult = (() => {
       tone({ type: 'square', freq: 220, sweepTo: 900 + r * 120, dur: .9, gain: .035 }); },
     boom: () => { tone({ type: 'sine', freq: 120, sweepTo: 40, dur: .5, gain: .55 }); noise({ dur: .4, freq: 300, q: .7, type: 'lowpass', gain: .3 }); },
     stamp: () => { tone({ type: 'sine', freq: 190, sweepTo: 55, dur: .18, gain: .5 }); noise({ dur: .08, freq: 1200, q: .9, type: 'bandpass', gain: .2 }); },
+    // ググググ: a low stutter, climbing and louder as the hold tightens.
+    grr: p => { tone({ type: 'square', freq: 55 + 95 * p, dur: .055, gain: .045 + .08 * p });
+      if (p > .5) noise({ dur: .05, freq: 180 + 260 * p, q: .8, type: 'lowpass', gain: .06 + .1 * p }); },
     sparkle: () => [1568, 1976, 2349, 3136].forEach((f, i) => tone({ type: 'triangle', freq: f, dur: .2, gain: .09, delay: .05 + i * .06 })),
   };
 
@@ -7299,6 +7302,8 @@ const VarResult = (() => {
       shown = rows[i].v;
     }
     if (my !== token) return;
+    if (r === 5 && !skipping) await hold(panel, num, my);
+    if (my !== token) return;
     // ぱーん
     panel.classList.remove('vr-squeeze');
     num.style.transform = ''; num.textContent = total.toLocaleString(); num.style.color = heat(r, 1);
@@ -7318,6 +7323,29 @@ const VarResult = (() => {
     if (r === 5) rainbow(num, my);
     running = false; skipping = false;
     $('vr-skip').textContent = '';
+  }
+  // Rank 5 only: the count is done and the show holds its breath. The panel trembles
+  // finely, the number is pressed smaller and glows hotter, and a rumble climbs.
+  function hold(panel, num, my) {
+    const D = 1300;
+    panel.classList.remove('vr-squeeze');
+    return new Promise(res => {
+      const t0 = performance.now(); let last = 0;
+      const end = () => { panel.style.translate = panel.style.scale = ''; num.style.filter = ''; res(); };
+      const step = now => {
+        const p = skipping ? 1 : Math.min(1, (now - t0) / D);
+        if (p >= 1 || my !== token) return end();
+        const jit = a => `${((Math.random() - .5) * a).toFixed(2)}px`;
+        const a = .6 + 2.2 * p * p, b = 1.2 + 2.6 * p;
+        panel.style.translate = `${jit(a)} ${jit(a)}`;
+        panel.style.scale = String(.97 - .035 * p);
+        num.style.transform = `translate(${jit(b)}, ${jit(b)}) scale(${.63 - .15 * p})`;
+        num.style.filter = `brightness(${1 + .8 * p}) drop-shadow(0 0 ${2 + 10 * p}px rgba(255,200,60,${.4 + .5 * p}))`;
+        if (now - last > 85 - 40 * p) { last = now; SND.grr(p); }
+        requestAnimationFrame(step);
+      };
+      requestAnimationFrame(step);
+    });
   }
   function rainbow(num, my) {
     if (reduce()) return;
@@ -7401,7 +7429,8 @@ const VarResult = (() => {
     for (const f of [...pending]) f();
     lights = 0; sparks.length = 0;
     $('vr-halo')?.classList.remove('on');
-    $('udm-variant-panel')?.classList.remove('vr-squeeze', 'vr-pop');
+    const panel = $('udm-variant-panel');
+    if (panel) { panel.classList.remove('vr-squeeze', 'vr-pop'); panel.style.translate = panel.style.scale = ''; }
   }
   return { play, skip, stop, isRunning: () => running };
 })();
