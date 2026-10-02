@@ -11017,11 +11017,11 @@ function renderRPanel() {
 function renderDisPanel() {
   const el = document.getElementById('dis-content');
   if (!el) return;
-  // The heading: "Discoveries  X / 21 達成", or in UDM "Discovery Variants  SCORE n".
+  // The heading: "Discoveries  X / 21 達成", or in UDM "Variants  SCORE n" (the long name cut the score off).
   const head = document.getElementById('dis-strip-label');
   if (head) {
     head.classList.toggle('udm', !!udmActive);
-    document.getElementById('dis-head-title').textContent = udmActive ? 'Discovery Variants' : 'Discoveries';
+    document.getElementById('dis-head-title').textContent = udmActive ? 'Variants' : 'Discoveries';
     const count = document.getElementById('dis-head-count');
     if (udmActive) count.innerHTML = `SCORE <b>${((udm && udm.score) || 0).toLocaleString()}</b>`;
     else {
