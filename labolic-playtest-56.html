@@ -7286,14 +7286,24 @@ const VarResult = (() => {
       row.classList.add('on'); if (!skipping) SND.row();
       await wait(gap);
       const charge = last && r >= 3 && !skipping;
-      if (charge) { SND.charge(r); if (r >= 4) panel.classList.add('vr-squeeze'); }
+      if (charge) { SND.charge(r); if (r === 4) panel.classList.add('vr-squeeze'); }
+      let grrAt = 0;
       const from = shown;
       await Promise.all([
         count(row.querySelector('.v'), 0, rows[i].v, dur * .6),
         count(num, from, rows[i].v, charge ? dur * 1.9 : dur, p => {
           const q = (i + p) / rows.length;
           num.style.color = heat(r, q);
-          if (charge) {                                  // shake harder and shrink as it nears the total
+          if (charge && r === 5) {                       // ググググ: a fine tremor that tightens as it climbs
+            const jit = a => `${((Math.random() - .5) * a).toFixed(2)}px`;
+            const a = .6 + 2.2 * p * p, b = 1.2 + 2.6 * p;
+            panel.style.translate = `${jit(a)} ${jit(a)}`;
+            panel.style.scale = String(1 - .065 * p);
+            num.style.transform = `translate(${jit(b)}, ${jit(b)}) scale(${1 - .52 * p})`;
+            num.style.filter = `brightness(${1 + .8 * p}) drop-shadow(0 0 ${2 + 10 * p}px rgba(255,200,60,${.4 + .5 * p}))`;
+            const now = performance.now();
+            if (!skipping && now - grrAt > 85 - 40 * p) { grrAt = now; SND.grr(p); }
+          } else if (charge) {                           // shake harder and shrink as it nears the total
             const a = (1 + 3.5 * p) * (r - 1.5) * .7, s = 1 - (.12 + .05 * r) * p;
             num.style.transform = `translate(${(Math.random() - .5) * a}px, ${(Math.random() - .5) * a}px) scale(${s})`;
           }
@@ -7302,10 +7312,8 @@ const VarResult = (() => {
       shown = rows[i].v;
     }
     if (my !== token) return;
-    if (r === 5 && !skipping) await hold(panel, num, my);
-    if (my !== token) return;
     // ぱーん
-    panel.classList.remove('vr-squeeze');
+    panel.classList.remove('vr-squeeze'); panel.style.translate = panel.style.scale = ''; num.style.filter = '';
     num.style.transform = ''; num.textContent = total.toLocaleString(); num.style.color = heat(r, 1);
     if (!reduce()) {
       void num.offsetWidth; num.classList.add('burst');
@@ -7323,29 +7331,6 @@ const VarResult = (() => {
     if (r === 5) rainbow(num, my);
     running = false; skipping = false;
     $('vr-skip').textContent = '';
-  }
-  // Rank 5 only: the count is done and the show holds its breath. The panel trembles
-  // finely, the number is pressed smaller and glows hotter, and a rumble climbs.
-  function hold(panel, num, my) {
-    const D = 1300;
-    panel.classList.remove('vr-squeeze');
-    return new Promise(res => {
-      const t0 = performance.now(); let last = 0;
-      const end = () => { panel.style.translate = panel.style.scale = ''; num.style.filter = ''; res(); };
-      const step = now => {
-        const p = skipping ? 1 : Math.min(1, (now - t0) / D);
-        if (p >= 1 || my !== token) return end();
-        const jit = a => `${((Math.random() - .5) * a).toFixed(2)}px`;
-        const a = .6 + 2.2 * p * p, b = 1.2 + 2.6 * p;
-        panel.style.translate = `${jit(a)} ${jit(a)}`;
-        panel.style.scale = String(.97 - .035 * p);
-        num.style.transform = `translate(${jit(b)}, ${jit(b)}) scale(${.63 - .15 * p})`;
-        num.style.filter = `brightness(${1 + .8 * p}) drop-shadow(0 0 ${2 + 10 * p}px rgba(255,200,60,${.4 + .5 * p}))`;
-        if (now - last > 85 - 40 * p) { last = now; SND.grr(p); }
-        requestAnimationFrame(step);
-      };
-      requestAnimationFrame(step);
-    });
   }
   function rainbow(num, my) {
     if (reduce()) return;
