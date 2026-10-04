@@ -940,6 +940,13 @@
   .cv-g-row.locked { cursor: default; background: transparent; border-style: dashed; color: var(--text-muted);
     grid-template-columns: 2.1em minmax(0,1fr); }
   .cv-g-row.locked:hover { background: transparent; border-color: var(--line-medium); }
+  /* アップデート履歴 (Settings): the same panel as 会話ギャラリー */
+  .upd-ver { display: flex; align-items: baseline; gap: 8px; margin-top: 6px; }
+  .upd-ver:first-child { margin-top: 0; }
+  .upd-ver b { font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 13px; }
+  .upd-ver span { font-size: 11px; color: var(--text-muted); }
+  .upd-ver .upd-new { color: #fff; background: var(--cv-accent); border-radius: 8px; padding: 0 6px; font-size: 9px; font-weight: 700; }
+  .upd-list { margin: 0 0 6px; padding-left: 1.3em; font-size: 12px; line-height: 1.6; color: var(--text-primary); }
   .cv-av { display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; border-radius: 50%;
     border: 2px solid var(--line-strong); color: #fff; font-weight: 800; font-size: 12px; }
   .cv-l-line { display: flex; flex-direction: column; gap: 4px; }
@@ -4084,6 +4091,7 @@
         <div class="settings-section-label">情報</div>
         <button class="settings-btn" id="btn-leaderboard">🏆 リーダーボード</button>
         <button class="settings-btn" id="btn-conv-gallery">会話ギャラリー</button>
+        <button class="settings-btn" id="btn-update-log">アップデート履歴</button>
         <button class="settings-btn" id="btn-about">このゲームについて</button>
       </div>
     </div>
@@ -4394,6 +4402,18 @@
         <button class="cv-x" id="cv-gallery-close" type="button" aria-label="閉じる">×</button>
       </div>
       <div class="cv-body" id="cv-gallery-body"></div>
+    </div>
+  </div>
+
+  <!-- アップデート履歴 (Settings) -->
+  <div class="cv-wrap" id="upd-log">
+    <div class="cv-panel" role="dialog" aria-labelledby="upd-log-title">
+      <div class="cv-head">
+        <button class="cv-back" id="upd-log-back" type="button">‹ 設定</button>
+        <span class="cv-head-title" id="upd-log-title">アップデート履歴</span>
+        <button class="cv-x" id="upd-log-close" type="button" aria-label="閉じる">×</button>
+      </div>
+      <div class="cv-body" id="upd-log-body"></div>
     </div>
   </div>
 
@@ -15308,6 +15328,48 @@ let focusStoryReady = false;
 
 // Are any blocking modals (Discovery, Popup, Settings, Smith Rescue,
 // Story itself) currently open? Used to defer story dispatch.
+// アップデート履歴 (Settings), newest first. Add a line here with each release.
+const UPDATE_LOG = [
+  ['v57', '10/04', ['試験片リストで、工程が長いときは折り返して全工程を表示',
+                    '工程の区切りを「, 」に統一',
+                    '合成・加工・分析ポップアップの Time 表示をなくし、リストを広く',
+                    '分析ポップアップに「自分のみ」を追加',
+                    'スマホで一部のポップアップのボタンが画面外になる問題を修正',
+                    '設定に「アップデート履歴」を追加']],
+  ['v56', '10/02', ['UDM の Variant 発見ポップアップに、スコアに応じた演出を追加',
+                    '複数の Variant を同時に発見したとき、順番に表示']],
+  ['v55', '10/02', ['会話イベントのセリフに合わせて、キャラクターごとの声を追加']],
+  ['v54', '10/01', ['達成ポップアップを、レシピが開くエフェクトの後に表示',
+                    'Smith のスキル説明を修正',
+                    'UDM の左パネル見出しを「Variants」に短縮']],
+  ['v53', '10/01', ['Discoveries を左パネルに常駐',
+                    'ストアをポップアップにし、文字を大きく',
+                    'レシピが開くときのエフェクトを追加（UDM も）',
+                    'Lab レベルアップ時はストアを閉じてストーリーへ']],
+  ['v52', '09/30', ['ストーリーイベントを会話シーンに',
+                    '設定に「会話ギャラリー」を追加']],
+  ['v51', '09/24', ['UDM でユニークスキルを持つキャラクターが光るように']],
+  ['v50', '09/23', ['UDM 中にリロードすると2台目の装置が消える問題を修正']],
+  ['v49', '09/21', ['Discoveries の達成済みカードに製品アートを表示']],
+  ['v48', '09/18', ['MPSS があるときの自動配置と、UDM の初期配置を揃える']],
+  ['v47', '09/16', ['みために「赤ロングコート」を追加']],
+  ['v46', '09/16', ['UDM ストアの価格を 1/10 に',
+                    'UDM ストアの効果プレビューとスキルツリーを修正']],
+  ['v45', '09/15', ['キャラクターの当たり判定を足元1マスに']],
+  ['v44', '09/15', ['白衣のとき歩行アニメが見えない問題を修正']],
+  ['v43', '09/15', ['一部のキャラクターの顔の形を調整']],
+  ['v42', '09/14', ['主人公のみためをカスタマイズできるように']],
+  ['v41', '09/13', ['グラフィックをドット絵に一新']],
+];
+function openUpdateLog() {
+  document.getElementById('upd-log-body').innerHTML = UPDATE_LOG.map(([v, date, items], i) =>
+    `<div class="upd-ver"><b>${v}</b><span>${date}</span>${i === 0 ? '<span class="upd-new">最新</span>' : ''}</div>`
+    + `<ul class="upd-list">${items.map(t => `<li>${escapeHtml(t)}</li>`).join('')}</ul>`).join('');
+  document.getElementById('upd-log').classList.add('open');
+  document.getElementById('upd-log-body').scrollTop = 0;
+}
+function closeUpdateLog() { document.getElementById('upd-log').classList.remove('open'); }
+
 function isAnyModalOpenForStory() {
   const ids = [
     'discovery-backdrop',
@@ -15316,6 +15378,7 @@ function isAnyModalOpenForStory() {
     'story-event-backdrop',
     'cv-scene',
     'cv-gallery',
+    'upd-log',
     'settings-backdrop',
     'settings-confirm-backdrop',
     'store-backdrop',
@@ -19225,6 +19288,10 @@ function bindSettings() {
     if (e.target === document.getElementById('help-backdrop')) closeHelp();
   });
   document.getElementById('btn-conv-gallery')?.addEventListener('click', () => { closeSettings(); CONV.openGallery(); });
+  document.getElementById('btn-update-log')?.addEventListener('click', () => { closeSettings(); openUpdateLog(); });
+  document.getElementById('upd-log-back')?.addEventListener('click', () => { closeUpdateLog(); openSettings(); });
+  document.getElementById('upd-log-close')?.addEventListener('click', closeUpdateLog);
+  document.getElementById('upd-log')?.addEventListener('click', e => { if (e.target.id === 'upd-log') closeUpdateLog(); });
   document.getElementById('btn-about')?.addEventListener('click', showAbout);
 
   // Device-art toggle — live-applies and persists.
