@@ -3270,14 +3270,16 @@
   .element-pill .cost { font-size: 9px; color: var(--accent-coin); font-weight: 600; }
   .element-pill.lv4 { background: var(--accent-purple-bg); border-color: var(--accent-purple); }
   .element-pill.lv4 .symbol { color: var(--accent-purple); }
-  .sample-list { max-height: 180px; overflow-y: auto; background: var(--bg-input); border-radius: 4px; border: 1px solid var(--line-light); padding: 4px; }
+  .sample-list { max-height: 180px; max-height: clamp(208px, calc(30dvh + 28px), 268px);   /* +28px: the Time row it replaced */ overflow-y: auto; background: var(--bg-input); border-radius: 4px; border: 1px solid var(--line-light); padding: 4px; }
   .sample-row { background: var(--bg-card); border: 1.5px solid var(--line-medium); border-radius: 3px; padding: 8px 10px; margin-bottom: 4px; cursor: pointer; display: flex; align-items: center; gap: 10px; }
   .sample-row:hover { background: var(--bg-card-hover); }
   .sample-row.selected { border-color: var(--accent-active); background: var(--accent-active-bg); box-shadow: inset 0 0 0 1px var(--accent-active); }
   .sample-row.disabled { opacity: 0.4; cursor: not-allowed; }
   .sample-icon { width: 26px; height: 26px; border-radius: 50%; flex-shrink: 0; border: 2px solid var(--line-strong); }
   .sample-info { flex: 1; min-width: 0; }
-  .sample-info .recipe-line { font-size: 11px; color: var(--text-primary); font-family: "SF Mono","Consolas",monospace; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  /* Wraps, in recipe order, only between parts: each .rl keeps its separator and never splits. */
+  .sample-info .recipe-line { font-size: 11px; color: var(--text-primary); font-family: "SF Mono","Consolas",monospace; line-height: 1.45; }
+  .sample-info .recipe-line .rl { white-space: nowrap; }
   .sample-info .meta { font-size: 9px; color: var(--text-muted); margin-top: 1px; }
   .sample-row .check { width: 16px; height: 16px; border: 1.5px solid var(--line-medium); border-radius: 2px; flex-shrink: 0; }
   .sample-row.selected .check { background: var(--accent-active); border-color: var(--accent-active); }
@@ -11748,7 +11750,7 @@ function renderCustomSlot(cr, slot, slotsRemaining) {
   const reward = customRecipeReward(cr);
   // Is this custom recipe currently accepted (active)?
   const activeInst = experiments.find(e => e.code === customCode(slot));
-  const sep = ' + ';
+  const sep = ', ';
   const procStr = recipe.processing.length
     ? recipe.processing.map(p => procStepLabel(p)).join(sep) : '(なし)';
   const recipeHTML =
@@ -12093,7 +12095,7 @@ function renderResultCard(spec) {
   const cls = ['r-card', isLv4 ? 'lv4' : ''].filter(Boolean).join(' ');
 
   // Recipe in compact form (Specimens are fully known)
-  const sep = ' + ';
+  const sep = ', ';
   const procStr = spec.processing.length === 0
     ? '<span class="r-empty-proc">(no processing)</span>'
     : spec.processing.map(s => `${PROC_SHORT[s.equip]}(${s.param})`).join(sep);
@@ -12126,7 +12128,7 @@ function renderResultCard(spec) {
 function renderInLabCard(spec) {
   const isLv4 = isLv4Recipe(spec);
   const cls = ['r-card', 'inlab', isLv4 ? 'lv4' : ''].filter(Boolean).join(' ');
-  const sep = ' + ';
+  const sep = ', ';
   const procStr = spec.processing.length === 0
     ? '<span class="r-empty-proc">(まだ加工なし)</span>'
     : spec.processing.map(s => `${PROC_SHORT[s.equip]}(${s.param})`).join(sep);
@@ -12763,6 +12765,13 @@ function formatSpecimenRecipe(spec) {
   return `[${spec.elements.map(e => ELEM_NAME[e]).join('+')}] / ${SYNTH_SHORT[baseEquipId(spec.synthesis)]} / ${proc} / ${ana}`;
 }
 
+// A recipe line for a specimen list, in its usual order. It may break only at the
+// space after a separator (" / ", ", ", " + "), so a step like "Roll(3)" never splits
+// and the separator stays at the end of the line it closes.
+function recipeLineHtml(text) {
+  return text.split(/(?<=[\/,+]) /).map(t => `<span class="rl">${t}</span>`).join(' ');
+}
+
 const equipMeta = {
   casting:{ type:'synth', name:'Casting',           lv:1, slots:2, time:12 },
   arc:    { type:'synth', name:'Arc Melting',       lv:2, slots:2, time:18 },
@@ -12982,7 +12991,6 @@ function renderSynthPopup(meta) {
       </div>
       <div class="meta-row">
         <div class="meta-item cost"><span class="label">Cost</span><span class="value" id="prev-cost">— c</span></div>
-        <div class="meta-item"><span class="label">Time</span><span class="value">~${meta.time}s</span></div>
       </div>
       <div class="qty-row">
         <span class="qty-label">作成個数</span>
@@ -13210,7 +13218,7 @@ function renderProcPopup(meta) {
                 const isSel = popupState.selectedSamples.has(s.id);
                 return `<div class="sample-row ${isSel ? 'selected' : ''}" data-sample="${s.id}" onclick="toggleSpecimenSelection('${s.id}')">
                   <div class="sample-icon" style="${specimenIconStyle(s.elements)}"></div>
-                  <div class="sample-info"><div class="recipe-line">${formatSpecimenRecipe(s)}</div><div class="meta">id: ${s.id.replace('spec_','#')}</div></div>
+                  <div class="sample-info"><div class="recipe-line">${recipeLineHtml(formatSpecimenRecipe(s))}</div><div class="meta">id: ${s.id.replace('spec_','#')}</div></div>
                   <div class="check"></div>
                 </div>`;
               }).join('')}
@@ -13229,7 +13237,6 @@ function renderProcPopup(meta) {
     </div>
     <div class="popup-footer">
       <div class="preview-bar"><div class="icon-mini" id="prev-icon" style="background:#555"></div><div class="text" id="prev-text">${selCount > 0 ? `${selCount} 件選択中` : '— 試験片を選択 —'}</div></div>
-      <div class="meta-row"><div class="meta-item"><span class="label">Time</span><span class="value">~${20+popupState.paramLevel*8}s ${selCount > 1 ? `× ${selCount}` : ''}</span></div></div>
       <div class="button-row"><button class="btn-cancel" onclick="closePopup()">Cancel</button><button class="btn-go" id="btn-go" ${selCount === 0 ? 'disabled' : ''} onclick="confirmGo()">Go!${selCount > 1 ? ` (${selCount})` : ''}</button></div>
     </div>`;
 }
@@ -13300,13 +13307,6 @@ function _refreshMultiSelectFooter() {
     if (prevIcon && selCount !== 1) prevIcon.style.cssText = 'background:#555;border:2px solid var(--line-strong);border-radius:50%;';
   }
 
-  // Update time label
-  const metaRow = document.querySelector('.meta-row .meta-item .value');
-  if (metaRow && meta) {
-    const base = meta.type === 'proc' ? (20 + popupState.paramLevel * 8) : 25;
-    metaRow.textContent = `~${base}s${selCount > 1 ? ` × ${selCount}` : ''}`;
-  }
-
   if (btnGo) {
     btnGo.disabled = selCount === 0;
     btnGo.textContent = selCount > 1 ? `Go! (${selCount})` : 'Go!';
@@ -13325,6 +13325,11 @@ function procEligibleSpecimens() {
   const pool = specimens.filter(s => s.status === 'in_lab' && s.analysis === null);
   return userSettings.ownSpecimensOnly ? pool.filter(isOwnSpecimen) : pool;
 }
+// The same for an Analysis device: anything not yet submitted (§10.3.3).
+function anaEligibleSpecimens() {
+  const pool = specimens.filter(s => s.status !== 'submitted');
+  return userSettings.ownSpecimensOnly ? pool.filter(isOwnSpecimen) : pool;
+}
 
 function toggleOwnSpecimensOnly() {
   userSettings.ownSpecimensOnly = !userSettings.ownSpecimensOnly;
@@ -13332,15 +13337,15 @@ function toggleOwnSpecimensOnly() {
   // Anything now hidden must not stay selected — processing a specimen the
   // player can no longer see is exactly the surprise this filter exists to
   // prevent.
-  const visible = new Set(procEligibleSpecimens().map(s => s.id));
+  const meta = equipMeta[popupState.equipId.replace(/_2$/, '')];
+  const visible = new Set((meta && meta.type === 'ana' ? anaEligibleSpecimens() : procEligibleSpecimens()).map(s => s.id));
   for (const id of [...popupState.selectedSamples]) {
     if (!visible.has(id)) popupState.selectedSamples.delete(id);
   }
   if (popupState.selectedSample && !visible.has(popupState.selectedSample)) {
     popupState.selectedSample = null;
   }
-  const meta = equipMeta[popupState.equipId.replace(/_2$/, '')];
-  if (meta) renderProcPopup(meta);
+  if (meta) (meta.type === 'ana' ? renderAnaPopup : renderProcPopup)(meta);
 }
 
 function selectAllSpecimensForOp() {
@@ -13351,8 +13356,7 @@ function selectAllSpecimensForOp() {
     pool = procEligibleSpecimens();   // never select what the filter is hiding
   } else if (meta.type === 'ana') {
     const thisLv = meta.lv;
-    pool = specimens.filter(s => s.status !== 'submitted' &&
-      ((s.analysis ? analysisLv(s.analysis) : 0) < thisLv));
+    pool = anaEligibleSpecimens().filter(s => (s.analysis ? analysisLv(s.analysis) : 0) < thisLv);
   }
   for (const s of pool) popupState.selectedSamples.add(s.id);
   popupState.selectedSample = pool.length > 0 ? pool[0].id : null;
@@ -13378,7 +13382,7 @@ function setParam(l) {
   const meta = equipMeta[popupState.equipId.replace(/_2$/, '')];
   document.getElementById('param-visual').innerHTML = paramVisual(meta.visual, l);
   try { tutOnSetParam(l); } catch(e) {}
-  // For multi-select proc: update footer time label without re-rendering the list.
+  // For multi-select proc: refresh the footer without re-rendering the list.
   // For single-select: keep legacy preview behaviour.
   if (meta.type === 'proc') {
     _refreshMultiSelectFooter();
@@ -13395,7 +13399,9 @@ function renderAnaPopup(meta) {
   // can be (re-)analyzed by a higher-Lv analyzer (§10.3.3).
   // Only 'submitted' specimens are out of reach.
   const thisLv = meta.lv;
-  const eligibleAll = specimens.filter(s => s.status !== 'submitted');
+  const eligibleAll = anaEligibleSpecimens();
+  const totalAll = specimens.filter(s => s.status !== 'submitted').length;
+  const hidden = totalAll - eligibleAll.length;
   // For "select all" we only include those that would actually upgrade
   // (otherwise selecting an already-higher-analyzed specimen is a no-op
   // and would inflate the selection count without doing anything useful).
@@ -13414,6 +13420,11 @@ function renderAnaPopup(meta) {
       <div class="popup-section">
         <div class="popup-section-title">
           Specimens to analyze
+          <button class="own-filter-btn ${userSettings.ownSpecimensOnly ? 'on' : ''}"
+                  onclick="toggleOwnSpecimensOnly()"
+                  title="自分で合成した試験片だけを表示します">
+            ${userSettings.ownSpecimensOnly ? '☑' : '☐'} 自分のみ${hidden > 0 ? `<span class="own-filter-count">−${hidden}</span>` : ''}
+          </button>
           ${upgradable.length > 0 ? `<span class="multi-select-actions">
             <button class="multi-action-btn" onclick="selectAllSpecimensForOp()">全選択</button>
             <button class="multi-action-btn" onclick="clearSpecimenSelection()">解除</button>
@@ -13421,7 +13432,9 @@ function renderAnaPopup(meta) {
         </div>
         <div class="sample-list" id="sample-list">
           ${eligibleAll.length === 0
-            ? '<div class="empty-list">分析可能な試験片はありません</div>'
+            ? (userSettings.ownSpecimensOnly && totalAll > 0
+                ? '<div class="empty-list">自分で合成した試験片はありません（フィルタ解除で ' + totalAll + ' 件）</div>'
+                : '<div class="empty-list">分析可能な試験片はありません</div>')
             : eligibleAll.map(s => {
                 const curLv = s.analysis ? analysisLv(s.analysis) : 0;
                 const willUpgrade = curLv < thisLv;
@@ -13431,7 +13444,7 @@ function renderAnaPopup(meta) {
                 const isSel = popupState.selectedSamples.has(s.id);
                 return `<div class="sample-row ${willUpgrade?'':'disabled'} ${isSel ? 'selected' : ''}" data-sample="${s.id}" ${willUpgrade?`onclick="toggleSpecimenSelection('${s.id}')"`:''}>
                   <div class="sample-icon" style="${specimenIconStyle(s.elements)}"></div>
-                  <div class="sample-info"><div class="recipe-line">[${s.elements.map(e => ELEM_NAME[e]).join('+')}] / ${SYNTH_SHORT[s.synthesis]} / ${procStr} / ${fromLabel}</div><div class="meta">${willUpgrade?`will upgrade ${fromLabel} → ${toLabel}`:`already ${fromLabel} (≥ ${toLabel})`}</div></div>
+                  <div class="sample-info"><div class="recipe-line">${recipeLineHtml(`[${s.elements.map(e => ELEM_NAME[e]).join('+')}] / ${SYNTH_SHORT[s.synthesis]} / ${procStr} / ${fromLabel}`)}</div><div class="meta">${willUpgrade?`will upgrade ${fromLabel} → ${toLabel}`:`already ${fromLabel} (≥ ${toLabel})`}</div></div>
                   <div class="check"></div>
                 </div>`;
               }).join('')}
@@ -13440,7 +13453,6 @@ function renderAnaPopup(meta) {
     </div>
     <div class="popup-footer">
       <div class="preview-bar"><div class="icon-mini" id="prev-icon" style="background:#555"></div><div class="text" id="prev-text">${selCount > 0 ? `${selCount} 件選択中` : '— 試験片を選択 —'}</div></div>
-      <div class="meta-row"><div class="meta-item"><span class="label">Time</span><span class="value">~25s ${selCount > 1 ? `× ${selCount}` : ''}</span></div></div>
       <div class="button-row"><button class="btn-cancel" onclick="closePopup()">Cancel</button><button class="btn-go" id="btn-go" ${selCount === 0 ? 'disabled' : ''} onclick="confirmGo()">Go!${selCount > 1 ? ` (${selCount})` : ''}</button></div>
     </div>`;
   if (popupState.selectedSample && popupState.selectedSamples.has(popupState.selectedSample)) {
@@ -13646,8 +13658,8 @@ function renderSubmitRow(spec, batchReward) {
   const canSubmit = writer ? canWriterSubmit(writer, spec) : false;
   const isLv4 = isLv4Recipe(spec);
 
-  // Build recipe text with current data model
-  const sep = ' + ';
+  // Build recipe text with current data model (', ' between steps, as in the other device lists)
+  const sep = ', ';
   const procStr = spec.processing.length === 0
     ? '(no proc)'
     : spec.processing.map(s => `${PROC_SHORT[s.equip]}(${s.param})`).join(sep);
@@ -13660,7 +13672,7 @@ function renderSubmitRow(spec, batchReward) {
 
   return `<div class="sample-row ${canSubmit ? '' : 'disabled'} ${isLv4 ? 'lv4' : ''}" data-sample="${spec.id}">
     <div class="sample-info">
-      <div class="recipe-line">${recipeLine}</div>
+      <div class="recipe-line">${recipeLineHtml(recipeLine)}</div>
       <div class="meta">
         max content lv: ${lv}
         ${canSubmit ? '' : ` — needs Writing Lv ${lv}`}
