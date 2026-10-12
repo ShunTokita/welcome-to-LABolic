@@ -3312,6 +3312,13 @@
   .meta-row .meta-item .value { color: var(--text-primary); font-weight: 700; }
   .meta-row .meta-item.cost .value, .meta-row .meta-item.reward .value { color: var(--accent-coin); }
   .button-row { display: flex; gap: 10px; justify-content: flex-end; }
+  /* The keys popupKey() takes, in the empty left of a device popup's buttons. PC only. */
+  #popup .button-row:has(.btn-go)::before {
+    content: 'Space / Enter：実行'; flex: 1; min-width: 0; align-self: center;
+    font-size: 10px; line-height: 1.4; color: var(--text-muted); letter-spacing: .02em; }
+  #popup:has(.param-pill) .button-row:has(.btn-go)::before { content: 'Space / Enter：実行\A 1・2・3：加工レベル'; white-space: pre; }
+  body.mobile-mode #popup .button-row::before { content: none; }
+  @media (hover: none) { #popup .button-row::before { content: none !important; } }
 
   /* Quantity selector (synth popup) */
   .qty-row {
@@ -7998,6 +8005,9 @@ function udmQueueDraft(n) { udmDraftDue += (n || 1); }
 function udmDrainDraft() {
   if (!udmActive || !udm || udm.gameOver) { udmDraftDue = 0; return; }
   if (udmDraftDue <= 0 || udmDraftOffer) return;
+  // A Variant popup still waiting its turn (behind the reveal effects, or queued
+  // behind another Variant) goes first: its close handler drains the pick.
+  if (vrQueue.length || vrOpening || VarResult.isRunning()) return;
   if (document.querySelector('.udm-intro-backdrop.open, .discovery-backdrop.open, .event-backdrop.open, .popup-backdrop.open, .cv-scene.open, #cv-gallery.open')) return;
   // The opening pick, once per run. If every unique is already held the
   // player has nothing to be shown here, so fall through to a normal roll and
@@ -15354,7 +15364,9 @@ let focusStoryReady = false;
 // アップデート履歴 (Settings), newest first. Add a line here with each release.
 const UPDATE_LOG = [
   ['v59', ['PC で装置のポップアップを開いているとき、Space / Enter キーで「Go!」を押せるように',
-           '加工装置のポップアップで、1・2・3 キーで加工レベルを選べるように']],
+           '加工装置のポップアップで、1・2・3 キーで加工レベルを選べるように',
+           'ポップアップの左下に操作キーを表示（PC のみ）',
+           'UDM で Variant の発見ポップアップより先にスキル獲得が出ることがある問題を修正']],
   ['v58', ['クリア済みで久しぶりに開いたとき、みため画面と UDM の案内が重なって操作できなくなる問題を修正']],
   ['v57', ['試験片リストで、工程が長いときは折り返して全工程を表示',
            '工程の区切りを「, 」に統一',
