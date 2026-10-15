@@ -24,6 +24,12 @@
 //          tube readable against the background
 // Opaque faces are drawn first with the z-buffer; translucent ones after,
 // far to near, tested against the z-buffer but not writing it.
+//
+// Mesh-wide options, for interaction:
+//   pick   a number written to a pick buffer wherever the mesh is visible,
+//          so r.pickAt(canvas, clientX, clientY) can say what was tapped
+//   tint   [r, g, b, k]: lit colour pulled toward [r, g, b] by k (highlight)
+//   over   a face style that replaces every face's own (a ghost preview)
 (function(){
   "use strict";
 
@@ -65,6 +71,7 @@
       this.img = this.g.createImageData(this.w, this.h);
       this.px = new Uint32Array(this.img.data.buffer);
       this.zb = new Float32Array(this.w * this.h);
+      this.pk = new Int32Array(this.w * this.h);
       this.bg = opts.bg || [12, 14, 18];
       this.light = norm(opts.light || [-0.4, 0.8, 0.5]);
       this.ambient = opts.ambient ?? 0.35;
@@ -96,7 +103,7 @@
     draw(meshes, overlay) {
       const { w, h, px, zb } = this;
       const bgc = 0xff000000 | (this.bg[2] << 16) | (this.bg[1] << 8) | this.bg[0];
-      px.fill(bgc); zb.fill(Infinity);
+      px.fill(bgc); zb.fill(Infinity); this.pk.fill(0);
       const [ex, ey, ez] = this.eye, [fx, fy, fz] = this.cf, [rx, ry, rz] = this.cr, [ux, uy, uz] = this.cu;
       const [lx, ly, lz] = this.light, focal = this.focal, hw = w / 2, hh = h / 2;
       const amb = this.ambient, steps = this.steps;
@@ -122,7 +129,7 @@
           sv[o + 1] = hh - (dx * ux + dy * uy + dz * uz) * k;
           sv[o + 2] = zc;
         }
-        const ds = !!m.ds;
+        const ds = !!m.ds, pid = m.pick | 0, tint = m.tint, ov = m.over;
         for (const f of m.f) {
           const ia = f.i[0] * 3, ib = f.i[1] * 3, ic = f.i[2] * 3;
           const Az = sv[ia + 2], Bz = sv[ib + 2], Cz = sv[ic + 2];
@@ -130,8 +137,9 @@
           const Ax = sv[ia], Ay = sv[ia + 1], Bx = sv[ib], By = sv[ib + 1], Cx = sv[ic], Cy = sv[ic + 1];
           const area = (Bx - Ax) * (Cy - Ay) - (By - Ay) * (Cx - Ax);
           if (area === 0 || (!ds && area > 0)) continue;   // back face
-          let cr = f.c[0], cg = f.c[1], cb = f.c[2], alpha = f.a ?? 1;
-          if (!f.e) {
+          const st = ov || f;
+          let cr = st.c[0], cg = st.c[1], cb = st.c[2], alpha = st.a ?? 1;
+          if (!st.e) {
             // Face normal, flipped when a double-sided face is seen from behind.
             const e1x = wv[ib] - wv[ia], e1y = wv[ib + 1] - wv[ia + 1], e1z = wv[ib + 2] - wv[ia + 2];
             const e2x = wv[ic] - wv[ia], e2y = wv[ic + 1] - wv[ia + 1], e2z = wv[ic + 2] - wv[ia + 2];
@@ -142,7 +150,7 @@
             const d = nx * lx + ny * ly + nz * lz;
             const q = Math.round((amb + (1 - amb) * (d > 0 ? d : 0)) * steps) / steps;
             cr *= q; cg *= q; cb *= q;
-            if (f.glass) {
+            if (st.glass) {
               let vx = ex - (wv[ia] + wv[ib] + wv[ic]) / 3, vy = ey - (wv[ia + 1] + wv[ib + 1] + wv[ic + 1]) / 3, vz = ez - (wv[ia + 2] + wv[ib + 2] + wv[ic + 2]) / 3;
               const vl = Math.sqrt(vx * vx + vy * vy + vz * vz) || 1; vx /= vl; vy /= vl; vz /= vl;
               const nv2 = Math.abs(nx * vx + ny * vy + nz * vz);
@@ -155,8 +163,9 @@
               cr += 255 * sq; cg += 255 * sq; cb += 255 * sq;
             }
           }
-          if (f.add || alpha < 1) this.queue(Ax, Ay, Az, Bx, By, Bz, Cx, Cy, Cz, cr, cg, cb, area, f.add ? 2 : 1, alpha);
-          else this.tri(Ax, Ay, Az, Bx, By, Bz, Cx, Cy, Cz, cr, cg, cb, area, 0, 1);
+          if (tint) { const k = tint[3]; cr += (tint[0] - cr) * k; cg += (tint[1] - cg) * k; cb += (tint[2] - cb) * k; }
+          if (st.add || alpha < 1) this.queue(Ax, Ay, Az, Bx, By, Bz, Cx, Cy, Cz, cr, cg, cb, area, st.add ? 2 : 1, alpha, pid);
+          else this.tri(Ax, Ay, Az, Bx, By, Bz, Cx, Cy, Cz, cr, cg, cb, area, 0, 1, pid);
         }
       }
       this.flush();
@@ -164,19 +173,19 @@
       if (overlay) overlay(this.g);
     }
 
-    // Translucent faces wait in a flat buffer, 16 numbers each, and are
+    // Translucent faces wait in a flat buffer, 17 numbers each, and are
     // drawn far to near after every opaque face is down.
-    queue(Ax, Ay, Az, Bx, By, Bz, Cx, Cy, Cz, r, g, b, area, mode, alpha) {
+    queue(Ax, Ay, Az, Bx, By, Bz, Cx, Cy, Cz, r, g, b, area, mode, alpha, pid) {
       const n = this.nl;
-      if (!this.lq || this.lq.length < (n + 1) * 16) {
-        const grown = new Float64Array(Math.max(4096, (n + 1) * 32));
+      if (!this.lq || this.lq.length < (n + 1) * 17) {
+        const grown = new Float64Array(Math.max(4352, (n + 1) * 34));
         if (this.lq) grown.set(this.lq);
         this.lq = grown;
       }
-      const q = this.lq, o = n * 16;
+      const q = this.lq, o = n * 17;
       q[o] = Ax; q[o+1] = Ay; q[o+2] = Az; q[o+3] = Bx; q[o+4] = By; q[o+5] = Bz;
       q[o+6] = Cx; q[o+7] = Cy; q[o+8] = Cz; q[o+9] = r; q[o+10] = g; q[o+11] = b;
-      q[o+12] = area; q[o+13] = mode; q[o+14] = alpha; q[o+15] = Az + Bz + Cz;
+      q[o+12] = area; q[o+13] = mode; q[o+14] = alpha; q[o+15] = Az + Bz + Cz; q[o+16] = pid;
       this.nl = n + 1;
     }
 
@@ -186,30 +195,30 @@
       const n = this.nl, q = this.lq;
       if (!n) return;
       let lo = Infinity, hi = -Infinity;
-      for (let i = 0; i < n; i++) { const z = q[i * 16 + 15]; if (z < lo) lo = z; if (z > hi) hi = z; }
+      for (let i = 0; i < n; i++) { const z = q[i * 17 + 15]; if (z < lo) lo = z; if (z > hi) hi = z; }
       const NB = 1024, span = (hi - lo) || 1;
       if (!this.cnt) this.cnt = new Int32Array(NB + 1);
       if (!this.ord || this.ord.length < n) { this.ord = new Int32Array(n * 2); this.bk = new Int32Array(n * 2); }
       const cnt = this.cnt, ord = this.ord, bk = this.bk, sc = NB / span;
       cnt.fill(0);
       for (let i = 0; i < n; i++) {                       // bucket 0 = farthest
-        const k = Math.min(NB - 1, ((hi - q[i * 16 + 15]) * sc) | 0);
+        const k = Math.min(NB - 1, ((hi - q[i * 17 + 15]) * sc) | 0);
         bk[i] = k; cnt[k + 1]++;
       }
       for (let k = 0; k < NB; k++) cnt[k + 1] += cnt[k];
       for (let i = 0; i < n; i++) ord[cnt[bk[i]]++] = i;
       for (let k = 0; k < n; k++) {
-        const o = ord[k] * 16;
+        const o = ord[k] * 17;
         this.tri(q[o], q[o+1], q[o+2], q[o+3], q[o+4], q[o+5], q[o+6], q[o+7], q[o+8],
-                 q[o+9], q[o+10], q[o+11], q[o+12], q[o+13], q[o+14]);
+                 q[o+9], q[o+10], q[o+11], q[o+12], q[o+13], q[o+14], q[o+16]);
       }
     }
 
     // mode 0: opaque, writes depth. 1: alpha blend. 2: additive.
     // Edge functions are stepped incrementally along each row, and a row is
     // left as soon as the scan has passed through the triangle.
-    tri(Ax, Ay, Az, Bx, By, Bz, Cx, Cy, Cz, cr, cg, cb, area, mode, alpha) {
-      const { w, h, px, zb } = this;
+    tri(Ax, Ay, Az, Bx, By, Bz, Cx, Cy, Cz, cr, cg, cb, area, mode, alpha, pid) {
+      const { w, h, px, zb, pk } = this;
       const r = cr > 255 ? 255 : cr | 0, g = cg > 255 ? 255 : cg | 0, b = cb > 255 ? 255 : cb | 0;
       const rgba = 0xff000000 | (b << 16) | (g << 8) | r;
       let x0 = Math.floor(Math.min(Ax, Bx, Cx)), x1 = Math.ceil(Math.max(Ax, Bx, Cx));
@@ -232,7 +241,8 @@
           inside = true;
           const z = Cz + w0 * za + w1 * zbb;
           if (z >= zb[k]) continue;
-          if (mode === 0) { zb[k] = z; px[k] = rgba; continue; }
+          if (mode === 0) { zb[k] = z; px[k] = rgba; pk[k] = pid; continue; }
+          if (pid) pk[k] = pid;
           const p0 = px[k];
           let pr = p0 & 255, pg = (p0 >> 8) & 255, pb = (p0 >> 16) & 255;
           if (mode === 1) {
@@ -306,6 +316,53 @@
       return m;
     },
   };
+
+  // What was drawn under a point given in client coordinates (0 for none).
+  Renderer.prototype.pickAt = function (canvas, clientX, clientY) {
+    const r = canvas.getBoundingClientRect();
+    const x = Math.floor((clientX - r.left) / r.width * this.w), y = Math.floor((clientY - r.top) / r.height * this.h);
+    if (x < 0 || y < 0 || x >= this.w || y >= this.h) return 0;
+    return this.pk[y * this.w + x];
+  };
+
+  // A matrix that puts local +z along `n` at point `p` (for decals).
+  mat.orient = (p, n) => {
+    const z = norm(n);
+    const up = Math.abs(z[1]) > 0.9 ? [1, 0, 0] : [0, 1, 0];
+    const x = norm(cross(up, z)), y = cross(z, x);
+    return [x[0], y[0], z[0], p[0], x[1], y[1], z[1], p[1], x[2], y[2], z[2], p[2], 0, 0, 0, 1];
+  };
+
+  // A flat blob in the local xy plane facing +z: `radii` gives the radius
+  // at evenly spaced angles, so a list of slightly random values makes an
+  // irregular stain.
+  build.blob = (radii, col) => {
+    const n = radii.length, v = [[0, 0, 0]], f = [];
+    for (let j = 0; j < n; j++) { const a = j / n * Math.PI * 2; v.push([Math.cos(a) * radii[j], Math.sin(a) * radii[j], 0]); }
+    for (let j = 0; j < n; j++) f.push({ c: col, i: [0, 1 + j, 1 + (j + 1) % n] });
+    return { v, f };
+  };
+
+  // Several meshes, each placed by its own matrix, as one mesh (one part
+  // to tap, one matrix to move).
+  build.merge = list => {
+    const v = [], f = [];
+    for (const m of list) {
+      const base = v.length;
+      for (const p of m.v) v.push(m.m ? mat.apply(m.m, p) : p);
+      for (const fc of m.f) f.push({ ...fc, i: [fc.i[0] + base, fc.i[1] + base, fc.i[2] + base] });
+    }
+    return { v, f };
+  };
+  // Stand a lathe (built along x) upright on y. Swapping the axes mirrors
+  // the mesh, so the winding is flipped back.
+  build.upright = m => {
+    m.v = m.v.map(([x, y, z]) => [y, x, z]);
+    m.f.forEach(f => { f.i = [f.i[0], f.i[2], f.i[1]]; });
+    return m;
+  };
+  // Shorthand: a mesh with a matrix, for build.merge.
+  build.at = (m, M) => { m.m = M; return m; };
 
   window.M3 = { Renderer, mat, build };
 })();
