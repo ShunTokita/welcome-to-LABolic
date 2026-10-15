@@ -80,3 +80,30 @@
 .sc-skip{font-family:var(--con-font);font-size:11px;font-weight:700;letter-spacing:.06em;
   color:var(--con-txt);text-transform:uppercase;border:1px solid var(--con-line);border-radius:6px;
   padding:0 14px;background:linear-gradient(180deg,#4a4f54,#3a3f44);cursor:pointer;}
+
+/* ---- guidance (first two samples of a run) ---- */
+.sc{position:relative;}
+.sc-track{position:relative;flex:1;min-width:0;display:flex;align-items:center;}
+.sc-track input[type=range]{width:100%;position:relative;z-index:1;}
+/* The thumb is 20px wide, so its centre travels from 10px to (100% - 10px). */
+.sc-band{position:absolute;top:50%;height:10px;transform:translateY(-50%);pointer-events:none;
+  left:calc(10px + (100% - 20px) * var(--a, 0));width:calc((100% - 20px) * var(--w, 0));
+  border-radius:3px;display:none;}
+.sc-band.fine{display:block;min-width:4px;background:#5fe3ff;box-shadow:0 0 8px #5fe3ff;}
+.sc-band.wide{display:block;
+  background:linear-gradient(90deg,transparent,rgba(95,227,255,.38) 22%,rgba(95,227,255,.38) 78%,transparent);}
+.sc-ring{position:absolute;transform:translate(-50%,-50%);border-radius:50%;pointer-events:none;display:none;}
+.sc-ring.fine{display:block;border:2px solid #5fe3ff;box-shadow:0 0 8px #5fe3ff, inset 0 0 6px rgba(95,227,255,.5);}
+.sc-ring.wide{display:block;background:radial-gradient(circle, rgba(95,227,255,.32) 55%, transparent 72%);}
+.sc-tip{position:absolute;z-index:4;display:none;pointer-events:none;white-space:nowrap;
+  transform:translateY(calc(-100% - 7px));padding:5px 10px;border-radius:6px;
+  background:var(--sc-amber);color:#1c1300;font:700 12px/1.2 system-ui,sans-serif;
+  box-shadow:0 2px 10px rgba(0,0,0,.5);animation:scTipBob 1.1s ease-in-out infinite;}
+.sc-tip::after{content:"";position:absolute;left:14px;bottom:-6px;border:6px solid transparent;
+  border-bottom:0;border-top-color:var(--sc-amber);}
+.sc-tip.on{display:block;}
+.sc-tip.side{transform:translateY(-50%);}
+.sc-tip.side::after{left:-6px;bottom:auto;top:50%;margin-top:-6px;border:6px solid transparent;
+  border-left:0;border-right-color:var(--sc-amber);}
+@keyframes scTipBob{0%,100%{margin-top:0}50%{margin-top:-3px}}
+@media (prefers-reduced-motion: reduce){.sc-tip{animation:none;}}

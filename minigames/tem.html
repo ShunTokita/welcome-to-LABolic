@@ -143,10 +143,17 @@
       S.dfoc = clamp(S.d0 + rsign() * 45, -100, 100);
       S.bright = Math.round(rsign() * 60);
       tiltC.set(0, 0); dfocC.set(S.dfoc); brightC.set(S.bright);
+      guide.reset();
       dirty = true;
     }
 
     ui.bindActions(body, ctx, quality, newSample);
+    const guide = ui.guide(body, ctx, [
+      { kind:'pad', id:'tilt', range:TILT_RANGE, tol:8,
+        ideal: () => [-S.t0x, -S.t0y], cur: () => [S.tx, S.ty], tip:'パターンを対称にしよう！' },
+      { kind:'slider', id:'dfoc', min:-100, max:100, tol:8,
+        ideal: () => S.d0, cur: () => S.dfoc, tip:'スポットを小さく絞ろう！' },
+    ], '撮影しよう！');
     newLattice();
 
     return {
@@ -156,6 +163,7 @@
         dirty = false;
         render();
         ui.showQuality(body, quality());
+        guide.update();
       },
     };
   }

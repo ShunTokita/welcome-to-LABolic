@@ -143,10 +143,15 @@
       // The lamp is left where the last user had it: too dim or too bright.
       S.light = Math.round(rsign() * 70);
       focusC.set(S.focus); lightC.set(S.light);
+      guide.reset();
       dirty = true;
     }
 
     ui.bindActions(body, ctx, quality, newSample);
+    const guide = ui.guide(body, ctx, [
+      { kind:'slider', id:'focus', min:-100, max:100, tol:9,
+        ideal: () => S.f0, cur: () => S.focus, tip:'ピントを合わせよう！' },
+    ], '撮影しよう！');
     drawStructure(cv);
 
     return {
@@ -156,6 +161,7 @@
         dirty = false;
         render();
         ui.showQuality(body, quality());
+        guide.update();
       },
     };
   }

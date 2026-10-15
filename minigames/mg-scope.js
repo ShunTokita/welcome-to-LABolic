@@ -22,12 +22,14 @@
   const ui = {
     slider(id, label, min, max) {
       return `<div class="sc-row"><span class="lab">${label}</span>
-        <input type="range" id="${id}" min="${min}" max="${max}" value="0" step="1">
+        <div class="sc-track"><div class="sc-band" id="${id}Band"></div>
+          <input type="range" id="${id}" min="${min}" max="${max}" value="0" step="1"></div>
         <span class="val" id="${id}V">0</span></div>`;
     },
     pad(id, label, hint, alt) {
       return `<div class="sc-padrow">
-        <div class="sc-pad" id="${id}"><div class="cx"></div><div class="cy"></div><div class="dot${alt ? ' alt' : ''}"></div></div>
+        <div class="sc-pad" id="${id}"><div class="cx"></div><div class="cy"></div>
+          <div class="sc-ring" id="${id}Ring"></div><div class="dot${alt ? ' alt' : ''}"></div></div>
         <div class="side">
           <div class="lab">${label}</div>
           <div>X&nbsp;<span class="v" id="${id}X">0</span></div>
@@ -72,6 +74,90 @@
       pad.addEventListener('pointerup', () => { drag = false; });
       pad.addEventListener('pointercancel', () => { drag = false; });
       return { set: show };
+    },
+
+    // Guidance for the first two samples of a run, keyed to how many
+    // Excellents the player already has:
+    //
+    //   1st  a narrow mark at the right setting on every scored control,
+    //        and a short prompt on the control to work on next
+    //   2nd  a wide band somewhere around the right setting (it lies inside
+    //        the band, not necessarily at its centre)
+    //   3rd  nothing
+    //
+    // items:
+    //   { kind:'slider', id, min, max, ideal(), cur(), tol, tip }
+    //   { kind:'pad',    id, range,    ideal(), cur(), tol, tip }   // ideal/cur: [x, y]
+    //   { kind:'step',   anchor, done(), tip }                      // a button to press
+    // A slider or pad counts as done once it is within `tol` of ideal.
+    // `finalTip` is shown on Capture once every item is done.
+    guide(root, ctx, items, finalTip) {
+      const WIDE = 3.5;                   // 2nd-sample band half-width, in tol
+      const sc = root.querySelector('.sc');
+      const tip = document.createElement('div');
+      tip.className = 'sc-tip';
+      sc.appendChild(tip);
+      const dist = it => it.kind === 'slider'
+        ? Math.abs(it.cur() - it.ideal())
+        : Math.hypot(it.cur()[0] - it.ideal()[0], it.cur()[1] - it.ideal()[1]);
+      const done = it => it.kind === 'step' ? it.done() : dist(it) <= it.tol;
+
+      function reset() {
+        // A fresh random offset for the 2nd-sample band, small enough that
+        // the right setting stays inside it.
+        for (const it of items) {
+          const m = (WIDE - 1) * it.tol * Math.random(), a = rnd(0, Math.PI * 2);
+          it.off = it.kind === 'slider' ? rsign() * (WIDE - 1) * it.tol : [Math.cos(a) * m, Math.sin(a) * m];
+        }
+      }
+
+      // Above a control row; beside a small button, so as not to cover
+      // the row above it.
+      function placeTip(anchor, text, beside) {
+        if (!anchor) { tip.classList.remove('on'); return; }
+        const a = anchor.getBoundingClientRect(), b = sc.getBoundingClientRect();
+        tip.textContent = text;
+        tip.classList.toggle('side', !!beside);
+        tip.style.left = ((beside ? a.right + 10 : a.left + 6) - b.left) + 'px';
+        tip.style.top = ((beside ? a.top + a.height / 2 : a.top) - b.top) + 'px';
+        tip.classList.add('on');
+      }
+
+      function update() {
+        const stage = ctx.running ? ctx.hits : 2;
+        for (const it of items) {
+          if (it.kind === 'step') continue;
+          const mark = root.querySelector('#' + it.id + (it.kind === 'slider' ? 'Band' : 'Ring'));
+          mark.className = (it.kind === 'slider' ? 'sc-band' : 'sc-ring') + (stage === 0 ? ' fine' : stage === 1 ? ' wide' : '');
+          if (stage > 1) continue;
+          const half = stage === 0 ? it.tol : WIDE * it.tol;
+          if (it.kind === 'slider') {
+            const span = it.max - it.min;
+            const c = it.ideal() + (stage === 1 ? it.off : 0);
+            mark.style.setProperty('--a', ((c - half - it.min) / span).toFixed(4));
+            mark.style.setProperty('--w', (2 * half / span).toFixed(4));
+          } else {
+            const [ix, iy] = it.ideal();
+            const cx = ix + (stage === 1 ? it.off[0] : 0), cy = iy + (stage === 1 ? it.off[1] : 0);
+            mark.style.left = (50 + cx / it.range * 46) + '%';
+            mark.style.top  = (50 - cy / it.range * 46) + '%';
+            const d = Math.max(16, 2 * half / it.range * 0.46 * mark.parentNode.clientWidth);
+            mark.style.width = mark.style.height = d.toFixed(1) + 'px';
+          }
+        }
+        if (stage !== 0) { placeTip(null); return; }
+        const next = items.find(it => !done(it));
+        if (next) {
+          const el = next.kind === 'step' ? root.querySelector(next.anchor) : root.querySelector('#' + next.id);
+          placeTip(next.kind === 'slider' ? el.closest('.sc-row') : next.kind === 'pad' ? el.closest('.sc-padrow') : el,
+                   next.tip, next.kind === 'step');
+        } else {
+          placeTip(finalTip ? root.querySelector('.sc-capture') : null, finalTip);
+        }
+      }
+
+      reset();
+      return { reset, update };
     },
 
     showQuality(root, q) {
@@ -317,6 +403,7 @@
           S.axisY = clamp(S.axisY + rsign() * AXIS_DRIFT, -AXIS_CLAMP, AXIS_CLAMP);
         }
         focusC.set(S.focus); contrastC.set(100); brightC.set(0); stigC.set(S.stigX, S.stigY);
+        guide.reset();
         dirty = true;
       }
 
@@ -356,6 +443,23 @@
       }
 
       const cap = ui.bindActions(body, ctx, quality, newSample);
+
+      // QAA: align with WOBB on, then switch it off before focusing.
+      const alignItem = wobble && { kind:'pad', id:'align', range:AXIS_CLAMP, tol:5,
+        ideal: () => [-S.axisX, -S.axisY], cur: () => [S.alignX, S.alignY], tip:'揺れを小さくしよう！' };
+      const alignDone = () => Math.hypot(S.axisX + S.alignX, S.axisY + S.alignY) <= alignItem.tol;
+      const guide = ui.guide(body, ctx, [
+        ...(wobble ? [
+          { kind:'step', anchor:'#wobbBtn', done: () => S.wobb || alignDone(), tip:'WOBBを入れよう！' },
+          alignItem,
+          { kind:'step', anchor:'#wobbBtn', done: () => !S.wobb, tip:'WOBBを切ろう！' },
+        ] : []),
+        { kind:'slider', id:'focus', min:-100, max:100, tol:8,
+          ideal: () => S.f0, cur: () => S.focus, tip:'ピントを合わせよう！' },
+        { kind:'pad', id:'stig', range:100, tol:8,
+          ideal: () => [-S.aX, -S.aY], cur: () => [S.stigX, S.stigY], tip:'形をシャープにしよう！' },
+      ], '撮影しよう！');
+
       if (wobble) {
         // Capture is refused while focus is swinging, as on the real column.
         $('wobbBtn').addEventListener('click', () => {
@@ -387,6 +491,7 @@
           dirty = false;
           render(now);
           ui.showQuality(body, S.wobb ? 0 : quality());
+          guide.update();
         },
       };
     };

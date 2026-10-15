@@ -24,6 +24,7 @@
 //   ctx.flash(msg, color)
 //   ctx.fail(reason) end the run as a failure
 //   ctx.running      true between Start and the result screen
+//   ctx.hits         Excellent judgements so far in this run
 (function(){
   "use strict";
 
@@ -85,6 +86,7 @@
 
     const ctx = {
       get running() { return st.running; },
+      get hits() { return st.hits; },
       judge(qv) {
         const r = rankOf(qv);
         showJudge(r);
