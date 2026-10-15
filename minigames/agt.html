@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>AGT Minigame</title>
+<link rel="stylesheet" href="mg-core.css">
+<link rel="stylesheet" href="mg-scope.css">
+<link rel="stylesheet" href="mg-proc.css">
+<style>
+  html,body{margin:0;height:100%;background:#0a0c0e;overscroll-behavior:none;}
+  .ag-pads{display:flex;gap:12px;justify-content:space-between;}
+  .ag-pads .sc-padrow{flex:1;min-width:0;gap:8px;}
+  .ag-pads .sc-pad{width:96px;height:96px;}
+  .ag-pads .side{font-size:10px;}
+  .ag-lv{display:flex;gap:4px;font-family:var(--pc-mono);font-size:12px;}
+  .ag-lv span{flex:1;text-align:center;padding:4px 0;border-radius:3px;background:#2a2f34;color:#7d868e;}
+  .ag-lv span.now{background:#30264a;color:#c9b4ff;box-shadow:0 0 0 1px #6a54b0 inset;}
+  .ag-lv span.done{background:#203327;color:#7fd39a;}
+  .pc-meter .ag-tol{position:absolute;top:-2px;bottom:-2px;width:2px;background:var(--pc-guide);z-index:2;}
+  .pc-fill.wob{background:linear-gradient(90deg,#5fd38a,#e8b84a 50%,#ff5a3a);}
+</style>
+</head>
+<body>
+<div id="mg"></div>
+<script src="mg-core.js"></script>
+<script src="mg-3d.js"></script>
+<script src="mg-proc.js"></script>
+<script>
+// AGT (Anti-Gravity Torsion) — aligning the stage and the sphere axis.
+//
+// A fictional instrument: a sphere floats on an anti-gravity field above
+// the sample stage and twists the sample as it spins. Two things must be
+// centred before the twist: the sample stage under the sphere (an off-
+// centre sample orbits as the sphere turns) and the sphere's own axis (a
+// tilted axis precesses). The two adjustments disturb each other a little,
+// as alignments do, but only a little.
+//
+// The sphere is brought up through three speeds, σ, τ and Ω. Each faster
+// speed magnifies any error, so the tolerance tightens, and spinning up
+// knocks both a little out again. Spinning up while badly off sets the
+// sphere wobbling out of control.
+//
+// Guidance follows the analysis games: at σ the right settings are marked
+// on the pads and a prompt says what to do next; at τ only a wide area is
+// marked; at Ω there is nothing but the wobble on screen and on the meters.
+//
+// Score = residual wobble at Ω when the twist is started.
+(function(){
+  "use strict";
+  const { Renderer, mat, build } = M3;
+
+  const RANGE = 60;                 // pad units each way
+  const SENS = 0.5;                 // pad units per CSS px of drag
+  const COUPLE = 0.15;              // how much each adjustment disturbs the other
+  const LEVELS = [
+    { name:'σ', amp:1, tol:10, spin:2 },
+    { name:'τ', amp:2, tol:7.5, spin:5 },
+    { name:'Ω', amp:3, tol:6, spin:11 },
+  ];
+  const BLOWUP = 2.5;               // spinning up beyond this many tol: out of control
+
+  function build_(body, ctx) {
+    body.innerHTML = `
+      <div class="pc">
+        <div class="pc-stage"><canvas></canvas>
+          <div class="pc-hud"><div class="tl">A-Grav Torsion</div><div class="tr" id="pState">σ</div></div>
+        </div>
+        <div class="pc-gauges">
+          <div class="ag-lv" id="lv"><span>σ</span><span>τ</span><span>Ω</span></div>
+          <div class="pc-gauge"><span class="k">Stage 振れ</span>
+            <div class="pc-meter"><div class="ag-tol" id="tolS"></div><div class="pc-fill wob" id="wS"></div></div></div>
+          <div class="pc-gauge"><span class="k">Axis 歳差</span>
+            <div class="pc-meter"><div class="ag-tol" id="tolA"></div><div class="pc-fill wob" id="wA"></div></div></div>
+          <div class="ag-pads">
+            ${pad('stage', 'Stage X/Y')}
+            ${pad('axis', 'Sphere θ/φ', true)}
+          </div>
+        </div>
+        <div class="pc-buttons">
+          <button class="pc-btn act" id="go">加速 ▶</button>
+        </div>
+      </div>`;
+    function pad(id, label, alt) {
+      return `<div class="sc-padrow">
+        <div class="sc-pad" id="${id}"><div class="cx"></div><div class="cy"></div>
+          <div class="sc-ring" id="${id}Ring"></div><div class="dot${alt ? ' alt' : ''}"></div></div>
+        <div class="side"><div class="lab">${label}</div>
+          <div><span class="v" id="${id}V">0, 0</span></div></div></div>`;
+    }
+    const $ = id => body.querySelector('#' + id);
+    const r3 = new Renderer(body.querySelector('canvas'), { bg:[16, 14, 26], light:[-0.4, 0.85, 0.5] });
+    r3.camera([1.5, 1.45, 2.9], [0, 0.35, 0], 36);
+    const tips = MGProc.tips(body);
+
+    // ---- relative-drag pads: fine control on a small square ----
+    function bindPad(id, onMove) {
+      const el = $(id), dot = el.querySelector('.dot');
+      let last = null;
+      el.addEventListener('pointerdown', e => {
+        last = [e.clientX, e.clientY];
+        try { el.setPointerCapture(e.pointerId); } catch (err) { /* synthetic events */ }
+      });
+      el.addEventListener('pointermove', e => {
+        if (!last) return;
+        onMove((e.clientX - last[0]) * SENS, -(e.clientY - last[1]) * SENS);
+        last = [e.clientX, e.clientY];
+      });
+      ['pointerup', 'pointercancel'].forEach(ev => el.addEventListener(ev, () => { last = null; }));
+      return {
+        show(x, y) {
+          dot.style.left = (50 + x / RANGE * 46) + '%';
+          dot.style.top = (50 - y / RANGE * 46) + '%';
+          $(id + 'V').textContent = `${Math.round(x)}, ${Math.round(y)}`;
+        },
+      };
+    }
+    const clampR = v => Math.max(-RANGE, Math.min(RANGE, v));
+    const stagePad = bindPad('stage', (dx, dy) => { if (live()) { S.st[0] = clampR(S.st[0] + dx); S.st[1] = clampR(S.st[1] + dy); } });
+    const axisPad = bindPad('axis', (dx, dy) => { if (live()) { S.ax[0] = clampR(S.ax[0] + dx); S.ax[1] = clampR(S.ax[1] + dy); } });
+
+    // ---- scenery ----
+    const scen = [];
+    { const m = build.box(14, 4, 0.1, [44, 40, 60]); m.m = mat.tr(0, 1, -1.6); scen.push(m); }
+    { const m = build.box(14, 0.1, 6, [52, 50, 60]); m.m = mat.tr(0, -0.6, 0); scen.push(m); }
+    { const m = build.cylinder(0.75, 0.25, 40, [82, 86, 100]); m.m = mat.tr(0, -0.55, 0); scen.push(m); }   // base
+    { const m = build.cylinder(0.62, 0.04, 40, [140, 120, 220]); m.f.forEach(f => { f.e = true; }); m.m = mat.tr(0, -0.31, 0); scen.push(m); } // field ring
+    // Four field pylons around the base.
+    for (let i = 0; i < 4; i++) {
+      const a = i * Math.PI / 2;   // kept off the line of sight to the sphere
+      const p = build.cylinder(0.05, 1.3, 12, [100, 104, 120]); p.m = mat.tr(Math.cos(a) * 0.68, -0.32, Math.sin(a) * 0.68); scen.push(p);
+      const tip = build.cylinder(0.07, 0.06, 12, { c:[190, 160, 255], e:true }); tip.m = mat.tr(Math.cos(a) * 0.68, 0.98, Math.sin(a) * 0.68); scen.push(tip);
+    }
+    const stage = build.cylinder(0.32, 0.06, 32, [150, 156, 168]);
+    const sample = build.box(0.12, 0.08, 0.12, [214, 128, 84]);
+    // The sphere: a lathe of a circle, with a bright equatorial band and
+    // poles marked so its axis can be seen.
+    function sphere() {
+      const prof = [];
+      for (let i = 0; i <= 16; i++) { const t = -Math.PI / 2 + i / 16 * Math.PI; prof.push([Math.sin(t) * 0.3, Math.cos(t) * 0.3 + 1e-4]); }
+      return build.lathe(prof, 24, (i, j) => {
+        if (i === 7 || i === 8) return { c:[200, 170, 255], e:true };      // equator
+        if (i === 0 || i === 15) return { c:[255, 220, 120], e:true };     // poles
+        return { c: j % 6 < 3 ? [96, 80, 150] : [120, 104, 176] };         // panels, to show the spin
+      }, true);
+    }
+    const ball = sphere();
+    const axisRod = build.lathe([[-0.48, 0.012], [0.48, 0.012]], 8, { c:[255, 220, 120], e:true });
+    const beam = build.lathe([[0, 0.3], [0.9, 0.12]], 24, { c:[120, 90, 255], e:true, add:true, a:0.18 });
+    beam.ds = true;
+    const SPHERE_Y = 0.75;
+
+    // ---- state ----
+    let S;
+    const live = () => ctx.running && S.phase === 'align';
+    function randVec(lo, hi) { const m = lo + Math.random() * (hi - lo), a = Math.random() * Math.PI * 2; return [Math.cos(a) * m, Math.sin(a) * m]; }
+    function reset() {
+      S = { lv: 0, st: [0, 0], ax: [0, 0], s0: randVec(22, 40), a0: randVec(22, 40),
+            phase: 'align', t: 0, spin: 0, prec: 0, twist: 0, offS: [0, 0], offA: [0, 0] };
+      newLevel();
+    }
+    function newLevel() {
+      // The wide guide area for τ: offset at random, the right setting inside.
+      const off = () => randVec(0, LEVELS[S.lv].tol * 2.2);
+      S.offS = off(); S.offA = off();
+      $('pState').textContent = LEVELS[S.lv].name;
+      $('go').textContent = S.lv < 2 ? '加速 ▶' : 'ねじり開始';
+    }
+    // Residual errors as the instrument sees them, coupled.
+    function wobble() {
+      const es = [S.st[0] + S.s0[0], S.st[1] + S.s0[1]], ea = [S.ax[0] + S.a0[0], S.ax[1] + S.a0[1]];
+      return { s: [es[0] + COUPLE * ea[0], es[1] + COUPLE * ea[1]], a: [ea[0] + COUPLE * es[0], ea[1] + COUPLE * es[1]] };
+    }
+    const mag = v => Math.hypot(v[0], v[1]);
+
+    $('go').addEventListener('click', () => {
+      if (!live()) return;
+      const w = wobble(), L = LEVELS[S.lv];
+      const err = Math.max(mag(w.s), mag(w.a)) / L.tol;
+      if (S.lv < 2) {
+        if (err > BLOWUP) {
+          S.phase = 'blown'; S.t = 0;
+          ctx.flash('スフィアが暴れた！', '#e2603f');
+          ctx.judge(0.1);
+          return;
+        }
+        // Spin up: the faster field nudges both out again.
+        S.lv++;
+        const k = 9 + 4 * S.lv;
+        const d1 = randVec(k * 0.6, k), d2 = randVec(k * 0.6, k);
+        S.s0[0] += d1[0]; S.s0[1] += d1[1]; S.a0[0] += d2[0]; S.a0[1] += d2[1];
+        newLevel();
+        ctx.flash(`${LEVELS[S.lv].name} に加速`, '#c9b4ff');
+      } else {
+        S.phase = 'twist'; S.t = 0;
+        ctx.judge(Math.max(0, 1 - 0.1 * err * err));
+      }
+    });
+
+    function step(dt) {
+      S.t += dt;
+      const L = LEVELS[S.lv];
+      const spin = S.phase === 'blown' ? 16 : S.phase === 'twist' ? L.spin * 1.4 : L.spin;
+      S.spin += spin * dt;
+      S.prec += (S.phase === 'blown' ? 9 : 2.2) * dt;
+      if (S.phase === 'twist') S.twist += dt * 3;
+      if ((S.phase === 'blown' || S.phase === 'twist') && S.t > 2.6 && ctx.running) reset();
+    }
+
+    function render() {
+      const L = LEVELS[S.lv], w = wobble();
+      const k = 0.0045 * L.amp * (S.phase === 'blown' ? 3 : 1);
+      // Off-centre stage: the sample orbits; tilted axis: the axis precesses.
+      const orbit = Math.min(0.45, mag(w.s) * k), tilt = Math.min(0.9, mag(w.a) * k * 1.6);
+      const sx = Math.cos(S.prec) * orbit, sz = Math.sin(S.prec) * orbit;
+      stage.m = mat.tr(sx, -0.3, sz);
+      sample.m = mat.chain(mat.tr(sx, -0.2, sz), mat.ry(S.twist));
+      const axisM = mat.chain(mat.tr(0, SPHERE_Y + Math.sin(S.spin * 0.3) * 0.02, 0), mat.ry(S.prec), mat.rx(tilt), mat.rz(Math.PI / 2));
+      ball.m = mat.chain(axisM, mat.rx(S.spin));
+      axisRod.m = axisM;
+      beam.m = mat.chain(mat.tr(0, -0.3, 0), mat.rz(Math.PI / 2));
+      beam.f.forEach(f => { f.a = 0.12 + 0.05 * L.amp; });
+      r3.draw([...scen, stage, sample, ball, axisRod, beam]);
+    }
+
+    function drawGauges() {
+      const L = LEVELS[S.lv], w = wobble();
+      const full = 4 * L.tol;
+      $('wS').style.width = Math.min(100, mag(w.s) / full * 100).toFixed(1) + '%';
+      $('wA').style.width = Math.min(100, mag(w.a) / full * 100).toFixed(1) + '%';
+      $('tolS').style.left = $('tolA').style.left = (100 / 4) + '%';
+      stagePad.show(S.st[0], S.st[1]);
+      axisPad.show(S.ax[0], S.ax[1]);
+      [...$('lv').children].forEach((el, i) => { el.className = i < S.lv ? 'done' : i === S.lv ? 'now' : ''; });
+      // Guide marks on the pads: exact at σ, a wide area at τ, none at Ω.
+      for (const [id, ideal, off] of [['stage', [-S.s0[0], -S.s0[1]], S.offS], ['axis', [-S.a0[0], -S.a0[1]], S.offA]]) {
+        const ring = $(id + 'Ring');
+        const wide = S.lv === 1;
+        ring.className = 'sc-ring' + (!ctx.running ? '' : S.lv === 0 ? ' fine' : wide ? ' wide' : '');
+        const c = wide ? [ideal[0] + off[0], ideal[1] + off[1]] : ideal;
+        ring.style.left = (50 + c[0] / RANGE * 46) + '%';
+        ring.style.top = (50 - c[1] / RANGE * 46) + '%';
+        const r = (wide ? L.tol * 3.2 : L.tol) / RANGE * 0.46 * ring.parentNode.clientWidth * 2;
+        ring.style.width = ring.style.height = Math.max(14, r).toFixed(1) + 'px';
+      }
+    }
+
+    function tipNow() {
+      if (!live() || S.lv > 0) return tips.hide();
+      const w = wobble(), L = LEVELS[S.lv];
+      if (mag(w.s) > L.tol) return tips.show($('stage'), '試料を中心に寄せよう！');
+      if (mag(w.a) > L.tol) return tips.show($('axis'), '軸の歳差を止めよう！');
+      tips.show($('go'), '加速しよう！');
+    }
+
+    reset();
+    return {
+      start() { reset(); },
+      tick(dt) {
+        step(dt);
+        render();
+        drawGauges();
+        tipNow();
+      },
+    };
+  }
+
+  MG.mount(document.getElementById('mg'), {
+    id: 'agt',
+    title: 'A-GRAV TORSION',
+    subtitle: 'Stage & Sphere Alignment',
+    desc: '試料ステージを中心に寄せ（Stage）、スフィアの軸の歳差を止めて（Sphere）、σ→τ→Ω と加速する。加速のたびに少しずれるので合わせ直す。Ω で揺れが十分小さければ、ねじり開始で完了。',
+    goal: 1,
+    build: build_,
+  });
+})();
+</script>
+</body>
+</html>
