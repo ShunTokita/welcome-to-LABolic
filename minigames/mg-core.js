@@ -51,10 +51,50 @@
     try { localStorage.setItem(STORE_KEY, JSON.stringify(all)); } catch (e) {}
   }
 
+  // Pointer input that survives every browser's habits. A drag is tracked
+  // on the window once it starts, so it keeps going when the pointer
+  // leaves the element and does not depend on pointer capture, and the
+  // default action (text selection, native drag, scrolling) is suppressed.
+  function drag(el, h) {
+    let id = null;
+    const move = e => { if (e.pointerId === id) { e.preventDefault(); h.move && h.move(e); } };
+    const end = e => {
+      if (e && e.pointerId !== undefined && e.pointerId !== id) return;
+      id = null;
+      window.removeEventListener('pointermove', move);
+      window.removeEventListener('pointerup', end);
+      window.removeEventListener('pointercancel', end);
+      h.end && h.end();
+    };
+    el.addEventListener('pointerdown', e => {
+      if (e.button > 0) return;
+      e.preventDefault();
+      if (id !== null) end();
+      id = e.pointerId;
+      window.addEventListener('pointermove', move, { passive: false });
+      window.addEventListener('pointerup', end);
+      window.addEventListener('pointercancel', end);
+      h.start && h.start(e);
+    });
+  }
+
+  // A button that acts while held: down() on press, up() on release —
+  // wherever the release happens, or if the window loses focus mid-press.
+  function hold(el, down, up) {
+    let held = false;
+    const release = () => { if (held) { held = false; up(); } };
+    drag(el, { start: () => { held = true; down(); }, end: release });
+    window.addEventListener('blur', release);
+  }
+
   const esc = s => String(s).replace(/[&<>"]/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[ch]));
 
   function mount(root, def) {
     root.classList.add('mg-root');
+    // Long-press menus and drag-outs are suppressed for the whole screen.
+    for (const ev of ['contextmenu', 'dragstart', 'selectstart']) {
+      root.addEventListener(ev, e => { if (!(e.target instanceof HTMLInputElement)) e.preventDefault(); });
+    }
     root.innerHTML = `
       <div class="mg-bar">
         <div class="mg-name"><b>${esc(def.title)}</b><span>${esc(def.subtitle || '')}</span></div>
@@ -177,5 +217,5 @@
     return { start, ctx };
   }
 
-  window.MG = { mount, isCleared, markCleared, RANKS, STORE_KEY };
+  window.MG = { mount, isCleared, markCleared, drag, hold, RANKS, STORE_KEY };
 })();

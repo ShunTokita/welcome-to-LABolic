@@ -140,14 +140,13 @@
       show();
     }
     function holdButton(el, d) {
-      let t1, t2, n = 0;
+      let t1, t2;
       const stop = () => { clearTimeout(t1); clearInterval(t2); };
-      el.addEventListener('pointerdown', e => {
-        e.preventDefault(); stop(); n = 0;
+      MG.hold(el, () => {
+        stop();
         nudge(d);
-        t1 = setTimeout(() => { t2 = setInterval(() => { nudge(d); n++; }, 60); }, 350);
-      });
-      ['pointerup', 'pointerleave', 'pointercancel'].forEach(ev => el.addEventListener(ev, stop));
+        t1 = setTimeout(() => { t2 = setInterval(() => nudge(d), 60); }, 350);
+      }, stop);
     }
     holdButton($('dn'), -0.01);
     holdButton($('up'), +0.01);

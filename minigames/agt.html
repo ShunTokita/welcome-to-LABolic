@@ -97,16 +97,13 @@
     function bindPad(id, onMove) {
       const el = $(id), dot = el.querySelector('.dot');
       let last = null;
-      el.addEventListener('pointerdown', e => {
-        last = [e.clientX, e.clientY];
-        try { el.setPointerCapture(e.pointerId); } catch (err) { /* synthetic events */ }
+      MG.drag(el, {
+        start: e => { last = [e.clientX, e.clientY]; },
+        move: e => {
+          onMove((e.clientX - last[0]) * SENS, -(e.clientY - last[1]) * SENS);
+          last = [e.clientX, e.clientY];
+        },
       });
-      el.addEventListener('pointermove', e => {
-        if (!last) return;
-        onMove((e.clientX - last[0]) * SENS, -(e.clientY - last[1]) * SENS);
-        last = [e.clientX, e.clientY];
-      });
-      ['pointerup', 'pointercancel'].forEach(ev => el.addEventListener(ev, () => { last = null; }));
       return {
         show(x, y) {
           dot.style.left = (50 + x / RANGE * 46) + '%';

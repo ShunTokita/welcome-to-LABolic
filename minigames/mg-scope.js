@@ -68,11 +68,7 @@
         const y = clamp(-(e.clientY - r.top - r.height / 2) / (r.height / 2) * range, -range, range);
         show(x, y); onInput(x, y);
       }
-      let drag = false;
-      pad.addEventListener('pointerdown', e => { drag = true; pad.setPointerCapture(e.pointerId); fromEvent(e); });
-      pad.addEventListener('pointermove', e => { if (drag) fromEvent(e); });
-      pad.addEventListener('pointerup', () => { drag = false; });
-      pad.addEventListener('pointercancel', () => { drag = false; });
+      MG.drag(pad, { start: fromEvent, move: fromEvent });
       return { set: show };
     },
 

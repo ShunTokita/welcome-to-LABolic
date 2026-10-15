@@ -126,10 +126,7 @@
 
     // ---- controls ----
     function holdButton(el, dir) {
-      const on = e => { e.preventDefault(); S.hold = dir; };
-      const off = () => { if (S.hold === dir) S.hold = 0; };
-      el.addEventListener('pointerdown', on);
-      ['pointerup', 'pointerleave', 'pointercancel'].forEach(ev => el.addEventListener(ev, off));
+      MG.hold(el, () => { S.hold = dir; }, () => { if (S.hold === dir) S.hold = 0; });
     }
     holdButton($('up'), 1);
     holdButton($('dn'), -1);

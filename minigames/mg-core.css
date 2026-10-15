@@ -11,7 +11,13 @@
   box-sizing:border-box; background:var(--mg-bg); color:var(--mg-txt);
   font-family:system-ui, sans-serif; -webkit-tap-highlight-color:transparent;
   touch-action:manipulation;
+  /* A game screen, not a document: no text selection, no long-press
+     callout on phones, no dragging images or text out of it. Without this
+     a long press on a button pops the copy menu, and on desktop a drag can
+     turn into a text selection that swallows the pointer. */
+  -webkit-user-select:none; user-select:none; -webkit-touch-callout:none;
 }
+.mg-root *{-webkit-user-drag:none;}
 .mg-root *{box-sizing:border-box;}
 
 /* ---- header ---- */
