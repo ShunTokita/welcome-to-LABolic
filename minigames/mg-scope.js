@@ -112,13 +112,117 @@
   // image walk as focus changes; the WOBB button swings focus so the walk
   // is plain to see, and the align pad cancels it.
   // ---------------------------------------------------------------------
-  const GLYPHS = [
-    ..."あいうえおかきくけこさしすせそたちつてとなにぬねのはひふへほまみむめもやゆよらりるれろわ",
-    ..."アイウエオカキクケコサシスセソタチツテトナニヌネノハヒフヘホマミムメモヤユヨラリルレロ",
-    ..."ABCDEFGHIJKLMNOPQRSTUVWXYZ",
-    ..."0123456789",
-    ..."αβγδεζηθλμξπρστφχψω"
-  ];
+  // Secondary-electron images of etched microstructures, drawn to a canvas
+  // once per sample and placed in the SVG as an image, so the blur filter
+  // works on them exactly as it did on the prototype's letters.
+  //
+  // The scene spans -90..390 in viewBox units (480 square) so that turning
+  // it with the astigmatism axis never exposes an empty corner.
+  //
+  // Tones are chosen on a 0..1 design scale and squeezed into the sample's
+  // native window [lo, hi]; contrast stretches them back out.
+  //
+  //   'precip'  grains with boundary precipitates, a precipitate-free zone
+  //             along each boundary, and intragranular precipitates (fine
+  //             dots, or needles in two or three variants per grain)
+  //   'cuboid'  coarse grains filled with aligned cuboidal precipitates in
+  //             narrow matrix channels, as in a Ni-base superalloy
+  const SCENE = 480, SCENE_O = -90;
+
+  function voronoi(n, margin) {
+    const seeds = [];
+    for (let i = 0; i < n; i++) {
+      seeds.push({ x: rnd(-margin, SCENE + margin), y: rnd(-margin, SCENE + margin),
+                   ang: rnd(0, Math.PI), tone: rnd(-0.05, 0.05) });
+    }
+    return seeds;
+  }
+
+  function microstructure(kind, lo, hi) {
+    const cv = document.createElement('canvas');
+    cv.width = cv.height = SCENE;
+    const g = cv.getContext('2d');
+    const img = g.createImageData(SCENE, SCENE), px = img.data;
+    const map = v => Math.round(255 * (lo + clamp(v, 0, 1) * (hi - lo)));
+    const cuboid = kind === 'cuboid';
+    const seeds = voronoi(cuboid ? Math.round(rnd(7, 12)) : Math.round(rnd(14, 24)), 40);
+    const n = seeds.length;
+    // Per-grain precipitate habit for 'precip'.
+    for (const sd of seeds) {
+      sd.needle = Math.random() < 0.5;
+      sd.p = rnd(9, 12);          // cuboid pitch
+      sd.c = sd.p * rnd(0.62, 0.75); // cuboid edge
+    }
+    const owner = new Int16Array(SCENE * SCENE), edgeA = new Float32Array(SCENE * SCENE);
+    const boundary = [];
+    for (let y = 0; y < SCENE; y++) {
+      for (let x = 0; x < SCENE; x++) {
+        let d1 = 1e9, d2 = 1e9, k = 0;
+        for (let i = 0; i < n; i++) {
+          const dx = x - seeds[i].x, dy = y - seeds[i].y, d = dx * dx + dy * dy;
+          if (d < d1) { d2 = d1; d1 = d; k = i; } else if (d < d2) d2 = d;
+        }
+        const sd = seeds[k], i0 = y * SCENE + x;
+        const edge = (Math.sqrt(d2) - Math.sqrt(d1)) * 0.5;   // ~ distance to the boundary
+        owner[i0] = k; edgeA[i0] = edge;
+        let v = 0.34 + sd.tone;            // matrix, with a little channelling contrast
+        if (cuboid) {
+          const ca = Math.cos(sd.ang), sa = Math.sin(sd.ang);
+          const u = ((x * ca + y * sa) % sd.p + sd.p) % sd.p;
+          const w = ((-x * sa + y * ca) % sd.p + sd.p) % sd.p;
+          if (u < sd.c && w < sd.c && edge > 2.5) {
+            v = 0.62 + sd.tone;
+            if (u < 1 || w < 1) v += 0.12;  // bright leading edges
+          }
+        }
+        if (edge < 1.1) v = 0.12;          // etched groove
+        else if (edge < 2.0) v = 0.55;     // its bright rim
+        if (edge < 0.8 && (x + y * 7) % 23 === 0) boundary.push([x, y, k]);
+        v += rnd(-0.03, 0.03);
+        const m = map(v);
+        px[i0 * 4] = px[i0 * 4 + 1] = px[i0 * 4 + 2] = m;
+        px[i0 * 4 + 3] = 255;
+      }
+    }
+    g.putImageData(img, 0, 0);
+    const tone = v => { const m = map(v); return `rgb(${m},${m},${m})`; };
+
+    if (!cuboid) {
+      // Boundary precipitates: lens-shaped, bright, with a dark shadow on one side.
+      for (const [x, y] of boundary) {
+        if (Math.random() < 0.45) continue;
+        const r = rnd(1.8, 4.2), a = rnd(0, Math.PI);
+        g.fillStyle = tone(0.06);
+        g.beginPath(); g.ellipse(x + 1, y + 1.2, r, r * 0.6, a, 0, Math.PI * 2); g.fill();
+        g.fillStyle = tone(rnd(0.88, 1));
+        g.beginPath(); g.ellipse(x, y, r, r * 0.6, a, 0, Math.PI * 2); g.fill();
+      }
+      // Intragranular precipitates, kept clear of a precipitate-free zone.
+      const PFZ = 9;
+      for (let t = 0; t < 2600; t++) {
+        const x = Math.floor(rnd(0, SCENE)), y = Math.floor(rnd(0, SCENE));
+        const i0 = y * SCENE + x;
+        if (edgeA[i0] < PFZ) continue;
+        const sd = seeds[owner[i0]];
+        if (sd.needle) {
+          if (Math.random() < 0.55) continue;
+          const variant = Math.floor(Math.random() * 3);
+          const a = sd.ang + variant * Math.PI / 3, L = rnd(4, 11);
+          g.strokeStyle = tone(rnd(0.80, 0.95));
+          g.lineWidth = rnd(0.9, 1.5);
+          g.beginPath();
+          g.moveTo(x - Math.cos(a) * L / 2, y - Math.sin(a) * L / 2);
+          g.lineTo(x + Math.cos(a) * L / 2, y + Math.sin(a) * L / 2);
+          g.stroke();
+        } else {
+          g.fillStyle = tone(rnd(0.78, 0.95));
+          g.beginPath(); g.arc(x, y, rnd(0.8, 1.7), 0, Math.PI * 2); g.fill();
+        }
+      }
+    }
+    return cv.toDataURL('image/png');
+  }
+
   const K_BLUR = 0.085;      // focus units -> px stdDeviation
   const A_MAX = 60, F_MAX = 70;
   const K_AXIS = 0.075;      // axis error -> isotropic blur (px)
@@ -189,68 +293,15 @@
       const stigC = ui.bindPad(body, 'stig', 100, (x, y) => { S.stigX = x; S.stigY = y; dirty = true; });
       const alignC = wobble ? ui.bindPad(body, 'align', AXIS_CLAMP, (x, y) => { S.alignX = x; S.alignY = y; dirty = true; }) : null;
 
-      // Content is drawn compressed into the native window [lo,hi]; contrast
-      // stretches it back to full range.
-      function buildScene(glyph, lo, hi) {
-        const cx = 150, cy = 150, span = hi - lo;
-        const map = v => Math.round(255 * (lo + clamp(v, 0, 1) * span));
-        const rgb = v => { const x = map(v); return `rgb(${x},${x},${x})`; };
-        let bars = '';
-        for (let i = 0; i < 9; i++) {
-          const v = map(i / 8), x = 30 + i * (240 / 9);
-          bars += `<rect x="${x.toFixed(1)}" y="258" width="${(240/9-2).toFixed(1)}" height="20" fill="rgb(${v},${v},${v})"/>`;
-        }
-        let grain = '';
-        for (let i = 0; i < 140; i++) {
-          grain += `<circle cx="${rnd(-60,360).toFixed(1)}" cy="${rnd(-60,360).toFixed(1)}" r="${rnd(0.4,2).toFixed(2)}" fill="${rgb(rnd(0.47,0.82))}" opacity="0.5"/>`;
-        }
-        let contam = '';
-        const clusters = 2 + Math.floor(Math.random() * 3);
-        for (let c = 0; c < clusters; c++) {
-          const onGlyph = Math.random() < 0.45;
-          const ccx = onGlyph ? cx + rnd(-60, 60) : rnd(30, 270);
-          const ccy = onGlyph ? cy + rnd(-60, 60) : rnd(30, 270);
-          const dots = 5 + Math.floor(Math.random() * 7);
-          for (let d = 0; d < dots; d++) {
-            const dx = ccx + rsign()*16*Math.sqrt(-2*Math.log(Math.random()+1e-6))*0.4;
-            const dy = ccy + rsign()*16*Math.sqrt(-2*Math.log(Math.random()+1e-6))*0.4;
-            contam += `<circle cx="${dx.toFixed(1)}" cy="${dy.toFixed(1)}" r="${rnd(1,3.6).toFixed(2)}" fill="${rgb(rnd(0.03,0.19))}" opacity="${rnd(0.28,0.6).toFixed(2)}"/>`;
-          }
-        }
-        const ga = Math.random() * Math.PI;
-        const x1 = (50-Math.cos(ga)*50).toFixed(1), y1 = (50-Math.sin(ga)*50).toFixed(1);
-        const x2 = (50+Math.cos(ga)*50).toFixed(1), y2 = (50+Math.sin(ga)*50).toFixed(1);
-        let marks = '';
-        const mk = (v, rmin, rmax) => {
-          const ang = rnd(0, Math.PI*2), rad = rnd(52, 114);
-          return `<circle cx="${(cx+Math.cos(ang)*rad).toFixed(1)}" cy="${(cy+Math.sin(ang)*rad).toFixed(1)}" r="${rnd(rmin,rmax).toFixed(2)}" fill="${rgb(v)}"/>`;
-        };
-        for (let i = 0; i < 3; i++) marks += mk(rnd(0.97, 1), 2.6, 5.4);
-        for (let i = 0; i < 3; i++) marks += mk(rnd(0, 0.04), 3.0, 6.8);
-        scene.innerHTML = `
-          <defs>
-            <linearGradient id="glyphGrad" x1="${x1}%" y1="${y1}%" x2="${x2}%" y2="${y2}%">
-              <stop offset="0%" stop-color="${rgb(rnd(0.94,1))}"/><stop offset="100%" stop-color="${rgb(rnd(0.42,0.55))}"/>
-            </linearGradient>
-            <linearGradient id="bgGrad" x1="0%" y1="0%" x2="0%" y2="100%">
-              <stop offset="0%" stop-color="${rgb(rnd(0.05,0.10))}"/><stop offset="100%" stop-color="${rgb(rnd(0.10,0.16))}"/>
-            </linearGradient>
-          </defs>
-          <rect x="-90" y="-90" width="480" height="480" fill="url(#bgGrad)"/>
-          <g>${grain}</g>
-          <circle cx="${cx}" cy="${cy}" r="96" fill="none" stroke="${rgb(0.22)}" stroke-width="2"/>
-          <g>${marks}</g>
-          <text x="${cx}" y="${cy+58}" font-family="Georgia, 'Times New Roman', serif"
-                font-size="170" font-weight="700" text-anchor="middle" fill="url(#glyphGrad)">${glyph}</text>
-          <g>${contam}</g>
-          <g opacity="0.9">${bars}</g>`;
+      function buildScene(lo, hi) {
+        scene.innerHTML = `<image href="${microstructure(opts.structure, lo, hi)}"
+          x="${SCENE_O}" y="${SCENE_O}" width="${SCENE}" height="${SCENE}"/>`;
       }
 
       function newSample() {
         const span = rnd(0.60, 0.80);
         const mid = 0.5 + rsign() * 0.26 * span;
-        buildScene(GLYPHS[Math.floor(Math.random() * GLYPHS.length)],
-                   Math.max(0.03, mid - span / 2), Math.min(0.97, mid + span / 2));
+        buildScene(Math.max(0.03, mid - span / 2), Math.min(0.97, mid + span / 2));
         S.f0 = rsign() * F_MAX * 0.7;
         const aMag = A_MAX * rnd(0.45, 1), aAng = rnd(0, Math.PI * 2);
         S.aX = Math.cos(aAng) * aMag; S.aY = Math.sin(aAng) * aMag;
@@ -316,7 +367,7 @@
         });
       }
 
-      buildScene(opts.idleGlyph || 'あ', 0.12, 0.62);
+      buildScene(0.08, 0.92);
 
       return {
         start() {
