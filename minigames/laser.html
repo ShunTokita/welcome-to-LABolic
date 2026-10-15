@@ -97,7 +97,8 @@
   ];
 
   // ---- stains ----
-  const powder = () => { const v = 100 + Math.random() * 30; return [v, v, v + 6]; };
+  // Spent metal powder: bright grey, catching the light against the panels.
+  const powder = () => { const v = 180 + Math.random() * 30; return [v, v, v + 8]; };
   const dirt = [
     // Spilt powder on the floor and the table edge, soot up the back wall.
     ...[[-0.5, 0.25], [0.5, 0.3], [-0.45, -0.3], [0.45, -0.25]].map(([x, z]) =>
@@ -107,8 +108,8 @@
     // Fume on the inside of the door glass (it lies glass-up on the table).
     { part: 'door', p: [0.15, -0.5, -0.012], n: [0, 0, -1], r: 0.1, c: [120, 116, 104] },
     // Powder caked in the nozzle and on the head's window.
-    { part: 'nozzle', p: [0.0, 0.05, 0.043], n: [0, -0.4, 1], r: 0.03, c: powder() },
-    { part: 'head', p: [0.0, -0.002, 0.0], n: [0, -1, 0], r: 0.05, c: [140, 136, 120] },
+    { part: 'nozzle', p: [0.0, 0.05, 0.043], n: [0, -0.4, 1], r: 0.03, c: powder(), spread: 0.02, count: 4 },
+    { part: 'head', p: [0.0, -0.002, 0.0], n: [0, -1, 0], r: 0.05, c: [140, 136, 120], spread: 0.05 },
     // Spatter on the build plate.
     { part: 'plate', p: [0.1, 0.026, 0.05], n: [0, 1, 0], r: 0.05, c: [80, 78, 84] },
     { part: 'plate', p: [-0.15, 0.026, -0.1], n: [0, 1, 0], r: 0.05, c: [80, 78, 84] },
@@ -202,7 +203,8 @@
       hud: 'DED cell',
       view: { target: [0, -0.1, 0], dist: 3.0, height: 1.2, fov: 40, az: 0.35 },
       tray: { target: [TRAY[0], -0.3, 0.1], dist: 2.5, height: 2.0, fov: 38 },
-      scenery, parts, dirt, special,
+      cleanView: { target: [0, -0.25, 0], dist: 2.0, height: 0.7, fov: 42 },
+      scenery, parts, dirt, special, dirtCount: 8,
     }),
   });
 })();

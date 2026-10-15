@@ -84,16 +84,18 @@
 
   // Stains: on the fixed half's cavity (cleaned in place) and on the loose
   // half's cavity and in the cup (cleaned on the table).
+  // Burnt-on mould dressing and oxide scale: pale against the dark steel.
+  const SCALE = [184, 156, 112];
   const dirt = [];
   for (const [y, z] of [[0.15, -0.08], [-0.1, 0.1], [-0.05, -0.1], [0.12, 0.11]]) {
-    dirt.push({ p: [0.012, y, z], n: [1, 0, 0], r: 0.045 });
+    dirt.push({ p: [0.012, y, z], n: [1, 0, 0], r: 0.045, c: SCALE });
   }
   for (const [y, z] of [[0.13, 0.08], [-0.12, -0.06], [0.0, 0.12], [-0.08, 0.1]]) {
-    dirt.push({ part: 'half', p: [-0.262, y, z], n: [-1, 0, 0], r: 0.045 });
+    dirt.push({ part: 'half', p: [-0.262, y, z], n: [-1, 0, 0], r: 0.045, c: SCALE });
   }
   // Inside the cup: on the cone wall, facing inward and up.
-  dirt.push({ part: 'cup', p: [0.105, 0.09, 0.0], n: [-0.85, 0.5, 0], r: 0.03 });
-  dirt.push({ part: 'cup', p: [-0.07, 0.09, 0.08], n: [0.6, 0.5, -0.65], r: 0.03 });
+  dirt.push({ part: 'cup', p: [0.105, 0.09, 0.0], n: [-0.85, 0.5, 0], r: 0.03, spread: 0.03, count: 4, c: SCALE });
+  dirt.push({ part: 'cup', p: [-0.07, 0.09, 0.08], n: [0.6, 0.5, -0.65], r: 0.03, spread: 0.03, count: 4, c: SCALE });
 
   MG.mount(document.getElementById('mg'), {
     id: 'casting',
@@ -105,7 +107,8 @@
       hud: 'Split mould',
       view: { target: [0, 0, 0], dist: 2.7, height: 1.2, fov: 38, az: 0.75 },
       tray: { target: [TRAY[0], -0.3, 0.1], dist: 2.3, height: 1.9, fov: 38 },
-      scenery, parts, dirt,
+      cleanView: { target: [0, 0, 0], dist: 1.7, height: 0.6, fov: 38 },
+      scenery, parts, dirt, dirtCount: 6,
     }),
   });
 })();

@@ -23,6 +23,7 @@
 //   ctx.judge(q)     score one attempt (0..1); returns the rank
 //   ctx.flash(msg, color)
 //   ctx.fail(reason) end the run as a failure
+//   ctx.note(text)   a line (a score, say) for the result screen
 //   ctx.running      true between Start and the result screen
 //   ctx.hits         Excellent judgements so far in this run
 (function(){
@@ -139,6 +140,7 @@
       },
       flash,
       fail(reason) { if (st.running) finish(false, reason); },
+      note(t) { st.note = t; },
     };
 
     const game = def.build(body, ctx);
@@ -183,7 +185,7 @@
     }
 
     function start() {
-      st.running = true; st.hits = 0; st.cleared = false;
+      st.running = true; st.hits = 0; st.cleared = false; st.note = '';
       drawPips();
       overlay.classList.remove('on');
       game.start();
@@ -195,7 +197,8 @@
       if (ok) markCleared(def.id);
       game.stop && game.stop();
       // Let the last judge popup play before the overlay covers it.
-      setTimeout(() => showOverlay(ok, ok ? '一括処理が使えるようになりました。' : reason), 700);
+      const note = st.note ? st.note + '　' : '';
+      setTimeout(() => showOverlay(ok, note + (ok ? '一括処理が使えるようになりました。' : reason || '')), 700);
     }
 
     q('.mg-start').addEventListener('click', start);

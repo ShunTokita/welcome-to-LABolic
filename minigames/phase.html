@@ -112,14 +112,14 @@
     ...[[0.32, 0.15], [-0.3, 0.2], [0.2, -0.3], [-0.25, -0.28]].map(([x, z]) =>
       ({ p: [x, Y0, z], n: [0, 1, 0], r: 0.06, c: residue() })),
     ...[0.7, 2.3, 4.2].map(t => ({ p: [Math.sin(t) * (R - 0.002), Y0 + 0.35, Math.cos(t) * (R - 0.002)],
-      n: [-Math.sin(t), 0, -Math.cos(t)], r: 0.07, c: residue() })),
+      n: [-Math.sin(t), 0, -Math.cos(t)], r: 0.07, c: residue(), cyl: [0, 0, R], spread: 0.12 })),
     { part: 'hatch', p: [0.18, -0.001, 0.1], n: [0, -1, 0], r: 0.06, c: residue() },
     { part: 'hatch', p: [-0.15, -0.001, -0.2], n: [0, -1, 0], r: 0.06, c: residue() },
-    { part: 'probe', p: [0.0, -0.1, 0.034], n: [0, 0, 1], r: 0.03, c: residue() },
-    { part: 'probe', p: [0.0, -0.1, -0.034], n: [0, 0, -1], r: 0.03, c: residue() },
+    { part: 'probe', p: [0.0, -0.1, 0.034], n: [0, 0, 1], r: 0.03, c: residue(), spread: 0.02, count: 4 },
+    { part: 'probe', p: [0.0, -0.1, -0.034], n: [0, 0, -1], r: 0.03, c: residue(), spread: 0.02, count: 4 },
     { part: 'stage', p: [0.1, 0.051, 0.05], n: [0, 1, 0], r: 0.05, c: residue() },
     { part: 'stage', p: [-0.1, 0.051, -0.08], n: [0, 1, 0], r: 0.05, c: residue() },
-    { part: 'cell', p: [0.0, 0.15, 0.082], n: [0, 0, 1], r: 0.04, c: [90, 80, 60] },
+    { part: 'cell', p: [0.0, 0.15, 0.082], n: [0, 0, 1], r: 0.04, c: [90, 80, 60], spread: 0.04, count: 4 },
   ];
 
   // ---- special: recharge the cell in three stages ----
@@ -219,7 +219,8 @@
       // Steep enough to see the vessel floor over the rim.
       view: { target: [0, -0.45, 0], dist: 2.0, height: 3.0, fov: 42, az: 0.5 },
       tray: { target: [TRAY[0], -0.3, 0.0], dist: 2.6, height: 2.1, fov: 38 },
-      scenery, parts, dirt, special,
+      cleanView: { target: [0, -0.45, 0], dist: 1.1, height: 2.0, fov: 44 },
+      scenery, parts, dirt, special, dirtCount: 9,
     }),
   });
 })();

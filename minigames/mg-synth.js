@@ -7,15 +7,21 @@
 //     hud,                         // top-left label on the stage
 //     view:  { target, dist, height, fov },   // orbit camera on the device
 //     tray:  { target, dist, height, fov },   // camera on the parts table
+//     cleanView: { ... },          // closer in on the device while cleaning (optional)
 //     scenery: [mesh, ...],        // fixed: base, chamber, bench, table
 //     parts: [{ id, name, mesh, at, tray, needs }],
 //        at     matrix of the part when assembled
 //        tray   matrix of the part laid on the parts table
 //        needs  ids of parts sitting on top of it: they come off first,
 //               and go back on after it
-//     dirt:  [{ p, n, r, part? }],  // a stain at point p with normal n,
-//        in world space, or in the part's own space when `part` is given
-//        (those are cleaned on the parts table)
+//     dirt:  [{ p, n, r, part?, count?, spread?, cyl? }],
+//        a dirty patch centred at p on a surface with normal n, in world
+//        space, or in the part's own space when `part` is given (those are
+//        cleaned on the parts table). It becomes `count` (default 7) small
+//        stains of about 0.4 r scattered over `spread` (default 2.4 r) in
+//        the surface's plane, or round a cylinder wall when `cyl` gives its
+//        axis and radius [cx, cz, R] (axis along y).
+//     dirtCount: stains per patch unless the patch says (default 7)
 //     special: { ... } | null,     // see runSpecial below
 //   })
 //
@@ -23,17 +29,21 @@
 //   分解     tap the glowing parts; a part with something still on top of
 //            it will not come off (and says what to remove first)
 //   清掃     rub the stains off the inside of the apparatus; ◀ ▶ walk the
-//            camera round to reach the far side
+//            camera round to reach the far side. The removal rate (by
+//            stain area) is the score; at 90 % the Next button opens, and
+//            the dirt scanner (three uses a game) marks what is left
 //   部品清掃  the same on the parts table
 //   (special) the device's own task
 //   組立     tap the glowing ghosts to put each part back
-// Finishing is the clear: the spec scores synthesis on completion.
+// Finishing is the clear; the overall removal rate is the score.
 (function(){
   "use strict";
   const { Renderer, mat, build } = M3;
 
   const HL = [95, 227, 255];          // highlight colour (the guide colour)
-  const RUB = 90;                     // canvas px of rubbing to clear a stain
+  const RUB = 30;                     // buffer px of rubbing to clear a stain
+  const PASS = 0.9;                   // removal rate that opens Next
+  const SCANS = 3, SCAN_T = 4;        // scanner uses per game, seconds it shows
   const FLY_T = 0.8;                  // seconds for a part to travel
 
   const lerpM = (a, b, t) => a.map((v, i) => v + (b[i] - v) * t);
@@ -56,6 +66,8 @@
           <div class="pc-buttons" id="btns">
             <button class="pc-btn" id="rotL">◀</button>
             <button class="pc-btn" id="rotR">▶</button>
+            <button class="pc-btn sy-cl" id="scan">スキャン<small id="scanN"></small></button>
+            <button class="pc-btn act sy-cl" id="next" disabled>次へ</button>
           </div>
         </div>`;
       const $ = id => body.querySelector('#' + id);
@@ -91,21 +103,47 @@
       const parts = cfg.parts.map((d, i) => ({ d, mesh: d.mesh, pick: 100 + i, where: 'on', fly: null }));
       parts.forEach(p => { p.mesh.pick = p.pick; p.mesh.m = p.d.at; });
       const byId = id => parts.find(p => p.d.id === id);
-      const dirt = cfg.dirt.map((d, i) => {
-        const n = 10, radii = [];
-        for (let j = 0; j < n; j++) radii.push(d.r * (0.7 + Math.random() * 0.5));
-        const col = d.c || [92 + Math.random() * 30, 74 + Math.random() * 20, 52 + Math.random() * 14];
-        const mesh = build.blob(radii, col);
-        mesh.pick = 1000 + i; mesh.ds = true;
-        // Lift the stain off the surface a hair so it never z-fights.
-        const nn = Math.hypot(...d.n), off = 0.006;
-        const p = [d.p[0] + d.n[0] / nn * off, d.p[1] + d.n[1] / nn * off, d.p[2] + d.n[2] / nn * off];
-        return { d, mesh, local: mat.orient(p, d.n), hp: 1, part: d.part ? byId(d.part) : null };
-      });
+      const dirt = [];
+      for (const d of cfg.dirt) {
+        const count = d.count ?? cfg.dirtCount ?? 7, spread = d.spread ?? d.r * 2.4;
+        const B0 = mat.orient(d.p, d.n);
+        const xd = [B0[0], B0[4], B0[8]], yd = [B0[1], B0[5], B0[9]];
+        for (let k = 0; k < count; k++) {
+          let p, n;
+          if (d.cyl) {
+            // Round a cylinder wall: spread along the arc and up the axis.
+            const [cx, cz, R] = d.cyl;
+            const inward = (d.p[0] - cx) * d.n[0] + (d.p[2] - cz) * d.n[2] < 0;
+            const a = Math.atan2(d.p[0] - cx, d.p[2] - cz) + (Math.random() - 0.5) * 2 * spread / R;
+            const rr = R * (inward ? 0.997 : 1.003);
+            p = [cx + Math.sin(a) * rr, d.p[1] + (Math.random() - 0.5) * 2 * spread, cz + Math.cos(a) * rr];
+            n = inward ? [-Math.sin(a), 0, -Math.cos(a)] : [Math.sin(a), 0, Math.cos(a)];
+          } else {
+            const rad = spread * Math.sqrt(Math.random()), a = Math.random() * Math.PI * 2;
+            p = d.p.map((v, i) => v + xd[i] * Math.cos(a) * rad + yd[i] * Math.sin(a) * rad);
+            n = d.n;
+          }
+          const rs = d.r * 0.42 * (0.7 + Math.random() * 0.6);
+          const radii = [];
+          for (let j = 0; j < 9; j++) radii.push(rs * (0.65 + Math.random() * 0.6));
+          // One brightness factor per stain (not per channel, which tints it).
+          // Stains ignore the lighting so a stain on a face turned from the
+          // lamp still shows: finding them is the scanner's job, not the shadows'.
+          const kc = 0.82 + Math.random() * 0.3;
+          const mesh = build.blob(radii, (d.c || [92, 74, 52]).map(v => v * kc));
+          mesh.f.forEach(f => { f.e = true; });
+          mesh.pick = 1000 + dirt.length; mesh.ds = true;
+          // Lift the stain off the surface a hair so it never z-fights.
+          const nn = Math.hypot(...n), off = 0.006;
+          const q = [p[0] + n[0] / nn * off, p[1] + n[1] / nn * off, p[2] + n[2] / nn * off];
+          dirt.push({ d, mesh, local: mat.orient(q, n), hp: 1, w: rs * rs, part: d.part ? byId(d.part) : null });
+        }
+      }
 
       let S;
       function reset() {
-        S = { phase: 'disasm', done: false, t: 0, dust: [], sparks: [], mistakes: 0 };
+        S = { phase: 'disasm', done: false, t: 0, dust: [], sparks: [], mistakes: 0,
+              scans: SCANS, scanT: 0, next: false };
         parts.forEach(p => { p.where = 'on'; p.fly = null; p.mesh.m = p.d.at; p.mesh.over = null; p.mesh.tint = null; p.mesh.hidden = false; });
         dirt.forEach(s => { s.hp = 1; });
         cam.az = cfg.view.az ?? 0.5; setView(cfg.view);
@@ -117,7 +155,26 @@
       const removable = p => p.where === 'on' && !p.fly && (p.d.needs || []).every(id => byId(id).where === 'off');
       const installable = p => p.where === 'off' && !p.fly &&
         parts.every(q => !(q.d.needs || []).includes(p.d.id) || q.where === 'on');
-      const stainsLeft = onParts => dirt.filter(s => s.hp > 0 && !!s.part === onParts).length;
+      // Removal rate, by stain area, over the device's stains or the parts'
+      // (or both, for the score).
+      function removal(onParts) {
+        let tot = 0, left = 0;
+        for (const s of dirt) {
+          if (onParts !== undefined && !!s.part !== onParts) continue;
+          tot += s.w; left += s.w * Math.max(0, s.hp);
+        }
+        return tot ? 1 - left / tot : 1;
+      }
+      const cleaning = () => S.phase === 'clean' || S.phase === 'parts';
+      const phaseRate = () => removal(S.phase === 'parts');
+
+      $('next').addEventListener('click', () => {
+        if (ctx.running && cleaning() && phaseRate() >= PASS) S.next = true;
+      });
+      $('scan').addEventListener('click', () => {
+        if (!ctx.running || !cleaning() || S.scans <= 0 || S.scanT > 0) return;
+        S.scans--; S.scanT = SCAN_T;
+      });
 
       function fly(p, to, then) {
         p.fly = { from: p.mesh.m, to, t: 0, then };
@@ -194,9 +251,11 @@
         const order = phases.map(p => p[0]);
         if (S.phase === 'disasm' && parts.every(p => p.where === 'off')) {
           S.phase = 'clean';
-        } else if (S.phase === 'clean' && stainsLeft(false) === 0) {
-          S.phase = 'parts'; setView(cfg.tray);
-        } else if (S.phase === 'parts' && stainsLeft(true) === 0) {
+          if (cfg.cleanView) setView(cfg.cleanView);
+        } else if (S.phase === 'clean' && (S.next || removal(false) >= 1)) {
+          S.phase = 'parts'; S.next = false; S.scanT = 0; setView(cfg.tray);
+        } else if (S.phase === 'parts' && (S.next || removal(true) >= 1)) {
+          S.next = false; S.scanT = 0;
           if (cfg.special) { S.phase = 'special'; cfg.special.start(api); }
           else { S.phase = 'asm'; setView(cfg.view); }
         } else if (S.phase === 'special' && cfg.special.done(api)) {
@@ -205,8 +264,10 @@
           S.phase = 'asm'; setView(cfg.view);
         } else if (S.phase === 'asm' && parts.every(p => p.where === 'on' && !p.fly)) {
           S.phase = 'done';
-          ctx.flash('組み立て完了！', '#5fd38a');
-          ctx.judge(1);
+          const rate = removal();
+          ctx.flash(`組み立て完了！ 除去率 ${(rate * 100).toFixed(1)}%`, '#5fd38a');
+          ctx.note(`除去率 ${(rate * 100).toFixed(1)}%`);
+          ctx.judge(rate);
         }
         void order;
       }
@@ -229,6 +290,7 @@
         S.dust = S.dust.filter(d => (d.t += dt) < 0.6);
         for (const d of S.dust) { d.x += d.vx * dt; d.y += d.vy * dt; d.vy += 160 * dt; }
         S.sparks = S.sparks.filter(s => (s.t += dt) < 0.5);
+        S.scanT = Math.max(0, S.scanT - dt);
       }
 
       function render() {
@@ -247,8 +309,6 @@
           if (s.part && s.part.where === 'on' && !s.part.fly && S.phase !== 'parts' && S.phase !== 'disasm') continue;
           const sc = 0.35 + 0.65 * s.hp;
           s.mesh.m = mat.mul(s.part ? partMatrix(s.part) : mat.id(), mat.mul(s.local, mat.sc(sc, sc, 1)));
-          const live = ctx.running && (S.phase === 'clean' && !s.part || S.phase === 'parts' && s.part);
-          s.mesh.tint = live ? [255, 150, 60, 0.15 + pulse * 0.3] : null;
           meshes.push(s.mesh);
         }
         if (S.phase === 'special' && cfg.special.meshes) meshes.push(...cfg.special.meshes(api));
@@ -263,7 +323,35 @@
             g.beginPath(); g.moveTo(s.x - r, s.y); g.lineTo(s.x + r, s.y); g.moveTo(s.x, s.y - r); g.lineTo(s.x, s.y + r); g.stroke();
           }
           if (S.phase === 'special' && cfg.special.overlay) cfg.special.overlay(g, api);
+          if (S.scanT > 0) drawScan(g);
         });
+      }
+
+      // The scanner: a sweep out from the centre, then a marker on every
+      // stain still left in this phase. A stain hidden behind something
+      // gets a dashed marker: it is there, but the view has to move.
+      function drawScan(g) {
+        const age = SCAN_T - S.scanT, fade = Math.min(1, S.scanT / 0.6);
+        if (age < 0.7) {
+          g.strokeStyle = `rgba(95,227,255,${(0.8 * (1 - age / 0.7)).toFixed(2)})`;
+          g.lineWidth = 2;
+          g.beginPath(); g.arc(r3.w / 2, r3.h / 2, age / 0.7 * r3.w * 0.8, 0, Math.PI * 2); g.stroke();
+        }
+        const onParts = S.phase === 'parts';
+        for (const s of dirt) {
+          if (s.hp <= 0 || !!s.part !== onParts) continue;
+          const q = r3.project(stainWorld(s, [0, 0, 0]));
+          if (!q || age < Math.min(0.7, Math.hypot(q[0] - r3.w / 2, q[1] - r3.h / 2) / (r3.w * 0.8) * 0.7)) continue;
+          const x = q[0] | 0, y = q[1] | 0;
+          const seen = x >= 0 && y >= 0 && x < r3.w && y < r3.h && r3.pk[y * r3.w + x] === s.mesh.pick;
+          const rad = 5 + 2 * Math.sin(S.t * 8);
+          g.strokeStyle = `rgba(95,227,255,${(fade * (seen ? 1 : 0.6)).toFixed(2)})`;
+          g.lineWidth = seen ? 2 : 1;
+          g.setLineDash(seen ? [] : [2, 2]);
+          g.beginPath(); g.arc(q[0], q[1], rad, 0, Math.PI * 2); g.stroke();
+        }
+        g.setLineDash([]);
+        g.lineWidth = 1;
       }
 
       function hud() {
@@ -274,18 +362,24 @@
         const off = parts.filter(p => p.where === 'off').length, n = parts.length;
         const txt = {
           disasm: `外した部品 ${off} / ${n}`,
-          clean: `装置内の汚れ 残り ${stainsLeft(false)}`,
-          parts: `部品の汚れ 残り ${stainsLeft(true)}`,
+          clean: `装置内の除去率 ${(removal(false) * 100).toFixed(1)}%（90%で次へ）`,
+          parts: `部品の除去率 ${(removal(true) * 100).toFixed(1)}%（90%で次へ）`,
           special: cfg.special ? cfg.special.status(api) : '',
           asm: `取り付けた部品 ${n - off} / ${n}`,
           done: '完了',
         }[S.phase];
         $('count').textContent = txt;
+        // Scanner and Next only while cleaning.
+        body.querySelectorAll('.sy-cl').forEach(el => { el.style.display = cleaning() ? '' : 'none'; });
+        $('scanN').textContent = `×${S.scans}`;
+        $('scan').disabled = !ctx.running || S.scans <= 0 || S.scanT > 0;
+        $('next').disabled = !ctx.running || !cleaning() || phaseRate() < PASS;
         $('sState').textContent = phases.find(p => p[0] === S.phase)?.[1] || 'done';
         if (!ctx.running || S.phase === 'done') return tips.hide();
+        if (cleaning() && phaseRate() >= PASS) return tips.show($('next'), phaseRate() >= 1 ? '完璧！' : '90%を超えた！次へ進める');
         const tipText = {
           disasm: '光っている部品をタップして外そう！',
-          clean: '汚れをこすって落とそう！ ◀▶で回り込める',
+          clean: '汚れをこすって落とそう！ 見つからなければスキャン',
           parts: '部品の汚れも落とそう！',
           asm: '光っている場所をタップして取り付けよう！',
         }[S.phase];
