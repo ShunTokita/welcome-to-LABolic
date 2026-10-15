@@ -6,7 +6,9 @@
 (function(){
   "use strict";
 
-  // One prompt bubble, centred above whichever element it is pointing at.
+  // One prompt bubble above whichever element it is pointing at: centred
+  // on it where there is room, slid inward at the edges with its arrow
+  // still on the element.
   function tips(root) {
     const pc = root.querySelector('.pc');
     const tip = document.createElement('div');
@@ -19,9 +21,12 @@
         cur = el; text = t;
         const a = el.getBoundingClientRect(), b = pc.getBoundingClientRect();
         tip.textContent = t;
-        tip.style.left = (a.left + a.width / 2 - b.left) + 'px';
-        tip.style.top = (a.top - b.top) + 'px';
         tip.classList.add('on');
+        const cx = a.left + a.width / 2 - b.left, half = tip.offsetWidth / 2;
+        const x = Math.max(half + 2, Math.min(b.width - half - 2, cx));
+        tip.style.left = x + 'px';
+        tip.style.top = (a.top - b.top) + 'px';
+        tip.style.setProperty('--ax', (cx - x) + 'px');
       },
       hide() { cur = null; text = ''; tip.classList.remove('on'); },
     };
