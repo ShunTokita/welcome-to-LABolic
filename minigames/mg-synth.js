@@ -74,10 +74,11 @@
         cam.height += (g.height - cam.height) * k;
         cam.fov += ((g.fov || 38) - cam.fov) * k;
         cam.az += cam.spin * dt;
-        // A view may fix the angle too (a close-up that only reads from one
-        // side); ease toward it the short way round.
-        if (g.az !== undefined && !cam.spin) {
-          const d = Math.atan2(Math.sin(g.az - cam.az), Math.cos(g.az - cam.az));
+        // A view may fix the angle (`fixAz`: a close-up that only reads from
+        // one side); ease toward it the short way round. A device view's
+        // `az` is only where the camera starts.
+        if (g.fixAz !== undefined && !cam.spin) {
+          const d = Math.atan2(Math.sin(g.fixAz - cam.az), Math.cos(g.fixAz - cam.az));
           cam.az += d * k;
         }
         const t = cam.target;

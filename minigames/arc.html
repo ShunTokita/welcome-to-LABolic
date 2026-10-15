@@ -134,7 +134,7 @@
     reset() { G = { p: 0, holding: false, spin: 0, wheel: 0, sparks: [], doneT: 0 }; },
     start(api) {
       special.reset();
-      api.setView({ target: [GRIND[0] - 0.4, GRIND[1], GRIND[2]], dist: 1.9, height: 0.6, fov: 36, az: 0.35 });
+      api.setView({ target: [GRIND[0] - 0.4, GRIND[1], GRIND[2]], dist: 1.9, height: 0.6, fov: 36, fixAz: 0.35 });
       api.panel(`<div class="pc-gauge"><span class="k">先端</span>
         <div class="pc-meter"><div class="pc-fill danger" id="gF"></div></div></div>`);
       api.buttons(`<button class="pc-btn act sy-sp" id="grind">研磨（長押し）</button>`);
