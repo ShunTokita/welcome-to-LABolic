@@ -25,17 +25,26 @@
   const { mat, build } = M3;
   const B = build;
 
-  const steel = [124, 136, 152], cav = [70, 74, 84], clampC = [176, 74, 52], bolt = [196, 200, 206];
+  const steel = [124, 136, 152], clampC = [176, 74, 52], bolt = [196, 200, 206];
   const TRAY = [6, 0, 0];
 
-  // One mould half, centred on its own origin: a block with the cavity
-  // (a dark recess) on the parting face, which faces -x for the loose half.
+  // One mould half, centred on its own origin, with its parting face at
+  // x = face * 0.25 (+x for the fixed half, -x for the loose one). The
+  // cavity is a real pocket DEPTH deep, with a runner groove up to the top
+  // for the cup: the half is built as a back block plus the frame of steel
+  // round the pocket.
+  const DEPTH = 0.12, POCKET_Y = [-0.2, 0.24], POCKET_Z = 0.17, RUNNER_Z = 0.035;
   function half(face) {
+    const fx = face * (0.25 - DEPTH / 2);            // centre of the frame slab
+    const slab = (y0, y1, z0, z1, col) =>
+      B.at(B.box(DEPTH, y1 - y0, z1 - z0, col || steel), mat.tr(fx, (y0 + y1) / 2, (z0 + z1) / 2));
     return B.merge([
-      B.box(0.5, 0.7, 0.6, steel),
-      B.at(B.box(0.02, 0.44, 0.34, cav), mat.tr(face * 0.25, 0.02, 0)),
-      // A runner from the cup down into the cavity.
-      B.at(B.box(0.02, 0.14, 0.06, cav), mat.tr(face * 0.25, 0.28, 0)),
+      B.at(B.box(0.5 - DEPTH, 0.7, 0.6, steel), mat.tr(-face * DEPTH / 2, 0, 0)),   // back block; its face is the pocket floor
+      slab(-0.35, POCKET_Y[0], -0.3, 0.3),                                         // below the pocket
+      slab(POCKET_Y[0], POCKET_Y[1], -0.3, -POCKET_Z),                             // either side
+      slab(POCKET_Y[0], POCKET_Y[1], POCKET_Z, 0.3),
+      slab(POCKET_Y[1], 0.35, -0.3, -RUNNER_Z),                                    // above, split by the runner
+      slab(POCKET_Y[1], 0.35, RUNNER_Z, 0.3),
     ]);
   }
   // A clamp over the top of both halves: a bar, two cheeks, two bolt heads.
@@ -87,11 +96,14 @@
   // Burnt-on mould dressing and oxide scale: pale against the dark steel.
   const SCALE = [184, 156, 112];
   const dirt = [];
-  for (const [y, z] of [[0.15, -0.08], [-0.1, 0.1], [-0.05, -0.1], [0.12, 0.11]]) {
-    dirt.push({ p: [0.012, y, z], n: [1, 0, 0], r: 0.045, c: SCALE });
+  // On the pocket floors, kept inside the pocket (spread 0.05 from centres
+  // at least 0.08 in from its walls).
+  const FLOOR = 0.25 - DEPTH;
+  for (const [y, z] of [[0.12, -0.06], [-0.08, 0.06], [-0.1, -0.07], [0.1, 0.07]]) {
+    dirt.push({ p: [-0.25 + FLOOR, y, z], n: [1, 0, 0], r: 0.045, c: SCALE, spread: 0.05 });
   }
-  for (const [y, z] of [[0.13, 0.08], [-0.12, -0.06], [0.0, 0.12], [-0.08, 0.1]]) {
-    dirt.push({ part: 'half', p: [-0.262, y, z], n: [-1, 0, 0], r: 0.045, c: SCALE });
+  for (const [y, z] of [[0.13, 0.06], [-0.1, -0.06], [0.02, 0.08], [-0.08, 0.07]]) {
+    dirt.push({ part: 'half', p: [-FLOOR, y, z], n: [-1, 0, 0], r: 0.045, c: SCALE, spread: 0.05 });
   }
   // Inside the cup: on the cone wall, facing inward and up.
   dirt.push({ part: 'cup', p: [0.105, 0.09, 0.0], n: [-0.85, 0.5, 0], r: 0.03, spread: 0.03, count: 4, c: SCALE });

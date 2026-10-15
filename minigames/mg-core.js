@@ -88,6 +88,45 @@
     window.addEventListener('blur', release);
   }
 
+  // Sound effects, synthesised with Web Audio so nothing has to be loaded.
+  // Phones only let a page make sound after a touch, so the context is
+  // created (or resumed) on the first press anywhere in a game.
+  let ac = null;
+  function audio() {
+    try {
+      ac = ac || new (window.AudioContext || window.webkitAudioContext)();
+      if (ac.state === 'suspended') ac.resume();
+      return ac;
+    } catch (e) { return null; }
+  }
+  const sfx = {
+    // "Kirarin": three bright notes climbing an octave and a fifth, each
+    // ringing out, over a soft shimmer.
+    kirarin() {
+      const a = audio();
+      if (!a) return;
+      const t0 = a.currentTime + 0.01;
+      [1318.5, 1975.5, 2637.0].forEach((f, i) => {
+        const t = t0 + i * 0.075, o = a.createOscillator(), g = a.createGain();
+        o.type = 'triangle'; o.frequency.value = f;
+        g.gain.setValueAtTime(0, t);
+        g.gain.linearRampToValueAtTime(0.16, t + 0.008);
+        g.gain.exponentialRampToValueAtTime(0.001, t + 0.7);
+        o.connect(g); g.connect(a.destination);
+        o.start(t); o.stop(t + 0.75);
+      });
+      const o = a.createOscillator(), g = a.createGain(), lfo = a.createOscillator(), lg = a.createGain();
+      o.type = 'sine'; o.frequency.value = 3951;
+      lfo.frequency.value = 18; lg.gain.value = 60;
+      lfo.connect(lg); lg.connect(o.frequency);
+      g.gain.setValueAtTime(0, t0 + 0.1);
+      g.gain.linearRampToValueAtTime(0.05, t0 + 0.16);
+      g.gain.exponentialRampToValueAtTime(0.001, t0 + 0.9);
+      o.connect(g); g.connect(a.destination);
+      o.start(t0 + 0.1); lfo.start(t0 + 0.1); o.stop(t0 + 0.95); lfo.stop(t0 + 0.95);
+    },
+  };
+
   const esc = s => String(s).replace(/[&<>"]/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[ch]));
 
   function mount(root, def) {
@@ -96,6 +135,7 @@
     for (const ev of ['contextmenu', 'dragstart', 'selectstart']) {
       root.addEventListener(ev, e => { if (!(e.target instanceof HTMLInputElement)) e.preventDefault(); });
     }
+    root.addEventListener('pointerdown', audio, { passive: true });
     root.innerHTML = `
       <div class="mg-bar">
         <div class="mg-name"><b>${esc(def.title)}</b><span>${esc(def.subtitle || '')}</span></div>
@@ -220,5 +260,5 @@
     return { start, ctx };
   }
 
-  window.MG = { mount, isCleared, markCleared, drag, hold, RANKS, STORE_KEY };
+  window.MG = { mount, isCleared, markCleared, drag, hold, sfx, RANKS, STORE_KEY };
 })();

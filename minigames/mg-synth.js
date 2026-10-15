@@ -57,6 +57,7 @@
           <div class="pc-stage"><canvas></canvas>
             <div class="pc-hud"><div class="tl">${cfg.hud}</div><div class="tr" id="sState"></div></div>
             <div class="sy-anchor" id="anchor"></div>
+            <div class="sy-wipe" id="wipe"><i></i><b></b><b></b><b></b><b></b><b></b><b></b></div>
           </div>
           <div class="pc-gauges">
             <div class="pc-steps" id="steps">${phases.map(p => `<span>${p[1]}</span>`).join('')}</div>
@@ -143,7 +144,7 @@
       let S;
       function reset() {
         S = { phase: 'disasm', done: false, t: 0, dust: [], sparks: [], mistakes: 0,
-              scans: SCANS, scanT: 0, next: false };
+              scans: SCANS, scanT: 0, next: false, perfect: {}, autoAt: 0 };
         parts.forEach(p => { p.where = 'on'; p.fly = null; p.mesh.m = p.d.at; p.mesh.over = null; p.mesh.tint = null; p.mesh.hidden = false; });
         dirt.forEach(s => { s.hp = 1; });
         cam.az = cfg.view.az ?? 0.5; setView(cfg.view);
@@ -252,10 +253,10 @@
         if (S.phase === 'disasm' && parts.every(p => p.where === 'off')) {
           S.phase = 'clean';
           if (cfg.cleanView) setView(cfg.cleanView);
-        } else if (S.phase === 'clean' && (S.next || removal(false) >= 1)) {
-          S.phase = 'parts'; S.next = false; S.scanT = 0; setView(cfg.tray);
-        } else if (S.phase === 'parts' && (S.next || removal(true) >= 1)) {
-          S.next = false; S.scanT = 0;
+        } else if (S.phase === 'clean' && (S.next || S.autoAt && S.t >= S.autoAt)) {
+          S.phase = 'parts'; S.next = false; S.autoAt = 0; S.scanT = 0; setView(cfg.tray);
+        } else if (S.phase === 'parts' && (S.next || S.autoAt && S.t >= S.autoAt)) {
+          S.next = false; S.autoAt = 0; S.scanT = 0;
           if (cfg.special) { S.phase = 'special'; cfg.special.start(api); }
           else { S.phase = 'asm'; setView(cfg.view); }
         } else if (S.phase === 'special' && cfg.special.done(api)) {
@@ -291,6 +292,21 @@
         for (const d of S.dust) { d.x += d.vx * dt; d.y += d.vy * dt; d.vy += 160 * dt; }
         S.sparks = S.sparks.filter(s => (s.t += dt) < 0.5);
         S.scanT = Math.max(0, S.scanT - dt);
+        // Spotless: a white wipe across the stage and a chime, then on to
+        // the next phase once it has played.
+        if (ctx.running && cleaning() && !S.perfect[S.phase] && phaseRate() >= 1) {
+          S.perfect[S.phase] = true;
+          S.autoAt = S.t + 1.1;
+          const w = $('wipe');
+          w.querySelectorAll('b').forEach(b => {
+            b.style.left = (10 + Math.random() * 80) + '%';
+            b.style.top = (10 + Math.random() * 75) + '%';
+            b.style.animationDelay = (0.15 + Math.random() * 0.35).toFixed(2) + 's';
+          });
+          w.classList.remove('play'); void w.offsetWidth; w.classList.add('play');
+          MG.sfx.kirarin();
+          ctx.flash('ピカピカ！', '#ffffff');
+        }
       }
 
       function render() {
