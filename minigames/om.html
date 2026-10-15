@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Optical Minigame</title>
+<link rel="stylesheet" href="mg-core.css">
+<link rel="stylesheet" href="mg-scope.css">
+<style>
+  html,body{margin:0;height:100%;background:#0a0c0e;overscroll-behavior:none;}
+  .om-field{position:absolute;inset:0;}
+  .om-field canvas{width:100%;height:100%;}
+  /* Köhler illumination is never perfectly flat: a soft falloff to the edge
+     of the field stop. */
+  .om-vig{position:absolute;inset:0;pointer-events:none;
+    background:radial-gradient(circle at 50% 50%, transparent 55%, rgba(0,0,0,.55) 78%, #000 100%);}
+  .om-bar{position:absolute;right:12px;bottom:24px;width:22%;height:3px;background:#f2f2ea;
+    box-shadow:0 0 2px #000;pointer-events:none;}
+  .om-hud{color:rgba(30,26,18,.85);text-shadow:0 0 3px rgba(255,248,230,.6);}
+</style>
+</head>
+<body>
+<div id="mg"></div>
+<script src="mg-core.js"></script>
+<script src="mg-scope.js"></script>
+<script>
+// Optical microscope — focus.
+//
+// A bright-field image of an etched polycrystal: grains in different tones
+// (etch contrast varies with orientation), dark grain boundaries, annealing
+// twins, a few inclusions and polishing scratches. Defocus is isotropic, so
+// one control is the whole job; Light only sets how bright the field is.
+//
+// The blur is a CSS filter on a canvas drawn once per sample, which is far
+// cheaper on phones than the SVG filter the electron scopes need for their
+// directional blur.
+(function(){
+  "use strict";
+  const { ui, sharpness, S_MIN, clamp, rnd, rsign } = MGScope;
+  const K_BLUR = 0.085, F_MAX = 70;
+  const N = 300;   // canvas resolution
+
+  function drawStructure(cv) {
+    const g = cv.getContext('2d');
+    const img = g.createImageData(N, N), px = img.data;
+    const n = Math.round(rnd(28, 48));
+    const seeds = [];
+    for (let i = 0; i < n; i++) {
+      const s = { x: rnd(-20, N + 20), y: rnd(-20, N + 20), shade: rnd(0.55, 0.97) };
+      // About a third of the grains carry an annealing twin: a straight band
+      // in a different tone.
+      if (Math.random() < 0.35) {
+        const a = rnd(0, Math.PI);
+        s.tw = { nx: Math.cos(a), ny: Math.sin(a), o: rnd(-14, 8), w: rnd(3, 9), shade: rnd(0.5, 0.97) };
+      }
+      seeds.push(s);
+    }
+    for (let y = 0; y < N; y++) {
+      for (let x = 0; x < N; x++) {
+        let d1 = 1e9, d2 = 1e9, k = 0;
+        for (let i = 0; i < n; i++) {
+          const dx = x - seeds[i].x, dy = y - seeds[i].y, d = dx * dx + dy * dy;
+          if (d < d1) { d2 = d1; d1 = d; k = i; } else if (d < d2) d2 = d;
+        }
+        const s = seeds[k];
+        let v = s.shade;
+        if (s.tw) {
+          const t = (x - s.x) * s.tw.nx + (y - s.y) * s.tw.ny;
+          if (t > s.tw.o && t < s.tw.o + s.tw.w) v = s.tw.shade;
+        }
+        // Boundary where the two nearest seeds are almost equidistant.
+        const edge = Math.sqrt(d2) - Math.sqrt(d1);
+        if (edge < 1.6) v *= 0.25 + 0.4 * edge / 1.6;
+        v *= 0.96 + Math.random() * 0.06;   // etch grain
+        const o = (y * N + x) * 4;
+        px[o] = 255 * clamp(v * 0.98, 0, 1);
+        px[o + 1] = 255 * clamp(v * 0.90, 0, 1);
+        px[o + 2] = 255 * clamp(v * 0.74, 0, 1);
+        px[o + 3] = 255;
+      }
+    }
+    g.putImageData(img, 0, 0);
+    // Polishing scratches, mostly running one way as they do after a
+    // final pass on the cloth.
+    const dir = rnd(0, Math.PI);
+    g.lineCap = 'round';
+    for (let i = 0, m = 2 + Math.floor(Math.random() * 4); i < m; i++) {
+      const a = dir + rsign() * 0.25, cx = rnd(0, N), cy = rnd(0, N), L = rnd(80, 260);
+      g.strokeStyle = `rgba(40,32,20,${rnd(0.15, 0.35).toFixed(2)})`;
+      g.lineWidth = rnd(0.5, 1.2);
+      g.beginPath();
+      g.moveTo(cx - Math.cos(a) * L / 2, cy - Math.sin(a) * L / 2);
+      g.lineTo(cx + Math.cos(a) * L / 2, cy + Math.sin(a) * L / 2);
+      g.stroke();
+    }
+    // Inclusions.
+    g.fillStyle = '#1d1810';
+    for (let i = 0, m = 4 + Math.floor(Math.random() * 6); i < m; i++) {
+      g.beginPath(); g.arc(rnd(0, N), rnd(0, N), rnd(0.8, 2.4), 0, Math.PI * 2); g.fill();
+    }
+  }
+
+  function build(body, ctx) {
+    body.innerHTML = `
+      <div class="sc">
+        <div class="sc-stage" style="background:#000">
+          <div class="om-field"><canvas width="${N}" height="${N}"></canvas></div>
+          <div class="om-vig"></div>
+          <div class="om-bar"></div>
+          <div class="sc-hud om-hud">
+            <div class="tl">BF</div><div class="tr">Nital</div>
+            <div class="bl">x200</div><div class="br">50&nbsp;µm</div>
+          </div>
+        </div>
+        ${ui.quality}
+        <div class="sc-console">
+          ${ui.slider('focus', 'Focus', -100, 100)}
+          ${ui.slider('light', 'Light', -100, 100)}
+        </div>
+        ${ui.actions}
+      </div>`;
+
+    const cv = body.querySelector('canvas');
+    const S = { focus:0, light:0, f0:0 };
+    let dirty = true;
+    const focusC = ui.bindSlider(body, 'focus', v => { S.focus = v; dirty = true; });
+    const lightC = ui.bindSlider(body, 'light', v => { S.light = v; dirty = true; });
+
+    const blurOf = () => Math.max(S_MIN, K_BLUR * Math.abs(S.focus - S.f0));
+    // Isotropic defocus: the same blur along both axes.
+    function quality() { const s = blurOf(); return sharpness(s, s); }
+
+    function render() {
+      const px = (blurOf() - S_MIN) * 1.25;
+      const b = Math.pow(2, S.light / 60);
+      cv.style.filter = `blur(${px.toFixed(2)}px) brightness(${b.toFixed(3)})`;
+    }
+
+    function newSample() {
+      drawStructure(cv);
+      S.f0 = rsign() * F_MAX * 0.7;
+      S.focus = clamp(S.f0 + rsign() * 45, -100, 100);
+      // The lamp is left where the last user had it: too dim or too bright.
+      S.light = Math.round(rsign() * 70);
+      focusC.set(S.focus); lightC.set(S.light);
+      dirty = true;
+    }
+
+    ui.bindActions(body, ctx, quality, newSample);
+    drawStructure(cv);
+
+    return {
+      start: newSample,
+      tick() {
+        if (!dirty) return;
+        dirty = false;
+        render();
+        ui.showQuality(body, quality());
+      },
+    };
+  }
+
+  MG.mount(document.getElementById('mg'), {
+    id: 'om',
+    title: 'OPTICAL',
+    subtitle: 'Focus',
+    desc: 'フォーカスを合わせて結晶粒界がくっきり見えたら Capture。Light は見やすさのためで、評価には影響しない。',
+    goal: 3,
+    build,
+  });
+})();
+</script>
+</body>
+</html>
