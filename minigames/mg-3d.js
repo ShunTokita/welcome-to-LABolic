@@ -14,9 +14,16 @@
 //   r.camera([ex,ey,ez], [tx,ty,tz], fovDeg);
 //   r.draw([mesh, ...]);
 //
-// A mesh is { v: [[x,y,z], ...], f: [{ i:[a,b,c], c:[r,g,b], e:bool }, ...],
-// m: 4x4 matrix (optional), ds: double-sided }. `e` marks an emissive face:
-// drawn at full colour, unaffected by light (flames, glowing glass).
+// A mesh is { v: [[x,y,z], ...], f: [face, ...], m: 4x4 matrix (optional),
+// ds: double-sided }. A face is { i:[a,b,c], c:[r,g,b] } plus, optionally:
+//   e      emissive: full colour, unaffected by light (flames, hot glass)
+//   a      alpha 0..1: blended over what is behind it
+//   add    additive: adds c x a to what is behind it (flames, glow)
+//   glass  with `a`: edges seen at a grazing angle turn more opaque and the
+//          light leaves a specular highlight, which is what makes a clear
+//          tube readable against the background
+// Opaque faces are drawn first with the z-buffer; translucent ones after,
+// far to near, tested against the z-buffer but not writing it.
 (function(){
   "use strict";
 
@@ -86,6 +93,7 @@
       const { w, h, px, zb } = this;
       const bgc = 0xff000000 | (this.bg[2] << 16) | (this.bg[1] << 8) | this.bg[0];
       px.fill(bgc); zb.fill(Infinity);
+      const late = [];
       for (const m of meshes) {
         if (m.hidden) continue;
         const wv = m.m ? m.v.map(p => mat.apply(m.m, p)) : m.v;
@@ -96,25 +104,41 @@
           if (!A || !B || !C) continue;
           const area = (B[0]-A[0]) * (C[1]-A[1]) - (B[1]-A[1]) * (C[0]-A[0]);
           if (area === 0 || (!m.ds && area > 0)) continue;   // back face
-          let col;
-          if (f.e) col = f.c;
-          else {
+          let col = f.c, alpha = f.a ?? 1;
+          if (!f.e) {
             let n = norm(cross(sub(wv[b], wv[a]), sub(wv[c], wv[a])));
             if (area > 0) n = [-n[0], -n[1], -n[2]];   // double-sided, seen from behind
             const lit = this.ambient + (1 - this.ambient) * Math.max(0, dot(n, this.light));
             const q = Math.round(lit * this.steps) / this.steps;
             col = [f.c[0] * q, f.c[1] * q, f.c[2] * q];
+            if (f.glass) {
+              const ctr = [(wv[a][0]+wv[b][0]+wv[c][0]) / 3, (wv[a][1]+wv[b][1]+wv[c][1]) / 3, (wv[a][2]+wv[b][2]+wv[c][2]) / 3];
+              const v = norm(sub(this.eye, ctr));
+              const fres = (1 - Math.abs(dot(n, v))) ** 2;
+              const spec = Math.max(0, dot(n, norm([this.light[0]+v[0], this.light[1]+v[1], this.light[2]+v[2]]))) ** 40;
+              const sq = Math.round(spec * 3) / 3;    // banded, like the lighting
+              alpha = Math.min(1, alpha + 0.55 * fres + 0.8 * sq);
+              col = [col[0] + 255 * sq, col[1] + 255 * sq, col[2] + 255 * sq];
+            }
           }
-          const rgba = 0xff000000 | (Math.min(255, col[2]) << 16) | (Math.min(255, col[1]) << 8) | Math.min(255, col[0]);
-          this.tri(A, B, C, rgba, area);
+          if (f.add || alpha < 1) {
+            late.push({ A, B, C, area, col, alpha, add: !!f.add, z: A[2] + B[2] + C[2] });
+          } else {
+            this.tri(A, B, C, col, area, 0, 1);
+          }
         }
       }
+      late.sort((p, q) => q.z - p.z);
+      for (const t of late) this.tri(t.A, t.B, t.C, t.col, t.area, t.add ? 2 : 1, t.alpha);
       this.g.putImageData(this.img, 0, 0);
       if (overlay) overlay(this.g);
     }
 
-    tri(A, B, C, rgba, area) {
+    // mode 0: opaque, writes depth. 1: alpha blend. 2: additive.
+    tri(A, B, C, col, area, mode, alpha) {
       const { w, h, px, zb } = this;
+      const r = Math.min(255, col[0]) | 0, g = Math.min(255, col[1]) | 0, b = Math.min(255, col[2]) | 0;
+      const rgba = 0xff000000 | (b << 16) | (g << 8) | r;
       const x0 = Math.max(0, Math.floor(Math.min(A[0], B[0], C[0])));
       const x1 = Math.min(w - 1, Math.ceil(Math.max(A[0], B[0], C[0])));
       const y0 = Math.max(0, Math.floor(Math.min(A[1], B[1], C[1])));
@@ -130,33 +154,45 @@
           if (w0 < 0 || w1 < 0 || w2 < 0) continue;
           const z = w0 * A[2] + w1 * B[2] + w2 * C[2];
           const k = y * w + x;
-          if (z < zb[k]) { zb[k] = z; px[k] = rgba; }
+          if (z >= zb[k]) continue;
+          if (mode === 0) { zb[k] = z; px[k] = rgba; continue; }
+          const p0 = px[k];
+          let pr = p0 & 255, pg = (p0 >> 8) & 255, pb = (p0 >> 16) & 255;
+          if (mode === 1) {
+            pr += (r - pr) * alpha; pg += (g - pg) * alpha; pb += (b - pb) * alpha;
+          } else {
+            pr = Math.min(255, pr + r * alpha); pg = Math.min(255, pg + g * alpha); pb = Math.min(255, pb + b * alpha);
+          }
+          px[k] = 0xff000000 | ((pb | 0) << 16) | ((pg | 0) << 8) | (pr | 0);
         }
       }
     }
   }
 
   // ---- mesh builders ----
-  const quad = (f, a, b, c, d, col, e) => { f.push({ i:[a, b, c], c:col, e }, { i:[a, c, d], c:col, e }); };
+  // `k` is the face style: { c, e, a, add, glass }.
+  const quad = (f, a, b, c, d, k) => { f.push({ ...k, i:[a, b, c] }, { ...k, i:[a, c, d] }); };
 
   const build = {
     box(sx, sy, sz, col) {
       const x = sx / 2, y = sy / 2, z = sz / 2;
       const v = [[-x,-y,-z],[x,-y,-z],[x,y,-z],[-x,y,-z],[-x,-y,z],[x,-y,z],[x,y,z],[-x,y,z]];
-      const f = [];
-      quad(f, 4,5,6,7, col); quad(f, 1,0,3,2, col);   // front, back
-      quad(f, 5,1,2,6, col); quad(f, 0,4,7,3, col);   // right, left
-      quad(f, 7,6,2,3, col); quad(f, 0,1,5,4, col);   // top, bottom
+      const f = [], k = { c: col };
+      quad(f, 4,5,6,7, k); quad(f, 1,0,3,2, k);   // front, back
+      quad(f, 5,1,2,6, k); quad(f, 0,4,7,3, k);   // right, left
+      quad(f, 7,6,2,3, k); quad(f, 0,1,5,4, k);   // top, bottom
       return { v, f };
     },
 
     // Solid of revolution about the x axis. `prof` is [[x, r], ...] from
-    // one end to the other; `colorAt(i, j)` colours the band between
-    // profile points i and i+1 in angular sector j (or pass a colour).
+    // one end to the other; `colorAt(i, j)` returns the face style of the
+    // band between profile points i and i+1 in angular sector j (or pass
+    // a colour, or a style object, for the whole surface).
     // `open` leaves the ends uncapped (a tube seen from outside).
     lathe(prof, seg, colorAt, open) {
       const v = [], f = [];
-      const cf = typeof colorAt === 'function' ? colorAt : () => ({ c: colorAt });
+      const fixed = Array.isArray(colorAt) ? { c: colorAt } : colorAt;
+      const cf = typeof colorAt === 'function' ? colorAt : () => fixed;
       for (const [x, r] of prof) {
         for (let j = 0; j < seg; j++) {
           const a = j / seg * Math.PI * 2;
@@ -166,8 +202,7 @@
       for (let i = 0; i < prof.length - 1; i++) {
         for (let j = 0; j < seg; j++) {
           const j1 = (j + 1) % seg;
-          const k = cf(i, j);
-          quad(f, i*seg + j, i*seg + j1, (i+1)*seg + j1, (i+1)*seg + j, k.c, k.e);
+          quad(f, i*seg + j, i*seg + j1, (i+1)*seg + j1, (i+1)*seg + j, cf(i, j));
         }
       }
       if (!open) {
@@ -176,8 +211,8 @@
         const k0 = cf(0, 0), k1 = cf(n - 1, 0);
         for (let j = 0; j < seg; j++) {
           const j1 = (j + 1) % seg;
-          f.push({ i:[c0, j1, j], c:k0.c, e:k0.e });
-          f.push({ i:[c1, n*seg + j, n*seg + j1], c:k1.c, e:k1.e });
+          f.push({ ...k0, i:[c0, j1, j] });
+          f.push({ ...k1, i:[c1, n*seg + j, n*seg + j1] });
         }
       }
       return { v, f };

@@ -75,6 +75,8 @@
     const burner = build.cylinder(0.055, 0.36, 20, [128, 134, 142]); burner.m = mat.tr(0, -0.75, 0);
     const nozzle = build.cylinder(0.035, 0.05, 20, [170, 150, 90]);  nozzle.m = mat.tr(0, -0.39, 0);
     const hose = build.lathe([[-2.2, 0.075], [-L, 0.075]], 20, [52, 54, 60]);
+    // A back wall, so the clear tube has something to be seen against.
+    const wall = build.box(5, 3, 0.1, [70, 76, 86]); wall.m = mat.tr(0, 0.6, -1.1);
 
     let S;
     function reset() {
@@ -140,11 +142,13 @@
     }
 
     // ---- drawing ----
-    const quartz = [186, 218, 228];
-    function glow(t) {          // heat 0..1 -> emissive colour, or null when dark
-      if (t < 0.32) return null;
-      const k = Math.min(1, (t - 0.32) / 0.6);
-      return [200 + 55 * k, 70 + 170 * k, 30 + 150 * k * k];
+    // Clear fused quartz: a faint tint, made visible by its edges and
+    // highlights. Worked in the oxy-hydrogen flame it glows white.
+    const GLASS = { c:[205, 232, 240], a:0.10, glass:true };
+    function glow(t) {          // heat 0..1 -> face style, or null when not glowing
+      if (t < 0.30) return null;
+      const k = Math.min(1, (t - 0.30) / 0.5);
+      return { c:[255, 236 + 19 * k, 205 + 50 * k], e:true, a:0.25 + 0.75 * k };
     }
     function tubeProfile(x0, x1, neckX, rr, tipR) {
       const prof = [];
@@ -162,22 +166,22 @@
     }
     function tubeMesh(prof, offX) {
       const SEG = 24;
-      return build.lathe(prof, SEG, (i, j) => {
+      const m = build.lathe(prof, SEG, (i, j) => {
         const x = (prof[i][0] + prof[i + 1][0]) / 2 - offX;
         const s = Math.floor(j * NS / SEG);
         const ax = Math.exp(-((x / 0.16) ** 2));
-        const e = glow(S.h[s] * ax * 1.15);
-        if (e) return { c: e, e: true };
-        // One marked stripe so the rolling can be seen.
-        return { c: j === 0 ? [120, 150, 165] : quartz };
+        return glow(S.h[s] * ax * 1.15) || GLASS;
       }, true);
+      m.ds = true;               // the far wall shows through the near one
+      return m;
     }
 
     function flame(t) {
       const f = 1 + 0.12 * Math.sin(t * 0.031) + 0.08 * Math.sin(t * 0.077);
-      const outer = build.lathe([[0, 0.07], [0.12 * f, 0.055], [0.24 * f, 0.02]], 16, [255, 150, 50]);
-      const inner = build.lathe([[0, 0.035], [0.1 * f, 0.02], [0.15 * f, 0.004]], 16, [120, 170, 255]);
-      outer.f.forEach(x => { x.e = true; }); inner.f.forEach(x => { x.e = true; });
+      // An oxy-hydrogen flame: a pale blue envelope around a brighter cone,
+      // added onto whatever is behind so the tube shows through it.
+      const outer = build.lathe([[0, 0.07], [0.12 * f, 0.06], [0.26 * f, 0.025]], 16, { c:[50, 100, 255], e:true, add:true, a:0.45 });
+      const inner = build.lathe([[0, 0.035], [0.1 * f, 0.02], [0.15 * f, 0.004]], 16, { c:[160, 205, 255], e:true, add:true, a:0.9 });
       // Lathe builds along x; stand the cones up on the nozzle.
       outer.m = mat.chain(mat.tr(0, -0.34, 0), mat.rz(Math.PI / 2));
       inner.m = mat.chain(mat.tr(0, -0.34, 0.001), mat.rz(Math.PI / 2));
@@ -186,7 +190,7 @@
     }
 
     function render(now) {
-      const meshes = [bench, burner, nozzle, hose];
+      const meshes = [wall, bench, burner, nozzle, hose];
       const rot = mat.rx(S.th);
       if (S.phase === 'pulled') {
         // The two halves draw apart and the neck closes off at each tip.
@@ -205,6 +209,21 @@
       }
       if (S.phase === 'heat' || S.anim < 0.6) meshes.push(...flame(now));
       r3.draw(meshes, g => {
+        // White-hot glass lights up the air around it.
+        const hot = Math.max(...S.h);
+        if (S.phase !== 'leak' && hot > 0.35) {
+          const k = Math.min(1, (hot - 0.35) / 0.5) * (S.phase === 'heat' ? 1 : Math.max(0, 1 - S.anim / 1.5));
+          const p = r3.project([0, 0, 0]);
+          if (p && k > 0) {
+            const rad = 28 + 34 * k;
+            const gr = g.createRadialGradient(p[0], p[1], 0, p[0], p[1], rad);
+            gr.addColorStop(0, `rgba(255,248,230,${(0.55 * k).toFixed(3)})`);
+            gr.addColorStop(1, 'rgba(255,240,210,0)');
+            g.globalCompositeOperation = 'lighter';
+            g.fillStyle = gr; g.fillRect(p[0] - rad, p[1] - rad, rad * 2, rad * 2);
+            g.globalCompositeOperation = 'source-over';
+          }
+        }
         if (S.phase === 'leak' && S.anim < 1.2) {
           // A white-hot pinhole, then it goes dark.
           const p = r3.project([0, -0.02, R0]);
