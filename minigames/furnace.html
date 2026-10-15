@@ -16,19 +16,20 @@
 <script>
 // Furnace — vacuum sealing a quartz tube over a burner.
 //
-// The tube is rolled over the flame by tapping the two Roll buttons in
-// turn; each tap turns it a quarter. The wall is tracked in eight sectors
-// around the circumference: the one facing down takes the flame, heat
-// spreads to its neighbours, and everything loses a little to the air.
-// Tapping steadily keeps the sectors level. Pausing leaves one sector in
-// the flame, and a sector that runs well ahead of the rest thins out and
-// opens a hole.
+// One tap on Roll sets the tube turning over the flame, and it keeps
+// turning by itself; the player's job is the pull. The wall is tracked in
+// eight sectors around the circumference: the one facing down takes the
+// flame, heat spreads to its neighbours, and everything loses a little to
+// the air. Steady turning keeps the sectors level. Left unturned, one
+// sector stays in the flame, runs ahead of the rest, thins and opens a
+// hole, so Roll is the first thing to press.
 //
 // Once the glass softens, the vacuum inside pulls the neck in. Pull the
 // tube apart while the neck is in the right range: too early and the
 // drawn-out seal is thin-walled, too late and the soft tube sags.
 //
-// Score = timing of the pull x evenness of the heating while soft.
+// Score = timing of the pull (the even heating that turning gives is
+// still checked, but with automatic turning it is always met).
 (function(){
   "use strict";
   const { Renderer, mat, build } = M3;
@@ -43,7 +44,7 @@
   const THIN_EXCESS = 0.15, K_THIN = 4;   // a sector this far above mean thins
   const SAG_R = 0.18;            // neck below this: the tube sags
   const WIN = [0.31, 0.43];      // neck radius for a clean pull
-  const STEP = Math.PI / 2, ROT_T = 0.22;
+  const SPIN = 3.9;              // turning speed once rolling (rad/s)
 
   const R0 = 0.16, L = 1.35;
 
@@ -58,14 +59,9 @@
             <span class="k">Neck ⌀</span>
             <div class="pc-meter" id="neckM"><div class="pc-win" id="neckWin"></div><div class="pc-fill" id="neckF"></div></div>
           </div>
-          <div class="pc-gauge">
-            <span class="k">加熱ムラ</span>
-            <div class="pc-sectors" id="sect">${'<i></i>'.repeat(NS)}</div>
-          </div>
         </div>
         <div class="pc-buttons">
-          <button class="pc-btn" id="rollL">◀ 回す</button>
-          <button class="pc-btn" id="rollR">回す ▶</button>
+          <button class="pc-btn" id="roll">回す</button>
           <button class="pc-btn act" id="pull">引く</button>
         </div>
       </div>`;
@@ -76,35 +72,27 @@
 
     // Static scenery.
     const bench = build.box(3.6, 0.1, 1.6, [92, 80, 68]);   bench.m = mat.tr(0, -0.8, 0);
-    const burner = build.cylinder(0.055, 0.36, 10, [128, 134, 142]); burner.m = mat.tr(0, -0.75, 0);
-    const nozzle = build.cylinder(0.035, 0.05, 10, [170, 150, 90]);  nozzle.m = mat.tr(0, -0.39, 0);
-    const hose = build.lathe([[-2.2, 0.075], [-L, 0.075]], 10, [52, 54, 60]);
+    const burner = build.cylinder(0.055, 0.36, 20, [128, 134, 142]); burner.m = mat.tr(0, -0.75, 0);
+    const nozzle = build.cylinder(0.035, 0.05, 20, [170, 150, 90]);  nozzle.m = mat.tr(0, -0.39, 0);
+    const hose = build.lathe([[-2.2, 0.075], [-L, 0.075]], 20, [52, 54, 60]);
 
     let S;
     function reset() {
-      S = { h: new Array(NS).fill(0), thin: new Array(NS).fill(0), th: 0, target: 0, r: 1,
-            last: null, fumble: 0, spreadAcc: 0, spreadN: 0, phase: 'heat', anim: 0, idle: 0 };
+      S = { h: new Array(NS).fill(0), thin: new Array(NS).fill(0), th: 0, r: 1,
+            rolling: false, spreadAcc: 0, spreadN: 0, phase: 'heat', anim: 0 };
       $('pState').textContent = 'heating';
+      $('roll').disabled = false;
+      $('roll').textContent = '回す';
     }
 
     const meanH = () => S.h.reduce((a, b) => a + b) / NS;
 
-    function roll(side) {
-      if (!ctx.running || S.phase !== 'heat') return;
-      if (S.fumble > 0) return;
-      S.idle = 0;
-      if (S.last === side) {
-        // Same hand twice: the tube slips instead of turning.
-        S.fumble = 0.45;
-        ctx.flash('リズムが崩れた！', '#e2603f');
-        S.last = null;
-        return;
-      }
-      S.last = side;
-      S.target += STEP;
-    }
-    $('rollL').addEventListener('click', () => roll('L'));
-    $('rollR').addEventListener('click', () => roll('R'));
+    $('roll').addEventListener('click', () => {
+      if (!ctx.running || S.phase !== 'heat' || S.rolling) return;
+      S.rolling = true;
+      $('roll').disabled = true;
+      $('roll').textContent = '回転中';
+    });
 
     function finish(q, msg, phase) {
       S.phase = phase; S.anim = 0;
@@ -129,9 +117,7 @@
     // ---- per-frame model ----
     function step(dt) {
       if (S.phase !== 'heat') { S.anim += dt; if (S.anim > 2.2 && ctx.running) reset(); return; }
-      S.fumble = Math.max(0, S.fumble - dt);
-      S.idle += dt;
-      S.th += Math.sign(S.target - S.th) * Math.min(Math.abs(S.target - S.th), STEP / ROT_T * dt);
+      if (S.rolling) S.th += SPIN * dt;
       const h = S.h, nh = h.slice();
       for (let s = 0; s < NS; s++) {
         const c = Math.cos(s * 2 * Math.PI / NS + S.th - Math.PI);
@@ -162,7 +148,7 @@
     }
     function tubeProfile(x0, x1, neckX, rr, tipR) {
       const prof = [];
-      const n = 26;
+      const n = 44;
       for (let i = 0; i <= n; i++) {
         const u = i / n;
         // Denser sampling toward the neck.
@@ -175,7 +161,7 @@
       return prof;
     }
     function tubeMesh(prof, offX) {
-      const SEG = 12;
+      const SEG = 24;
       return build.lathe(prof, SEG, (i, j) => {
         const x = (prof[i][0] + prof[i + 1][0]) / 2 - offX;
         const s = Math.floor(j * NS / SEG);
@@ -189,8 +175,8 @@
 
     function flame(t) {
       const f = 1 + 0.12 * Math.sin(t * 0.031) + 0.08 * Math.sin(t * 0.077);
-      const outer = build.lathe([[0, 0.07], [0.12 * f, 0.055], [0.24 * f, 0.02]], 8, [255, 150, 50]);
-      const inner = build.lathe([[0, 0.035], [0.1 * f, 0.02], [0.15 * f, 0.004]], 8, [120, 170, 255]);
+      const outer = build.lathe([[0, 0.07], [0.12 * f, 0.055], [0.24 * f, 0.02]], 16, [255, 150, 50]);
+      const inner = build.lathe([[0, 0.035], [0.1 * f, 0.02], [0.15 * f, 0.004]], 16, [120, 170, 255]);
       outer.f.forEach(x => { x.e = true; }); inner.f.forEach(x => { x.e = true; });
       // Lathe builds along x; stand the cones up on the nozzle.
       outer.m = mat.chain(mat.tr(0, -0.34, 0), mat.rz(Math.PI / 2));
@@ -222,7 +208,7 @@
         if (S.phase === 'leak' && S.anim < 1.2) {
           // A white-hot pinhole, then it goes dark.
           const p = r3.project([0, -0.02, R0]);
-          if (p) { g.fillStyle = S.anim < 0.5 ? '#fff6d0' : '#222'; g.fillRect(p[0] - 1, p[1] - 1, 3, 3); }
+          if (p) { g.fillStyle = S.anim < 0.5 ? '#fff6d0' : '#222'; g.fillRect(p[0] - 2, p[1] - 2, 5, 5); }
         }
       });
     }
@@ -233,18 +219,12 @@
       const win = $('neckWin');
       win.style.left = (WIN[0] * 100) + '%';
       win.style.width = ((WIN[1] - WIN[0]) * 100) + '%';
-      const m = meanH();
-      [...$('sect').children].forEach((el, s) => {
-        const d = S.h[s] - m;
-        el.style.background = S.h[s] < 0.05 ? '#2a3038'
-          : d > THIN_EXCESS ? '#ff6a3a' : d > 0.07 ? '#e8a640' : d < -0.07 ? '#5a6f8a' : '#6fd08a';
-      });
     }
 
     function tipNow() {
       if (!ctx.running || S.phase !== 'heat') return tips.hide();
       if (meanH() > SOFT && S.r < WIN[1] + 0.12) return tips.show($('pull'), '細くなったら引こう！');
-      if (S.idle > 0.9) return tips.show($('rollL'), '交互に押して回そう！');
+      if (!S.rolling) return tips.show($('roll'), '回して加熱しよう！');
       tips.hide();
     }
 
@@ -264,7 +244,7 @@
     id: 'furnace',
     title: 'FURNACE',
     subtitle: 'Vacuum Sealing',
-    desc: '左右のボタンを交互にリズムよく押して石英管を回し、むらなく加熱する。くびれが細くなったら「引く」で封じ切る。',
+    desc: '「回す」で石英管を回しながら加熱する。真空で管がくびれていくので、ちょうどよい細さになったら「引く」で封じ切る。',
     goal: 1,
     build: build_,
   });

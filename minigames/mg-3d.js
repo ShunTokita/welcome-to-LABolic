@@ -1,16 +1,16 @@
 // A very small 3D renderer for the process and synthesis minigames.
 //
 // The main game is pixel art, so instead of a general-purpose engine this
-// rasterises flat-shaded triangles into a low-resolution buffer (192x144 by
-// default) with a z-buffer, and the canvas is scaled up with nearest-
+// rasterises flat-shaded triangles into a small buffer (384x288 by default,
+// about one buffer pixel per CSS pixel on a phone) with a z-buffer, and the canvas is scaled up with nearest-
 // neighbour sampling. Lighting is quantised to a few steps so surfaces read
 // as bands of colour, the way a pixel artist would shade them.
 //
-// At this resolution a scene of one to two thousand triangles costs a few
+// At this resolution a scene of a few thousand triangles costs a few
 // milliseconds per frame, and the file is a few KB rather than the ~600 KB
 // of three.js. Lightness on phones is the requirement this is built for.
 //
-//   const r = new M3.Renderer(canvas, { w:192, h:144, bg:[r,g,b] });
+//   const r = new M3.Renderer(canvas, { w:384, h:288, bg:[r,g,b] });
 //   r.camera([ex,ey,ez], [tx,ty,tz], fovDeg);
 //   r.draw([mesh, ...]);
 //
@@ -51,7 +51,7 @@
 
   class Renderer {
     constructor(canvas, opts = {}) {
-      this.w = opts.w || 192; this.h = opts.h || 144;
+      this.w = opts.w || 384; this.h = opts.h || 288;
       canvas.width = this.w; canvas.height = this.h;
       canvas.style.imageRendering = 'pixelated';
       this.g = canvas.getContext('2d');
@@ -61,7 +61,7 @@
       this.bg = opts.bg || [12, 14, 18];
       this.light = norm(opts.light || [-0.4, 0.8, 0.5]);
       this.ambient = opts.ambient ?? 0.35;
-      this.steps = opts.steps || 4;     // lighting quantisation
+      this.steps = opts.steps || 6;     // lighting quantisation
       this.camera([0, 0, 3], [0, 0, 0], 45);
     }
 
