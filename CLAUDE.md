@@ -33,6 +33,8 @@ build/                      プレビュー生成物（git管理外）
 ミニゲームの作業はこのブランチで行い、`subv3` には本体への統合の段階で反映する。
 仕様は `docs/minigames-spec.md`。
 プレビューは `python3 tools/minigame_preview.py [名前...]` で `build/mg-<名前>.html` を作り、Artifact として公開する。
+本体（v60〜）はストアの「講習」から `minigames/<id>.html` を iframe で開く。`tools/preview.sh` は全ミニゲームを
+`window.__MG_INLINE` として本体プレビューに埋め込むので、本体の Artifact からも講習を試せる。
 
 - 入口: https://shuntokita.github.io/welcome-to-LABolic/
 - 各版: https://shuntokita.github.io/welcome-to-LABolic/labolic-playtest-NN.html

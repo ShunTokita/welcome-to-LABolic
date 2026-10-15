@@ -7,7 +7,15 @@ links are inlined here. Output goes to build/mg-<name>.html (git-ignored).
 
 Usage: python3 tools/minigame_preview.py [name ...]   (default: all games)
        e.g. python3 tools/minigame_preview.py sem tem
+       python3 tools/minigame_preview.py --inject build/artifact-vNN.html
+
+--inject adds every game, inlined, to a preview build of the main game as
+window.__MG_INLINE = { id: html }. A preview Artifact is a single file with
+no minigames/ folder beside it, so the store's 講習 button shows the game
+through an iframe's srcdoc instead (see openMinigame in the main game).
+tools/preview.sh runs it.
 """
+import json
 import os
 import re
 import sys
@@ -35,10 +43,30 @@ def inline(path):
     return s
 
 
+def games():
+    return sorted(f[:-5] for f in os.listdir(SRC)
+                  if f.endswith('.html') and f[:-5] not in SKIP)
+
+
+def inject(path):
+    with open(path, encoding='utf-8') as f:
+        html = f.read()
+    data = {name: inline(os.path.join(SRC, name + '.html')) for name in games()}
+    # "</" would end the script element early inside the JSON strings.
+    payload = json.dumps(data, ensure_ascii=False).replace('</', '<\\/')
+    tag = '<script>window.__MG_INLINE = ' + payload + ';</script>\n'
+    with open(path, 'w', encoding='utf-8') as f:
+        f.write(tag + html)
+    print(f'{path}: {len(data)} minigames inlined ({len(tag) // 1024} KB)')
+
+
 def main(names):
+    if names[:1] == ['--inject']:
+        for path in names[1:]:
+            inject(path)
+        return
     if not names:
-        names = sorted(f[:-5] for f in os.listdir(SRC)
-                       if f.endswith('.html') and f[:-5] not in SKIP)
+        names = games()
     os.makedirs(OUT, exist_ok=True)
     for name in names:
         src = os.path.join(SRC, name + '.html')
