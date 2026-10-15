@@ -18,17 +18,7 @@
   .ag-lv span.now{background:#30264a;color:#c9b4ff;box-shadow:0 0 0 1px #6a54b0 inset;}
   .ag-lv span.done{background:#203327;color:#7fd39a;}
   .pc-meter .ag-tol{position:absolute;top:-2px;bottom:-2px;width:2px;background:var(--pc-guide);z-index:2;}
-  /* Each meter is one colour, from green (in tolerance) to red (too far
-     off to spin up), so the goal reads as "bring it down to green". */
-  .pc-fill.wob{background:#5fd38a;transition:background-color .15s;}
-  .ag-lamp{position:absolute;top:28px;right:10px;display:flex;align-items:center;gap:6px;
-    font-family:var(--pc-mono);font-size:10px;letter-spacing:.14em;color:#6c5050;}
-  .ag-lamp i{width:12px;height:12px;border-radius:50%;background:#3a2222;box-shadow:inset 0 0 3px #000;}
-  .ag-lamp.on{color:#ff6a5a;}
-  .ag-lamp.on i{background:#ff3a2a;box-shadow:0 0 10px 2px #ff3a2a;animation:agBlink .35s steps(2) infinite;}
-  @keyframes agBlink{50%{opacity:.35;}}
-  .pc-stage.ag-alarm{box-shadow:0 0 0 2px #ff3a2a inset, 0 0 18px -4px #ff3a2a;}
-  @media (prefers-reduced-motion: reduce){.ag-lamp.on i{animation:none;}}
+
 </style>
 </head>
 <body>
@@ -75,14 +65,13 @@
       <div class="pc">
         <div class="pc-stage"><canvas></canvas>
           <div class="pc-hud"><div class="tl">A-Grav Torsion</div><div class="tr" id="pState">σ</div></div>
-          <div class="ag-lamp" id="lamp"><i></i>DANGER</div>
         </div>
         <div class="pc-gauges">
           <div class="ag-lv" id="lv"><span>σ</span><span>τ</span><span>Ω</span></div>
           <div class="pc-gauge"><span class="k">Stage 振れ</span>
-            <div class="pc-meter"><div class="ag-tol" id="tolS"></div><div class="pc-fill wob" id="wS"></div></div></div>
+            <div class="pc-meter"><div class="ag-tol" id="tolS"></div><div class="pc-fill danger" id="wS"></div></div></div>
           <div class="pc-gauge"><span class="k">Axis 歳差</span>
-            <div class="pc-meter"><div class="ag-tol" id="tolA"></div><div class="pc-fill wob" id="wA"></div></div></div>
+            <div class="pc-meter"><div class="ag-tol" id="tolA"></div><div class="pc-fill danger" id="wA"></div></div></div>
           <div class="ag-pads">
             ${pad('stage', 'Stage X/Y')}
             ${pad('axis', 'Sphere θ/φ', true)}
@@ -238,9 +227,10 @@
     // How dangerous an error is: 0 within tolerance, 1 at the point where
     // spinning up would throw the sphere out of control.
     const danger = (e, L) => Math.max(0, Math.min(1, (e / L.tol - 1) / (BLOWUP - 1)));
-    const dangerColor = d => `hsl(${(120 * (1 - d)).toFixed(0)}, 70%, ${(55 - 5 * d).toFixed(0)}%)`;
-    const reduceMotion = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
-    const stageEl = body.querySelector('.pc-stage');
+    // Each meter is one colour, from green (in tolerance) to red (too far
+    // off to spin up), so the goal reads as "bring it down to green".
+    const dangerColor = MGProc.dangerColor;
+    const siren = MGProc.alarm(body);
 
     // Past the blow-up line: a red lamp, the pylons turn red, and the view
     // shakes, harder the further past it is.
@@ -248,16 +238,9 @@
       const L = LEVELS[S.lv], w = wobble();
       const worst = Math.max(mag(w.s), mag(w.a)) / L.tol;
       const on = ctx.running && (S.phase === 'align' ? worst >= BLOWUP : S.phase === 'blown');
-      $('lamp').classList.toggle('on', on);
-      stageEl.classList.toggle('ag-alarm', on);
       const red = on && Math.floor(performance.now() / 175) % 2 === 0;
       pylonTips.forEach(t => t.f.forEach(f => { f.c = red ? [255, 60, 40] : [190, 160, 255]; }));
-      if (on && !reduceMotion) {
-        const amp = Math.min(5, 1.5 + (worst - BLOWUP) * 0.8) * (S.phase === 'blown' ? 2 : 1);
-        stageEl.style.transform = `translate(${((Math.random() - 0.5) * 2 * amp).toFixed(1)}px, ${((Math.random() - 0.5) * 2 * amp).toFixed(1)}px)`;
-      } else {
-        stageEl.style.transform = '';
-      }
+      siren.set(on, Math.min(5, 1.5 + (worst - BLOWUP) * 0.8) * (S.phase === 'blown' ? 2 : 1));
     }
 
     function drawGauges() {

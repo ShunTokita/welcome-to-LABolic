@@ -35,5 +35,15 @@
 .pc-tip::after{content:"";position:absolute;left:calc(50% + var(--ax, 0px));margin-left:-6px;bottom:-6px;border:6px solid transparent;
   border-bottom:0;border-top-color:var(--pc-amber);}
 .pc-tip.on{display:block;}
+/* Alarm: a red lamp on the stage, a red frame, and (set from script) a
+   shake of the stage. */
+.pc-lamp{position:absolute;top:28px;right:10px;display:flex;align-items:center;gap:6px;pointer-events:none;
+  font-family:var(--pc-mono);font-size:10px;letter-spacing:.14em;color:#6c5050;}
+.pc-lamp i{width:12px;height:12px;border-radius:50%;background:#3a2222;box-shadow:inset 0 0 3px #000;}
+.pc-lamp.on{color:#ff6a5a;}
+.pc-lamp.on i{background:#ff3a2a;box-shadow:0 0 10px 2px #ff3a2a;animation:pcBlink .35s steps(2) infinite;}
+@keyframes pcBlink{50%{opacity:.35;}}
+.pc-stage.alarm{box-shadow:0 0 0 2px #ff3a2a inset, 0 0 18px -4px #ff3a2a;}
+.pc-fill.danger{background:#5fd38a;transition:background-color .15s;}
 @keyframes pcTipBob{0%,100%{margin-top:0}50%{margin-top:-3px}}
-@media (prefers-reduced-motion: reduce){.pc-tip{animation:none;}}
+@media (prefers-reduced-motion: reduce){.pc-tip{animation:none;}.pc-lamp.on i{animation:none;}}

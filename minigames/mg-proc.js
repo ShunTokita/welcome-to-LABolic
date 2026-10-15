@@ -32,5 +32,35 @@
     };
   }
 
-  window.MGProc = { tips };
+  // Danger 0..1 as a single meter colour: green, through yellow, to red.
+  const dangerColor = d => {
+    d = Math.max(0, Math.min(1, d));
+    return `hsl(${(120 * (1 - d)).toFixed(0)}, 70%, ${(55 - 5 * d).toFixed(0)}%)`;
+  };
+
+  // The shared alarm for a critical state: a blinking red DANGER lamp, a
+  // red frame, and the view shaking with amplitude `amp` (CSS px). The
+  // shake is left out for players who ask for reduced motion.
+  function alarm(root) {
+    const stage = root.querySelector('.pc-stage');
+    const lamp = document.createElement('div');
+    lamp.className = 'pc-lamp';
+    lamp.innerHTML = '<i></i>DANGER';
+    stage.appendChild(lamp);
+    const still = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
+    return {
+      set(on, amp) {
+        lamp.classList.toggle('on', on);
+        stage.classList.toggle('alarm', on);
+        if (on && !still && amp > 0) {
+          const j = () => ((Math.random() - 0.5) * 2 * amp).toFixed(1);
+          stage.style.transform = `translate(${j()}px, ${j()}px)`;
+        } else {
+          stage.style.transform = '';
+        }
+      },
+    };
+  }
+
+  window.MGProc = { tips, alarm, dangerColor };
 })();

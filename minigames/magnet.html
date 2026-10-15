@@ -18,8 +18,6 @@
   .mz-steps span.now{background:#3d3420;color:#ffcf6a;box-shadow:0 0 0 1px #9a6a00 inset;}
   .mz-steps span.done{background:#203327;color:#7fd39a;}
   .pc-meter .mz-limit{position:absolute;top:-2px;bottom:-2px;width:3px;background:#ff5a3a;z-index:2;}
-  .pc-fill.rate{background:linear-gradient(90deg,#2a6f8a,#5fd3e8);}
-  .pc-fill.risk{background:linear-gradient(90deg,#8a5a2a,#ff5a3a);}
   .pc-btn.on{color:#7fd39a;border-color:#3f8a5a;}
   .mz-supply{font-family:var(--pc-mono);font-size:11px;color:#b9c2ca;font-variant-numeric:tabular-nums;}
 </style>
@@ -76,9 +74,9 @@
           </div>
           <div class="mz-supply" id="supV">Supply 0.000 T 相当 ・ PSH closed</div>
           <div class="pc-gauge"><span class="k">Ramp</span>
-            <div class="pc-meter"><div class="mz-limit" id="limM"></div><div class="pc-fill rate" id="rateF"></div></div></div>
+            <div class="pc-meter"><div class="mz-limit" id="limM"></div><div class="pc-fill danger" id="rateF"></div></div></div>
           <div class="pc-gauge"><span class="k">Quench</span>
-            <div class="pc-meter"><div class="pc-fill risk" id="riskF"></div></div></div>
+            <div class="pc-meter"><div class="pc-fill danger" id="riskF"></div></div></div>
           <div class="pc-gauge"><span class="k">Field</span>
             <div class="pc-meter"><div class="pc-win" id="bWin"></div><div class="pc-fill" id="bF"></div></div></div>
           <div class="mz-steps" id="steps">
@@ -95,6 +93,7 @@
     const r3 = new Renderer(body.querySelector('canvas'), { bg:[18, 20, 26], light:[-0.4, 0.85, 0.5] });
     r3.camera([1.9, 1.7, 3.4], [0.1, 0.35, 0], 38);
     const tips = MGProc.tips(body);
+    const siren = MGProc.alarm(body);
 
     // ---- scenery ----
     const scen = [];
@@ -221,6 +220,9 @@
       $('rateF').style.width = (Math.abs(S.rate) / RATE_MAX * 100).toFixed(1) + '%';
       $('limM').style.left = (limitAt(S.Bm) / RATE_MAX * 100).toFixed(1) + '%';
       $('riskF').style.width = (Math.min(1, S.risk) * 100).toFixed(1) + '%';
+      // Ramp: green well under the limit, red over it. Quench risk: by fill.
+      $('rateF').style.backgroundColor = MGProc.dangerColor((load() - 0.7) / 0.5);
+      $('riskF').style.backgroundColor = MGProc.dangerColor(S.risk);
       const BMAX = 7;
       $('bF').style.width = (S.Bm / BMAX * 100).toFixed(1) + '%';
       $('bWin').style.left = (S.target * (1 - REL_TOL) / BMAX * 100) + '%';
@@ -230,6 +232,18 @@
       [...$('steps').children].forEach((el, i) => {
         el.className = i < now ? 'done' : i === now ? 'now' : '';
       });
+    }
+
+    const load = () => Math.abs(S.rate) / limitAt(S.Bm);
+
+    // Critical: ramping over the limit, or the switch about to open on a
+    // current mismatch. A quench shakes hardest.
+    function alarm() {
+      if (S.phase === 'quench') return siren.set(ctx.running && S.t < 1.5, 5);
+      if (!ctx.running || S.phase !== 'run') return siren.set(false);
+      const over = S.open && load() > 1;
+      const mismatch = S.heater && !S.open && Math.abs(S.Bs - S.Bm) > MISMATCH;
+      siren.set(over || mismatch, mismatch ? 3 : 1.5 + 3 * S.risk);
     }
 
     function tipNow() {
@@ -248,6 +262,7 @@
       start() { reset(); },
       tick(dt) {
         if (ctx.running || S.phase !== 'run') step(dt);
+        alarm();
         render();
         drawGauges();
         tipNow();
