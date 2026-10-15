@@ -1,7 +1,7 @@
 // Shared shell for the equipment minigames.
 //
 // A game supplies only its own stage and controls; the shell owns everything
-// the twelve games have in common: the header (goal and timer), the judge
+// the twelve games have in common: the header (goal), the judge
 // popup, the start and result overlays, and the permanent clear record.
 //
 // Clearing a minigame unlocks batch processing on that piece of equipment for
@@ -9,9 +9,12 @@
 // naming as the main game's saves. Every access is guarded: a private window
 // or blocked storage must not stop the game from being played.
 //
+// There is no time limit. The point is to have done the work once, however
+// slowly; running out of clock would only punish the players who are
+// actually looking at the image.
+//
 //   MG.mount(rootEl, {
 //     id, title, subtitle, desc,
-//     timeLimit,           // seconds; null for no limit
 //     goal,                // Excellent judgements needed to clear
 //     build(body, ctx),    // returns { start(), tick(dt, now), stop() }
 //     onExit(result),      // optional; shown as a Close button when given
@@ -55,7 +58,6 @@
       <div class="mg-bar">
         <div class="mg-name"><b>${esc(def.title)}</b><span>${esc(def.subtitle || '')}</span></div>
         <div class="mg-cell"><span class="k">Excellent</span><div class="mg-pips"></div></div>
-        <div class="mg-cell"><span class="k">Time</span><span class="v mg-time">--</span></div>
       </div>
       <div class="mg-body"></div>
       <div class="mg-judge"></div>
@@ -72,15 +74,14 @@
         </div>
       </div>`;
     const q = sel => root.querySelector(sel);
-    const body = q('.mg-body'), pips = q('.mg-pips'), timeV = q('.mg-time');
+    const body = q('.mg-body'), pips = q('.mg-pips');
     const overlay = q('.mg-overlay');
 
     const goal = def.goal || 1;
     pips.innerHTML = '<i></i>'.repeat(goal);
-    q('.mg-goal').textContent = `クリア条件：Excellent を ${goal} 回` +
-      (def.timeLimit ? `（制限時間 ${def.timeLimit} 秒）` : '');
+    q('.mg-goal').textContent = `クリア条件：Excellent を ${goal} 回`;
 
-    const st = { running:false, time:def.timeLimit || 0, hits:0, cleared:false };
+    const st = { running:false, hits:0, cleared:false };
 
     const ctx = {
       get running() { return st.running; },
@@ -102,11 +103,6 @@
 
     function drawPips() {
       [...pips.children].forEach((p, i) => p.classList.toggle('on', i < st.hits));
-    }
-    function drawTime() {
-      if (!def.timeLimit) { timeV.textContent = '∞'; return; }
-      timeV.textContent = st.time.toFixed(1);
-      timeV.classList.toggle('warn', st.time < 10);
     }
 
     const judgeEl = q('.mg-judge');
@@ -146,8 +142,7 @@
 
     function start() {
       st.running = true; st.hits = 0; st.cleared = false;
-      st.time = def.timeLimit || 0;
-      drawPips(); drawTime();
+      drawPips();
       overlay.classList.remove('on');
       game.start();
     }
@@ -168,18 +163,12 @@
     let last = performance.now();
     function frame(now) {
       // Clamp: a backgrounded tab resumes with a huge dt, which would
-      // otherwise eat the whole clock in one frame.
+      // otherwise make a game's own animation jump.
       const dt = Math.min(0.1, (now - last) / 1000);
       last = now;
-      if (st.running && def.timeLimit) {
-        st.time = Math.max(0, st.time - dt);
-        drawTime();
-        if (st.time <= 0) finish(false, '時間切れ');
-      }
       game.tick && game.tick(dt, now);
       requestAnimationFrame(frame);
     }
-    drawTime();
     showOverlay(undefined);
     requestAnimationFrame(frame);
 

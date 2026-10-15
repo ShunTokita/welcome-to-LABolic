@@ -80,9 +80,9 @@
 // SEM — focus and stigmator.
 //
 // Ported from the NORMAL mode of the SEM prototype (sem-proto.html); the
-// optics and the scoring constants are unchanged except that brightness no
-// longer counts toward image quality. The player still has the control —
-// it makes the image easier to read — but leaving it alone costs nothing.
+// optics are unchanged, but image quality is now sharpness alone. Contrast
+// and brightness are still on the console because they make the image
+// easier to read, yet leaving them alone costs nothing.
 (function(){
   "use strict";
 
@@ -99,8 +99,6 @@
   const A_MAX  = 60;      // max residual astigmatism magnitude
   const F_MAX  = 70;      // max defocus offset
   const SIG_S  = 2.4;     // sharpness tolerance
-  const SIG_G  = 0.70;    // contrast tolerance
-  const W_SHARP= 0.82, W_TONE=0.18;
 
   const clamp = (v,a,b) => Math.max(a, Math.min(b, v));
 
@@ -172,7 +170,7 @@
     const focusEl = $('focus'), contrastEl = $('contrast'), brightEl = $('bright');
     const pad = $('pad'), padDot = $('padDot');
 
-    const S = { focus:0, stigX:0, stigY:0, contrast:1, bright:0, f0:0, aX:0, aY:0, g0:1 };
+    const S = { focus:0, stigX:0, stigY:0, contrast:1, bright:0, f0:0, aX:0, aY:0 };
     // The SVG filter is the expensive part on phones, so the image is redrawn
     // only when a control or the sample has changed.
     let dirty = true;
@@ -242,7 +240,6 @@
       const mid = 0.5 + (Math.random()*2-1) * 0.26*span;
       const lo = Math.max(0.03, mid - span/2), hi = Math.min(0.97, mid + span/2);
       buildScene(GLYPHS[Math.floor(Math.random()*GLYPHS.length)], lo, hi);
-      S.g0 = 1 / (hi - lo);
       S.f0 = (Math.random()*2-1) * F_MAX * 0.7;
       const aMag = A_MAX * (0.45 + Math.random()*0.55), aAng = Math.random()*Math.PI*2;
       S.aX = Math.cos(aAng) * aMag; S.aY = Math.sin(aAng) * aMag;
@@ -275,12 +272,11 @@
       const g = S.contrast, off = S.bright/255 + 0.5 - g*0.5;
       tfs.forEach(f => { f.setAttribute('slope', g.toFixed(3)); f.setAttribute('intercept', off.toFixed(3)); });
     }
-    // Brightness is deliberately absent: it helps the eye, not the score.
+    // Contrast and brightness are deliberately absent: they help the eye,
+    // not the score.
     function quality() {
       const { s1, s2 } = blurs();
-      const sharp = Math.exp(-(s1*s1 + s2*s2) / (2*SIG_S*SIG_S));
-      const tone = Math.exp(-((S.contrast-S.g0)**2) / (2*SIG_G*SIG_G));
-      return clamp(W_SHARP*sharp + W_TONE*tone, 0, 1);
+      return Math.exp(-(s1*s1 + s2*s2) / (2*SIG_S*SIG_S));
     }
 
     // ---- controls ----
@@ -345,8 +341,7 @@
     id: 'sem',
     title: 'SEM',
     subtitle: 'Focus & Stigmator',
-    desc: 'フォーカスとスティグマで像を鋭くして Capture。コントラストも像質に効く。明るさは見やすさのためで、評価には影響しない。',
-    timeLimit: 60,
+    desc: 'フォーカスとスティグマで像を鋭くして Capture。コントラストと明るさは見やすさのためで、評価には影響しない。',
     goal: 3,
     build,
   });
