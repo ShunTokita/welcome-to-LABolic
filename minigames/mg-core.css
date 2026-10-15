@@ -71,3 +71,5 @@
   border:1px solid var(--mg-amber-dim);background:linear-gradient(180deg,#241a05,#160f02);
   border-radius:6px;padding:14px 30px;font-size:14px;text-transform:uppercase;cursor:pointer;}
 .mg-overlay button.mg-sub{color:var(--mg-txt-dim);border-color:var(--mg-line);background:var(--mg-panel);}
+.mg-quit{width:40px;flex:none;border:1px solid var(--mg-line);background:var(--mg-panel);border-radius:6px;
+  color:var(--mg-txt-dim);font-size:16px;cursor:pointer;}

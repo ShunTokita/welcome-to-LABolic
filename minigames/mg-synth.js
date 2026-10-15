@@ -268,6 +268,7 @@
           const rate = removal();
           ctx.flash(`組み立て完了！ 除去率 ${(rate * 100).toFixed(1)}%`, '#5fd38a');
           ctx.note(`除去率 ${(rate * 100).toFixed(1)}%`);
+          ctx.score(rate * 100);
           ctx.judge(rate);
         }
         void order;

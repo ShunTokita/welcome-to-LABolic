@@ -21,6 +21,7 @@ MG.mount(document.getElementById('mg'), {
   subtitle: 'Focus & Stigmator',
   desc: 'フォーカスとスティグマで像を鋭くして Capture。コントラストと明るさは見やすさのためで、評価には影響しない。',
   goal: 3,
+  qMax: 0.965,            // the blur floor: a perfect setting still scores this
   build: MGScope.electron({
     structure: 'precip',
     hud: { tl:'SEI&nbsp;&nbsp;15.0kV', tr:'TARGET', bl:'WD&nbsp;10.0mm', br:'x5,000' },

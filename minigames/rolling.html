@@ -180,8 +180,9 @@
         ctx.flash('薄すぎた！', '#e2603f');
         ctx.judge(0.2);
       } else if (S.h <= TARGET + TOL) {
-        const err = Math.abs(S.h - TARGET) / TOL;
+        const err = Math.abs(S.h - TARGET) / TOL;     // in units of 1 %
         S.phase = 'over'; S.t = 0;
+        ctx.score(MG.lin(err, 0.2, 1));                // 100 within ±0.2 %, 90 at ±1 %
         ctx.judge(1 - 0.1 * err * err);
       }
     }

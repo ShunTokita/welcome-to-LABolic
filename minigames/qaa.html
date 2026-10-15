@@ -28,6 +28,7 @@ MG.mount(document.getElementById('mg'), {
   subtitle: 'Focus / Stig / Wobbler',
   desc: 'WOBB を入れて像の揺れを Beam Align で止め、WOBB を切ってからフォーカスとスティグマを合わせて Capture。軸は試料ごとに少しずつずれる。',
   goal: 3,
+  qMax: 0.965,
   build: MGScope.electron({
     wobble: true,
     structure: 'cuboid',

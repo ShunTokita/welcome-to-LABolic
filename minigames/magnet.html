@@ -147,6 +147,7 @@
       $('pState').textContent = 'persistent';
       const err = Math.abs(S.Bm - S.target) / (S.target * REL_TOL);
       if (S.Bm < 0.05) { ctx.flash('磁場がかかっていない', '#e2603f'); ctx.judge(0); return; }
+      ctx.score(MG.lin(err, 0.1, 1));                 // err is in units of 0.5 %: 100 within ±0.05 %, 90 at ±0.5 %
       ctx.judge(Math.max(0, 1 - 0.1 * err * err));
     }
 

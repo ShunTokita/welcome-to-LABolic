@@ -108,12 +108,17 @@
       if (!ctx.running || S.phase !== 'heat') return;
       const r = S.r;
       if (meanH() < SOFT) { ctx.flash('まだ柔らかくない', '#9fc3e2'); return; }
+      // Inside the window is a good seal (Excellent); any distance outside
+      // it falls short of Excellent, so aiming for the thin edge risks it.
       const off = r < WIN[0] ? WIN[0] - r : r > WIN[1] ? r - WIN[1] : 0;
-      const timing = Math.exp(-(off * off) / (2 * 0.04 * 0.04));
+      const timing = off > 0 ? 0.88 * Math.exp(-(off * off) / (2 * 0.04 * 0.04)) : 1;
       const spread = S.spreadAcc / Math.max(1, S.spreadN);
       const even = Math.exp(-(Math.max(0, spread - 0.10) ** 2) / (2 * 0.06 * 0.06));
       const q = timing * even;
-      const msg = r > WIN[1] + 0.08 ? '早すぎ：封じ口が薄い' : even < 0.8 ? '加熱ムラ：肉厚が不揃い' : null;
+      // Score: the thinner the neck inside the window, the better the seal
+      // (100 at the thin edge, 90 at the thick one).
+      ctx.score(MG.lin(r, WIN[0], WIN[1]));
+      const msg = r > WIN[1] + 0.08 ? '早すぎ：封じ口が薄い' : r < WIN[0] ? '細くなりすぎた：封じ口が歪んだ' : even < 0.8 ? '加熱ムラ：肉厚が不揃い' : null;
       finish(q, msg, 'pulled');
     });
 
