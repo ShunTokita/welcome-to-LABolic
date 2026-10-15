@@ -89,71 +89,148 @@
               this.h / 2 - dot(d, this.cu) * this.focal / z, z];
     }
 
+    // The per-face work runs on flat typed arrays and plain numbers, with
+    // no objects or arrays made per vertex or per face: at a few thousand
+    // faces, allocation and the garbage it leaves were as costly as the
+    // pixel filling itself.
     draw(meshes, overlay) {
       const { w, h, px, zb } = this;
       const bgc = 0xff000000 | (this.bg[2] << 16) | (this.bg[1] << 8) | this.bg[0];
       px.fill(bgc); zb.fill(Infinity);
-      const late = [];
+      const [ex, ey, ez] = this.eye, [fx, fy, fz] = this.cf, [rx, ry, rz] = this.cr, [ux, uy, uz] = this.cu;
+      const [lx, ly, lz] = this.light, focal = this.focal, hw = w / 2, hh = h / 2;
+      const amb = this.ambient, steps = this.steps;
+      this.nl = 0;
       for (const m of meshes) {
         if (m.hidden) continue;
-        const wv = m.m ? m.v.map(p => mat.apply(m.m, p)) : m.v;
-        const sv = wv.map(p => this.project(p));
+        const V = m.v, nv = V.length;
+        if (!this.wv || this.wv.length < nv * 3) { this.wv = new Float64Array(nv * 6); this.sv = new Float64Array(nv * 6); }
+        const wv = this.wv, sv = this.sv, M = m.m;
+        for (let i = 0, o = 0; i < nv; i++, o += 3) {
+          const p = V[i];
+          let x = p[0], y = p[1], z = p[2];
+          if (M) {
+            const X = M[0]*x + M[1]*y + M[2]*z + M[3], Y = M[4]*x + M[5]*y + M[6]*z + M[7];
+            z = M[8]*x + M[9]*y + M[10]*z + M[11]; x = X; y = Y;
+          }
+          wv[o] = x; wv[o + 1] = y; wv[o + 2] = z;
+          const dx = x - ex, dy = y - ey, dz = z - ez;
+          const zc = dx * fx + dy * fy + dz * fz;
+          if (zc < 0.05) { sv[o + 2] = -1; continue; }
+          const k = focal / zc;
+          sv[o] = hw + (dx * rx + dy * ry + dz * rz) * k;
+          sv[o + 1] = hh - (dx * ux + dy * uy + dz * uz) * k;
+          sv[o + 2] = zc;
+        }
+        const ds = !!m.ds;
         for (const f of m.f) {
-          const [a, b, c] = f.i;
-          const A = sv[a], B = sv[b], C = sv[c];
-          if (!A || !B || !C) continue;
-          const area = (B[0]-A[0]) * (C[1]-A[1]) - (B[1]-A[1]) * (C[0]-A[0]);
-          if (area === 0 || (!m.ds && area > 0)) continue;   // back face
-          let col = f.c, alpha = f.a ?? 1;
+          const ia = f.i[0] * 3, ib = f.i[1] * 3, ic = f.i[2] * 3;
+          const Az = sv[ia + 2], Bz = sv[ib + 2], Cz = sv[ic + 2];
+          if (Az < 0 || Bz < 0 || Cz < 0) continue;
+          const Ax = sv[ia], Ay = sv[ia + 1], Bx = sv[ib], By = sv[ib + 1], Cx = sv[ic], Cy = sv[ic + 1];
+          const area = (Bx - Ax) * (Cy - Ay) - (By - Ay) * (Cx - Ax);
+          if (area === 0 || (!ds && area > 0)) continue;   // back face
+          let cr = f.c[0], cg = f.c[1], cb = f.c[2], alpha = f.a ?? 1;
           if (!f.e) {
-            let n = norm(cross(sub(wv[b], wv[a]), sub(wv[c], wv[a])));
-            if (area > 0) n = [-n[0], -n[1], -n[2]];   // double-sided, seen from behind
-            const lit = this.ambient + (1 - this.ambient) * Math.max(0, dot(n, this.light));
-            const q = Math.round(lit * this.steps) / this.steps;
-            col = [f.c[0] * q, f.c[1] * q, f.c[2] * q];
+            // Face normal, flipped when a double-sided face is seen from behind.
+            const e1x = wv[ib] - wv[ia], e1y = wv[ib + 1] - wv[ia + 1], e1z = wv[ib + 2] - wv[ia + 2];
+            const e2x = wv[ic] - wv[ia], e2y = wv[ic + 1] - wv[ia + 1], e2z = wv[ic + 2] - wv[ia + 2];
+            let nx = e1y * e2z - e1z * e2y, ny = e1z * e2x - e1x * e2z, nz = e1x * e2y - e1y * e2x;
+            let nn = Math.sqrt(nx * nx + ny * ny + nz * nz) || 1;
+            if (area > 0) nn = -nn;
+            nx /= nn; ny /= nn; nz /= nn;
+            const d = nx * lx + ny * ly + nz * lz;
+            const q = Math.round((amb + (1 - amb) * (d > 0 ? d : 0)) * steps) / steps;
+            cr *= q; cg *= q; cb *= q;
             if (f.glass) {
-              const ctr = [(wv[a][0]+wv[b][0]+wv[c][0]) / 3, (wv[a][1]+wv[b][1]+wv[c][1]) / 3, (wv[a][2]+wv[b][2]+wv[c][2]) / 3];
-              const v = norm(sub(this.eye, ctr));
-              const fres = (1 - Math.abs(dot(n, v))) ** 2;
-              const spec = Math.max(0, dot(n, norm([this.light[0]+v[0], this.light[1]+v[1], this.light[2]+v[2]]))) ** 40;
-              const sq = Math.round(spec * 3) / 3;    // banded, like the lighting
+              let vx = ex - (wv[ia] + wv[ib] + wv[ic]) / 3, vy = ey - (wv[ia + 1] + wv[ib + 1] + wv[ic + 1]) / 3, vz = ez - (wv[ia + 2] + wv[ib + 2] + wv[ic + 2]) / 3;
+              const vl = Math.sqrt(vx * vx + vy * vy + vz * vz) || 1; vx /= vl; vy /= vl; vz /= vl;
+              const nv2 = Math.abs(nx * vx + ny * vy + nz * vz);
+              const fres = (1 - nv2) * (1 - nv2);
+              let hx = lx + vx, hy = ly + vy, hz = lz + vz;
+              const hl = Math.sqrt(hx * hx + hy * hy + hz * hz) || 1;
+              const sd = (nx * hx + ny * hy + nz * hz) / hl;
+              const sq = sd > 0 ? Math.round(Math.pow(sd, 40) * 3) / 3 : 0;   // banded, like the lighting
               alpha = Math.min(1, alpha + 0.55 * fres + 0.8 * sq);
-              col = [col[0] + 255 * sq, col[1] + 255 * sq, col[2] + 255 * sq];
+              cr += 255 * sq; cg += 255 * sq; cb += 255 * sq;
             }
           }
-          if (f.add || alpha < 1) {
-            late.push({ A, B, C, area, col, alpha, add: !!f.add, z: A[2] + B[2] + C[2] });
-          } else {
-            this.tri(A, B, C, col, area, 0, 1);
-          }
+          if (f.add || alpha < 1) this.queue(Ax, Ay, Az, Bx, By, Bz, Cx, Cy, Cz, cr, cg, cb, area, f.add ? 2 : 1, alpha);
+          else this.tri(Ax, Ay, Az, Bx, By, Bz, Cx, Cy, Cz, cr, cg, cb, area, 0, 1);
         }
       }
-      late.sort((p, q) => q.z - p.z);
-      for (const t of late) this.tri(t.A, t.B, t.C, t.col, t.area, t.add ? 2 : 1, t.alpha);
+      this.flush();
       this.g.putImageData(this.img, 0, 0);
       if (overlay) overlay(this.g);
     }
 
+    // Translucent faces wait in a flat buffer, 16 numbers each, and are
+    // drawn far to near after every opaque face is down.
+    queue(Ax, Ay, Az, Bx, By, Bz, Cx, Cy, Cz, r, g, b, area, mode, alpha) {
+      const n = this.nl;
+      if (!this.lq || this.lq.length < (n + 1) * 16) {
+        const grown = new Float64Array(Math.max(4096, (n + 1) * 32));
+        if (this.lq) grown.set(this.lq);
+        this.lq = grown;
+      }
+      const q = this.lq, o = n * 16;
+      q[o] = Ax; q[o+1] = Ay; q[o+2] = Az; q[o+3] = Bx; q[o+4] = By; q[o+5] = Bz;
+      q[o+6] = Cx; q[o+7] = Cy; q[o+8] = Cz; q[o+9] = r; q[o+10] = g; q[o+11] = b;
+      q[o+12] = area; q[o+13] = mode; q[o+14] = alpha; q[o+15] = Az + Bz + Cz;
+      this.nl = n + 1;
+    }
+
+    // Far to near by a bucket sort on depth: linear in the number of faces,
+    // and exact enough at this resolution.
+    flush() {
+      const n = this.nl, q = this.lq;
+      if (!n) return;
+      let lo = Infinity, hi = -Infinity;
+      for (let i = 0; i < n; i++) { const z = q[i * 16 + 15]; if (z < lo) lo = z; if (z > hi) hi = z; }
+      const NB = 1024, span = (hi - lo) || 1;
+      if (!this.cnt) this.cnt = new Int32Array(NB + 1);
+      if (!this.ord || this.ord.length < n) { this.ord = new Int32Array(n * 2); this.bk = new Int32Array(n * 2); }
+      const cnt = this.cnt, ord = this.ord, bk = this.bk, sc = NB / span;
+      cnt.fill(0);
+      for (let i = 0; i < n; i++) {                       // bucket 0 = farthest
+        const k = Math.min(NB - 1, ((hi - q[i * 16 + 15]) * sc) | 0);
+        bk[i] = k; cnt[k + 1]++;
+      }
+      for (let k = 0; k < NB; k++) cnt[k + 1] += cnt[k];
+      for (let i = 0; i < n; i++) ord[cnt[bk[i]]++] = i;
+      for (let k = 0; k < n; k++) {
+        const o = ord[k] * 16;
+        this.tri(q[o], q[o+1], q[o+2], q[o+3], q[o+4], q[o+5], q[o+6], q[o+7], q[o+8],
+                 q[o+9], q[o+10], q[o+11], q[o+12], q[o+13], q[o+14]);
+      }
+    }
+
     // mode 0: opaque, writes depth. 1: alpha blend. 2: additive.
-    tri(A, B, C, col, area, mode, alpha) {
+    // Edge functions are stepped incrementally along each row, and a row is
+    // left as soon as the scan has passed through the triangle.
+    tri(Ax, Ay, Az, Bx, By, Bz, Cx, Cy, Cz, cr, cg, cb, area, mode, alpha) {
       const { w, h, px, zb } = this;
-      const r = Math.min(255, col[0]) | 0, g = Math.min(255, col[1]) | 0, b = Math.min(255, col[2]) | 0;
+      const r = cr > 255 ? 255 : cr | 0, g = cg > 255 ? 255 : cg | 0, b = cb > 255 ? 255 : cb | 0;
       const rgba = 0xff000000 | (b << 16) | (g << 8) | r;
-      const x0 = Math.max(0, Math.floor(Math.min(A[0], B[0], C[0])));
-      const x1 = Math.min(w - 1, Math.ceil(Math.max(A[0], B[0], C[0])));
-      const y0 = Math.max(0, Math.floor(Math.min(A[1], B[1], C[1])));
-      const y1 = Math.min(h - 1, Math.ceil(Math.max(A[1], B[1], C[1])));
+      let x0 = Math.floor(Math.min(Ax, Bx, Cx)), x1 = Math.ceil(Math.max(Ax, Bx, Cx));
+      let y0 = Math.floor(Math.min(Ay, By, Cy)), y1 = Math.ceil(Math.max(Ay, By, Cy));
+      if (x0 < 0) x0 = 0; if (y0 < 0) y0 = 0; if (x1 > w - 1) x1 = w - 1; if (y1 > h - 1) y1 = h - 1;
+      if (x0 > x1 || y0 > y1) return;
       const inv = 1 / area;
+      // w0 = E0 * inv over edge B-C, w1 = E1 * inv over edge C-A.
+      const d0x = (By - Cy) * inv, d1x = (Cy - Ay) * inv;
+      const za = Az - Cz, zbb = Bz - Cz;
+      const sx = x0 + 0.5;
       for (let y = y0; y <= y1; y++) {
         const py = y + 0.5;
-        for (let x = x0; x <= x1; x++) {
-          const pxx = x + 0.5;
-          const w0 = ((B[0]-pxx) * (C[1]-py) - (B[1]-py) * (C[0]-pxx)) * inv;
-          const w1 = ((C[0]-pxx) * (A[1]-py) - (C[1]-py) * (A[0]-pxx)) * inv;
-          const w2 = 1 - w0 - w1;
-          if (w0 < 0 || w1 < 0 || w2 < 0) continue;
-          const z = w0 * A[2] + w1 * B[2] + w2 * C[2];
-          const k = y * w + x;
+        let w0 = ((Bx - sx) * (Cy - py) - (By - py) * (Cx - sx)) * inv;
+        let w1 = ((Cx - sx) * (Ay - py) - (Cy - py) * (Ax - sx)) * inv;
+        let inside = false;
+        let k = y * w + x0;
+        for (let x = x0; x <= x1; x++, k++, w0 += d0x, w1 += d1x) {
+          if (w0 < 0 || w1 < 0 || w0 + w1 > 1) { if (inside) break; continue; }
+          inside = true;
+          const z = Cz + w0 * za + w1 * zbb;
           if (z >= zb[k]) continue;
           if (mode === 0) { zb[k] = z; px[k] = rgba; continue; }
           const p0 = px[k];
@@ -161,7 +238,8 @@
           if (mode === 1) {
             pr += (r - pr) * alpha; pg += (g - pg) * alpha; pb += (b - pb) * alpha;
           } else {
-            pr = Math.min(255, pr + r * alpha); pg = Math.min(255, pg + g * alpha); pb = Math.min(255, pb + b * alpha);
+            pr += r * alpha; pg += g * alpha; pb += b * alpha;
+            if (pr > 255) pr = 255; if (pg > 255) pg = 255; if (pb > 255) pb = 255;
           }
           px[k] = 0xff000000 | ((pb | 0) << 16) | ((pg | 0) << 8) | (pr | 0);
         }
@@ -171,7 +249,8 @@
 
   // ---- mesh builders ----
   // `k` is the face style: { c, e, a, add, glass }.
-  const quad = (f, a, b, c, d, k) => { f.push({ ...k, i:[a, b, c] }, { ...k, i:[a, c, d] }); };
+  const quad = (f, a, b, c, d, k) => { f.push({ c:k.c, e:k.e, a:k.a, add:k.add, glass:k.glass, i:[a, b, c] },
+                                               { c:k.c, e:k.e, a:k.a, add:k.add, glass:k.glass, i:[a, c, d] }); };
 
   const build = {
     box(sx, sy, sz, col) {

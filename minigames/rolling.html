@@ -104,11 +104,11 @@
     // Entry and exit tables of small rollers.
     const tableRollers = [];
     for (const x of [-1.6, -1.25, -0.9, 0.9, 1.25, 1.6]) {
-      const t = build.lathe([[-0.3, 0.045], [0.3, 0.045]], 14, [120, 124, 132]);
+      const t = build.lathe([[-0.3, 0.045], [0.3, 0.045]], 20, [120, 124, 132]);
       tableRollers.push({ mesh: t, x });
       scenery.push(t);
     }
-    function roll() { return build.lathe([[-0.62, R * 0.7], [-0.6, R], [0.6, R], [0.62, R * 0.7]], 36, { c: steel }); }
+    function roll() { return build.lathe([[-0.62, R * 0.7], [-0.6, R], [0.6, R], [0.62, R * 0.7]], 64, { c: steel }); }
     const rollTop = roll(), rollBot = roll();
     const chocks = [0, 1, 2, 3].map(() => build.box(0.4, 0.34, 0.12, chock));
     const copper = { c:[214, 128, 84] };

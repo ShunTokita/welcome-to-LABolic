@@ -153,7 +153,7 @@
     }
     function tubeProfile(x0, x1, neckX, rr, tipR) {
       const prof = [];
-      const n = 44;
+      const n = 64;
       for (let i = 0; i <= n; i++) {
         const u = i / n;
         // Denser sampling toward the neck.
@@ -166,7 +166,7 @@
       return prof;
     }
     function tubeMesh(prof, offX) {
-      const SEG = 24;
+      const SEG = 40;
       const m = build.lathe(prof, SEG, (i, j) => {
         const x = (prof[i][0] + prof[i + 1][0]) / 2 - offX;
         const s = Math.floor(j * NS / SEG);
@@ -181,8 +181,8 @@
       const f = 1 + 0.12 * Math.sin(t * 0.031) + 0.08 * Math.sin(t * 0.077);
       // An oxy-hydrogen flame: a pale blue envelope around a brighter cone,
       // added onto whatever is behind so the tube shows through it.
-      const outer = build.lathe([[0, 0.07], [0.12 * f, 0.06], [0.26 * f, 0.025]], 16, { c:[50, 100, 255], e:true, add:true, a:0.45 });
-      const inner = build.lathe([[0, 0.035], [0.1 * f, 0.02], [0.15 * f, 0.004]], 16, { c:[160, 205, 255], e:true, add:true, a:0.9 });
+      const outer = build.lathe([[0, 0.07], [0.12 * f, 0.06], [0.26 * f, 0.025]], 24, { c:[50, 100, 255], e:true, add:true, a:0.45 });
+      const inner = build.lathe([[0, 0.035], [0.1 * f, 0.02], [0.15 * f, 0.004]], 24, { c:[160, 205, 255], e:true, add:true, a:0.9 });
       // Lathe builds along x; stand the cones up on the nozzle.
       outer.m = mat.chain(mat.tr(0, -0.34, 0), mat.rz(Math.PI / 2));
       inner.m = mat.chain(mat.tr(0, -0.34, 0.001), mat.rz(Math.PI / 2));

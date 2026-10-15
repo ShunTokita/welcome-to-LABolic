@@ -101,9 +101,9 @@
     { const m = build.box(14, 4, 0.1, [58, 64, 74]); m.m = mat.tr(0, 1, -1.6); scen.push(m); }
     { const m = build.box(14, 0.1, 6, [64, 60, 56]); m.m = mat.tr(0, -0.85, 0); scen.push(m); }
     // The dewar, its top plate, and what comes out of the top.
-    { const m = build.cylinder(0.5, 1.5, 32, steel); m.m = mat.tr(0, -0.8, 0); scen.push(m); }
-    { const m = build.cylinder(0.56, 0.08, 32, [150, 156, 166]); m.m = mat.tr(0, 0.7, 0); scen.push(m); }
-    { const m = build.cylinder(0.06, 0.55, 16, [120, 126, 136]); m.m = mat.tr(0, 0.78, 0); scen.push(m); }   // sample probe
+    { const m = build.cylinder(0.5, 1.5, 64, steel); m.m = mat.tr(0, -0.8, 0); scen.push(m); }
+    { const m = build.cylinder(0.56, 0.08, 64, [150, 156, 166]); m.m = mat.tr(0, 0.7, 0); scen.push(m); }
+    { const m = build.cylinder(0.06, 0.55, 24, [120, 126, 136]); m.m = mat.tr(0, 0.78, 0); scen.push(m); }   // sample probe
     { const m = build.cylinder(0.035, 0.35, 12, [200, 120, 70]); m.m = mat.tr(-0.22, 0.78, 0.12); scen.push(m); }  // current leads
     { const m = build.cylinder(0.035, 0.35, 12, [200, 120, 70]); m.m = mat.tr(-0.22, 0.78, -0.12); scen.push(m); }
     { const m = build.cylinder(0.04, 0.2, 12, dark); m.m = mat.tr(0.3, 0.78, 0.1); scen.push(m); }  // vent

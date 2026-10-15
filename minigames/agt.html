@@ -120,8 +120,8 @@
     const scen = [], pylonTips = [];
     { const m = build.box(14, 4, 0.1, [44, 40, 60]); m.m = mat.tr(0, 1, -1.6); scen.push(m); }
     { const m = build.box(14, 0.1, 6, [52, 50, 60]); m.m = mat.tr(0, -0.6, 0); scen.push(m); }
-    { const m = build.cylinder(0.75, 0.25, 40, [82, 86, 100]); m.m = mat.tr(0, -0.55, 0); scen.push(m); }   // base
-    { const m = build.cylinder(0.62, 0.04, 40, [140, 120, 220]); m.f.forEach(f => { f.e = true; }); m.m = mat.tr(0, -0.31, 0); scen.push(m); } // field ring
+    { const m = build.cylinder(0.75, 0.25, 64, [82, 86, 100]); m.m = mat.tr(0, -0.55, 0); scen.push(m); }   // base
+    { const m = build.cylinder(0.62, 0.04, 64, [140, 120, 220]); m.f.forEach(f => { f.e = true; }); m.m = mat.tr(0, -0.31, 0); scen.push(m); } // field ring
     // Four field pylons around the base.
     for (let i = 0; i < 4; i++) {
       const a = i * Math.PI / 2;   // kept off the line of sight to the sphere
@@ -129,22 +129,23 @@
       const tip = build.cylinder(0.07, 0.06, 12, { c:[190, 160, 255], e:true }); tip.m = mat.tr(Math.cos(a) * 0.68, 0.98, Math.sin(a) * 0.68); scen.push(tip);
       pylonTips.push(tip);
     }
-    const stage = build.cylinder(0.32, 0.06, 32, [150, 156, 168]);
+    const stage = build.cylinder(0.32, 0.06, 48, [150, 156, 168]);
     const sample = build.box(0.12, 0.08, 0.12, [214, 128, 84]);
     // The sphere: a lathe of a circle, with a bright equatorial band and
     // poles marked so its axis can be seen.
     function sphere() {
       const prof = [];
-      for (let i = 0; i <= 16; i++) { const t = -Math.PI / 2 + i / 16 * Math.PI; prof.push([Math.sin(t) * 0.3, Math.cos(t) * 0.3 + 1e-4]); }
-      return build.lathe(prof, 24, (i, j) => {
-        if (i === 7 || i === 8) return { c:[200, 170, 255], e:true };      // equator
-        if (i === 0 || i === 15) return { c:[255, 220, 120], e:true };     // poles
-        return { c: j % 6 < 3 ? [96, 80, 150] : [120, 104, 176] };         // panels, to show the spin
+      const NB = 28, SEG = 40;       // bands pole to pole, sectors around
+      for (let i = 0; i <= NB; i++) { const t = -Math.PI / 2 + i / NB * Math.PI; prof.push([Math.sin(t) * 0.3, Math.cos(t) * 0.3 + 1e-4]); }
+      return build.lathe(prof, SEG, (i, j) => {
+        if (i === NB / 2 - 1 || i === NB / 2) return { c:[200, 170, 255], e:true };   // equator
+        if (i === 0 || i === NB - 1) return { c:[255, 220, 120], e:true };          // poles
+        return { c: j % 10 < 5 ? [96, 80, 150] : [120, 104, 176] };                 // panels, to show the spin
       }, true);
     }
     const ball = sphere();
     const axisRod = build.lathe([[-0.48, 0.012], [0.48, 0.012]], 8, { c:[255, 220, 120], e:true });
-    const beam = build.lathe([[0, 0.3], [0.9, 0.12]], 24, { c:[120, 90, 255], e:true, add:true, a:0.18 });
+    const beam = build.lathe([[0, 0.3], [0.9, 0.12]], 40, { c:[120, 90, 255], e:true, add:true, a:0.18 });
     beam.ds = true;
     const SPHERE_Y = 0.75;
 
