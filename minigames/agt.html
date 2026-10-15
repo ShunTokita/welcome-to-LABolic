@@ -18,7 +18,17 @@
   .ag-lv span.now{background:#30264a;color:#c9b4ff;box-shadow:0 0 0 1px #6a54b0 inset;}
   .ag-lv span.done{background:#203327;color:#7fd39a;}
   .pc-meter .ag-tol{position:absolute;top:-2px;bottom:-2px;width:2px;background:var(--pc-guide);z-index:2;}
-  .pc-fill.wob{background:linear-gradient(90deg,#5fd38a,#e8b84a 50%,#ff5a3a);}
+  /* Each meter is one colour, from green (in tolerance) to red (too far
+     off to spin up), so the goal reads as "bring it down to green". */
+  .pc-fill.wob{background:#5fd38a;transition:background-color .15s;}
+  .ag-lamp{position:absolute;top:28px;right:10px;display:flex;align-items:center;gap:6px;
+    font-family:var(--pc-mono);font-size:10px;letter-spacing:.14em;color:#6c5050;}
+  .ag-lamp i{width:12px;height:12px;border-radius:50%;background:#3a2222;box-shadow:inset 0 0 3px #000;}
+  .ag-lamp.on{color:#ff6a5a;}
+  .ag-lamp.on i{background:#ff3a2a;box-shadow:0 0 10px 2px #ff3a2a;animation:agBlink .35s steps(2) infinite;}
+  @keyframes agBlink{50%{opacity:.35;}}
+  .pc-stage.ag-alarm{box-shadow:0 0 0 2px #ff3a2a inset, 0 0 18px -4px #ff3a2a;}
+  @media (prefers-reduced-motion: reduce){.ag-lamp.on i{animation:none;}}
 </style>
 </head>
 <body>
@@ -65,6 +75,7 @@
       <div class="pc">
         <div class="pc-stage"><canvas></canvas>
           <div class="pc-hud"><div class="tl">A-Grav Torsion</div><div class="tr" id="pState">σ</div></div>
+          <div class="ag-lamp" id="lamp"><i></i>DANGER</div>
         </div>
         <div class="pc-gauges">
           <div class="ag-lv" id="lv"><span>σ</span><span>τ</span><span>Ω</span></div>
@@ -120,7 +131,7 @@
     const axisPad = bindPad('axis', (dx, dy) => { if (live()) { S.ax[0] = clampR(S.ax[0] + dx); S.ax[1] = clampR(S.ax[1] + dy); } });
 
     // ---- scenery ----
-    const scen = [];
+    const scen = [], pylonTips = [];
     { const m = build.box(14, 4, 0.1, [44, 40, 60]); m.m = mat.tr(0, 1, -1.6); scen.push(m); }
     { const m = build.box(14, 0.1, 6, [52, 50, 60]); m.m = mat.tr(0, -0.6, 0); scen.push(m); }
     { const m = build.cylinder(0.75, 0.25, 40, [82, 86, 100]); m.m = mat.tr(0, -0.55, 0); scen.push(m); }   // base
@@ -130,6 +141,7 @@
       const a = i * Math.PI / 2;   // kept off the line of sight to the sphere
       const p = build.cylinder(0.05, 1.3, 12, [100, 104, 120]); p.m = mat.tr(Math.cos(a) * 0.68, -0.32, Math.sin(a) * 0.68); scen.push(p);
       const tip = build.cylinder(0.07, 0.06, 12, { c:[190, 160, 255], e:true }); tip.m = mat.tr(Math.cos(a) * 0.68, 0.98, Math.sin(a) * 0.68); scen.push(tip);
+      pylonTips.push(tip);
     }
     const stage = build.cylinder(0.32, 0.06, 32, [150, 156, 168]);
     const sample = build.box(0.12, 0.08, 0.12, [214, 128, 84]);
@@ -223,11 +235,38 @@
       r3.draw([...scen, stage, sample, ball, axisRod, beam]);
     }
 
+    // How dangerous an error is: 0 within tolerance, 1 at the point where
+    // spinning up would throw the sphere out of control.
+    const danger = (e, L) => Math.max(0, Math.min(1, (e / L.tol - 1) / (BLOWUP - 1)));
+    const dangerColor = d => `hsl(${(120 * (1 - d)).toFixed(0)}, 70%, ${(55 - 5 * d).toFixed(0)}%)`;
+    const reduceMotion = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const stageEl = body.querySelector('.pc-stage');
+
+    // Past the blow-up line: a red lamp, the pylons turn red, and the view
+    // shakes, harder the further past it is.
+    function alarm() {
+      const L = LEVELS[S.lv], w = wobble();
+      const worst = Math.max(mag(w.s), mag(w.a)) / L.tol;
+      const on = ctx.running && (S.phase === 'align' ? worst >= BLOWUP : S.phase === 'blown');
+      $('lamp').classList.toggle('on', on);
+      stageEl.classList.toggle('ag-alarm', on);
+      const red = on && Math.floor(performance.now() / 175) % 2 === 0;
+      pylonTips.forEach(t => t.f.forEach(f => { f.c = red ? [255, 60, 40] : [190, 160, 255]; }));
+      if (on && !reduceMotion) {
+        const amp = Math.min(5, 1.5 + (worst - BLOWUP) * 0.8) * (S.phase === 'blown' ? 2 : 1);
+        stageEl.style.transform = `translate(${((Math.random() - 0.5) * 2 * amp).toFixed(1)}px, ${((Math.random() - 0.5) * 2 * amp).toFixed(1)}px)`;
+      } else {
+        stageEl.style.transform = '';
+      }
+    }
+
     function drawGauges() {
       const L = LEVELS[S.lv], w = wobble();
       const full = 4 * L.tol;
       $('wS').style.width = Math.min(100, mag(w.s) / full * 100).toFixed(1) + '%';
       $('wA').style.width = Math.min(100, mag(w.a) / full * 100).toFixed(1) + '%';
+      $('wS').style.backgroundColor = dangerColor(danger(mag(w.s), L));
+      $('wA').style.backgroundColor = dangerColor(danger(mag(w.a), L));
       $('tolS').style.left = $('tolA').style.left = (100 / 4) + '%';
       stagePad.show(S.st[0], S.st[1]);
       axisPad.show(S.ax[0], S.ax[1]);
@@ -258,6 +297,7 @@
       start() { reset(); },
       tick(dt) {
         step(dt);
+        alarm();
         render();
         drawGauges();
         tipNow();
