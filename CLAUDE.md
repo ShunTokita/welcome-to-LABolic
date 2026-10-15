@@ -28,6 +28,11 @@ build/                      プレビュー生成物（git管理外）
 `subv2` は v40 までの旧公開元。ドット絵化（v41）で差分が大きくなったため
 `subv3` に切り替えた。`pixelart-trial` はその作業ブランチで、`subv3` の起点。
 
+`minigames-dev` は装置ミニゲーム（一括処理の解放条件）の開発用ブランチ。
+開発中のファイル（`minigames/`）を公開しないために `subv3` から分けた。
+ミニゲームの作業はこのブランチで行い、`subv3` には本体への統合の段階で反映する。
+仕様は `docs/minigames-spec.md`。
+
 - 入口: https://shuntokita.github.io/welcome-to-LABolic/
 - 各版: https://shuntokita.github.io/welcome-to-LABolic/labolic-playtest-NN.html
 
