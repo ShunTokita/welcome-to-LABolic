@@ -31,6 +31,10 @@
   const SS = [172, 178, 188], CU = [204, 120, 76], CU_D = [168, 92, 58], W = [150, 150, 158];
   const TRAY = [6, 0, 0];
   const GRIND = [12, 0.25, 0];                    // the bench grinder's wheel centre, on its own bench
+  // Where the electrode tip meets the wheel face, and the electrode's lean:
+  // its axis rotated 45° from the face's normal (-x), up and away.
+  const TIP = [GRIND[0] - 0.05, GRIND[1] + 0.12, GRIND[2]];
+  const TILT = Math.PI / 4;    // rz: the electrode's +y (tip to tail) to (-sin45, cos45)
 
   // Stand a lathe (built along x) upright on y.
   function upright(m) {
@@ -134,7 +138,7 @@
     reset() { G = { p: 0, holding: false, spin: 0, wheel: 0, sparks: [], doneT: 0 }; },
     start(api) {
       special.reset();
-      api.setView({ target: [GRIND[0] - 0.4, GRIND[1], GRIND[2]], dist: 1.9, height: 0.6, fov: 36, fixAz: 0.35 });
+      api.setView({ target: [GRIND[0] - 0.3, GRIND[1] + 0.3, GRIND[2]], dist: 2.2, height: 0.4, fov: 38, fixAz: 0.2 });
       api.panel(`<div class="pc-gauge"><span class="k">先端</span>
         <div class="pc-meter"><div class="pc-fill danger" id="gF"></div></div></div>`);
       api.buttons(`<button class="pc-btn act sy-sp" id="grind">研磨（長押し）</button>`);
@@ -159,17 +163,18 @@
     status() { return `先端の鋭さ ${Math.round(G.p * 100)}%`; },
     tip(api) { return G.p < 1 ? [api.$('grind'), '長押しで電極の先を研ごう！'] : null; },
     meshes() {
-      // The wheel turns on the shaft (along x); its face is toward the
-      // electrode, which is held against it tip first and turned in the
-      // fingers. Shown at three times scale so the tip reads.
+      // The wheel turns on the shaft (along x) with its face toward the
+      // electrode. The electrode is held at about 45° to that face, tip on
+      // the wheel, and turned in the fingers so the tip grinds to a cone.
+      // Shown at three times scale so the tip reads.
       const wheel = B.lathe([[-0.04, 0.32], [0.04, 0.32]], 40, { c: [150, 140, 120] });
       wheel.m = mat.chain(mat.tr(GRIND[0], GRIND[1], GRIND[2]), mat.rx(G.wheel));
       const e = electrode(0.15 + 0.85 * G.p, 0.3);
-      e.m = mat.chain(mat.tr(GRIND[0] - 0.045, GRIND[1] + 0.15, GRIND[2]), mat.rz(Math.PI / 2), mat.sc(3, 3, 3), mat.ry(G.spin));
+      e.m = mat.chain(mat.tr(TIP[0], TIP[1], TIP[2]), mat.rz(TILT), mat.sc(3, 3, 3), mat.ry(G.spin));
       return [wheel, e];
     },
     overlay(g, api) {
-      const q = api.r3.project([GRIND[0] - 0.045, GRIND[1] + 0.15, GRIND[2]]);
+      const q = api.r3.project(TIP);
       if (!q) return;
       for (const s of G.sparks) {
         const d = s.v * s.t, x = q[0] + Math.cos(s.a + Math.PI) * d, y = q[1] - Math.sin(s.a + Math.PI) * d + 200 * s.t * s.t;

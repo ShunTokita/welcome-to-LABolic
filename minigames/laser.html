@@ -32,6 +32,10 @@
   const PANEL = [96, 104, 118], FRAME = [62, 66, 76], CU = [200, 124, 80], HEAD = [150, 154, 164];
   const TRAY = [6, 0, 0];
   const DRUM = [12, 0, 0];                     // waste drum, out of the way
+  // The catch hopper's half-size, and its pouring lip (the top edge on the
+  // drum side), held over the drum's mouth.
+  const HW = 0.2, HH = 0.15, HD = 0.15;
+  const LIP = [DRUM[0] + 0.1, 0.42, 0];
 
   // ---- enclosure (fixed) ----
   // Inside: x -0.7..0.7, y -0.6..0.5, z -0.45..0.45; the front is open
@@ -168,21 +172,31 @@
       return [api.$('tilt'), P.tilt > POUR[1] ? '傾けすぎ！指を離そう' : '緑の範囲で傾けて粉を捨てよう！'];
     },
     meshes() {
-      // The hopper, held over the drum's rim and tipped about its lip.
-      const a = P.tilt * Math.PI / 180;
+      // The catch hopper: an open-topped box (floor and four walls) with the
+      // spent powder lying in it. It is tipped about its pouring lip, the
+      // top edge on the drum side, which stays put over the drum's mouth;
+      // the body swings up and away as it tips.
+      const a = P.tilt * Math.PI / 180, T = 0.02, k = P.left;
+      const powderH = 0.2 * k;
       const hopper = B.merge([
-        B.box(0.4, 0.3, 0.3, HEAD),
-        B.at(B.box(0.36, 0.02, 0.26, [110 + 40 * P.left, 110 + 40 * P.left, 116 + 40 * P.left]), mat.tr(0, 0.14 * P.left, 0)),
+        B.at(B.box(HW * 2, T, HD * 2, HEAD), mat.tr(0, -HH + T / 2, 0)),                 // floor
+        B.at(B.box(T, HH * 2, HD * 2, HEAD), mat.tr(-HW + T / 2, 0, 0)),                 // far wall
+        B.at(B.box(T, HH * 2, HD * 2, HEAD), mat.tr(HW - T / 2, 0, 0)),                  // lip wall
+        B.at(B.box(HW * 2, HH * 2, T, HEAD), mat.tr(0, 0, -HD + T / 2)),                 // sides
+        B.at(B.box(HW * 2, HH * 2, T, HEAD), mat.tr(0, 0, HD - T / 2)),
+        ...(k > 0.01 ? [B.at(B.box(HW * 2 - 2 * T, powderH, HD * 2 - 2 * T, [150 + 40 * k, 150 + 40 * k, 158 + 40 * k]),
+                              mat.tr(0, -HH + T + powderH / 2, 0))] : []),
       ]);
-      hopper.m = mat.chain(mat.tr(DRUM[0] - 0.25, 0.42, 0), mat.rz(-a), mat.tr(0.2, 0, 0));
+      hopper.m = mat.chain(mat.tr(LIP[0], LIP[1], LIP[2]), mat.rz(-a), mat.tr(-HW, -HH, 0));
       return [hopper];
     },
     overlay(g, api) {
-      const q = api.r3.project([DRUM[0] - 0.05, 0.42, 0]);
+      // Powder leaves over the lip and falls into the drum.
+      const q = api.r3.project(LIP);
       if (!q) return;
       for (const s of P.stream) {
-        g.fillStyle = `rgba(170,170,176,${(1 - s.t / 0.5).toFixed(2)})`;
-        g.fillRect(q[0] + 4 + s.x + s.t * 20, q[1] + s.t * 160, 2, 3);
+        g.fillStyle = `rgba(185,185,192,${(1 - s.t / 0.5).toFixed(2)})`;
+        g.fillRect(q[0] + 2 + s.x + s.t * 14, q[1] + s.t * s.t * 420, 2, 3);
       }
       const d = api.r3.project([DRUM[0] + 0.2, 0.25, 0]);
       for (const c of P.cloud) {
