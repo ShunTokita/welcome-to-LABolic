@@ -4559,7 +4559,7 @@
 //         永続化拡張 (economy / discoveries / specimens / experiments)
 //   v9.6: 古い装置 UI 整理 (busy:true 初期値・queue バッジ削除)
 //         故障メカニクス (§4.6):
-//           - Accuracy ★1=10% / ★2=4% / ★3=1% / ★4=0% で故障判定
+//           - Accuracy ★1=5% / ★2=2% / ★3=0.5% / ★4=0% で故障判定
 //           - PLAYER.E=3 で手動修理ポップアップ
 //           - AI tryStartRepair で自動修理 (E トグル + Eng ≥ Lv)
 //           - 修理コスト = lv × 50c, 時間 = base × 1.5 / E係数
@@ -10580,6 +10580,7 @@ function openMinigame(id) {
   }
   back.replaceChildren(frame);
   back.classList.add('open');
+  try { tutOnTrainOpen(); } catch (e) {}
   mgPausedAi = !aiPaused;
   if (mgPausedAi) pauseAi();
   try { sfx('ui.popup'); } catch (e) {}
@@ -15480,6 +15481,10 @@ let storyDialogActive = false;
 // story state because STORY_EVENTS' condition closes over it, and that runs
 // before the assignment further down would be reached.
 let focusStoryReady = false;
+// ST_TRAIN's gate — see trainStoryReady(). Since when nothing has been in the
+// way, and when the gate was last asked (a gap means the game was paused).
+let trainQuietFrom = 0;
+let trainLastCheck = 0;
 
 // Are any blocking modals (Discovery, Popup, Settings, Smith Rescue,
 // Story itself) currently open? Used to defer story dispatch.
@@ -15488,7 +15493,9 @@ const UPDATE_LOG = [
   ['v60', ['ストアの装置カードに「講習」を追加（購入済みの装置で、その装置の操作を体験できるミニゲーム）',
            '一括処理は、その装置の講習をクリアすると使えるように',
            '一括処理の故障率が講習のハイスコアで決まるように（100点で故障なし）',
-           '装置カードに一括処理の故障率を表示']],
+           '装置カードに一括処理の故障率を表示',
+           'Co-Worker 雇用後に、講習を案内するストーリーとチュートリアルを追加',
+           'ストーリー中の Co-Worker の故障率の説明を実際の値に修正']],
   ['v59', ['PC で装置のポップアップを開いているとき、Space / Enter キーで「Go!」を押せるように',
            '加工装置のポップアップで、1・2・3 キーで加工レベルを選べるように',
            'ポップアップの左下に操作キーを表示（PC のみ）',
@@ -15720,6 +15727,17 @@ const STORY_EVENTS = [
       '拡張するとArc Melting / Rolling Mill / SEM の装置と、Fe・Niの元素が解禁されます。',
   },
   {
+    // 講習の案内。Ben のチュートリアルが終わってから（tutStoryHold が外れ、
+    // 誘導もストーリーも止んでから）出す。ST05 とヘルプ案内が続く場合はその後。
+    id: 'ST_TRAIN', phase: 'Lv1', requires: 'ST04',
+    title: '使い方講習',
+    condition: () => trainStoryReady(),
+    dialogue: [
+      ['you',   '試験片、一気にたくさん作れたらいいのにな'],
+      ['smith', '慣れてきたときほど、実験は危ないものです。しっかり講習を受けた後なら、まとめて実験しても構いませんよ'],
+    ],
+  },
+  {
     id: 'ST06', phase: 'Lv2', requires: 'ST05',
     title: 'ようこそレベル２へ',
     condition: () => gameStats.labLv >= 2,
@@ -15797,7 +15815,7 @@ const STORY_EVENTS = [
       ['murphy', 'Engineeringのステータスがあれば直せるぞ。トグルのEをONにしとけ。'],
     ],
     popup:
-      '装置が故障しました（Accuracy ★1の Co-Worker は10%、★2は4%、★3は1%の確率で故障）。\n' +
+      '装置が故障しました（Accuracy ★1の Co-Worker は5%、★2は2%、★3は0.5%の確率で故障）。\n' +
       'オレンジ色の「Repair」ボタンから手動で修理するか、\n' +
       'Engineering ★が高いCo-Worker（トグルE=ON）に修理を任せられます。\n' +
       'あなたのEngineering ★は3です。',
@@ -16233,6 +16251,10 @@ function closeStoryEvent(ev) {
   // 第4チュートリアル：Lv1完遂(ST05)を閉じた1秒後にヘルプへの案内。
   if (ev.id === 'ST05') {
     setTimeout(() => { try { tutMaybeStartHelp(); } catch(e) {} }, 1000);
+  }
+  // 講習チュートリアル：ST_TRAIN を閉じた1秒後に Furnace の講習を案内。
+  if (ev.id === 'ST_TRAIN') {
+    setTimeout(() => { try { tutMaybeStartTrain(); } catch(e) {} }, 1000);
   }
   // 第5チュートリアル：ST_FOCUS を閉じた1秒後に「畳む」操作の案内。
   if (ev.id === 'ST_FOCUS') {
@@ -19805,6 +19827,19 @@ const TUT_STEPS = {
     label: '詳しい遊び方はこちら',
   },
 
+  // ---- 講習の案内（ST_TRAIN の後） ----
+  train_eqp_tab: {
+    inStore: true,
+    sel: () => document.querySelector('#lpanel-tabs [data-ltab="eqp"]'),
+    label: '「Eqp」タブをタップ', hintBelow: true,
+  },
+  train_furnace: {
+    inStore: true,
+    sel: () => document.querySelector('[data-action="train"][data-id="furnace"]'),
+    scroll: () => document.querySelector('[data-action="train"][data-id="furnace"]')?.closest('.dev-card'),
+    label: '使い方講習を受けて一括処理を解放',
+  },
+
   // ---- UDM解放の案内（解放ポップアップを閉じた後） ----
   udm_gear: {
     sel: () => document.querySelector('#settings-btn'),
@@ -19918,6 +19953,7 @@ function tutFollow() {
   if (tutStep === 'ben_co_tab'       && activeLTab === 'co')  { tutGoto('ben_hire');      return; }
   if (tutStep === 'ben_co_right_tab' && activeRTab === 'co')  { tutGoto('ben_toggles');   return; }
   if (tutStep === 'ben_exp_tab'      && activeRTab === 'exp') { tutGoto('ben_d1_accept'); return; }
+  if (tutStep === 'train_eqp_tab'    && activeLTab === 'eqp') { tutGoto('train_furnace'); return; }
 
   // 畳むチュートリアル：実際に畳まれたら次へ。1秒空けるのは、パネルが
   // 閉じて実験室が広がる様子を見せてから次の指示を出すため。
@@ -20255,6 +20291,44 @@ function tutMaybeStartHelp() {
   if (typeof udmActive !== 'undefined' && udmActive) return;
   if (storyDialogActive) return;
   tutGoto('help_gear');
+}
+
+// ST_TRAIN の発火条件。Ben のチュートリアル（tutStoryHold）、他の誘導、
+// 他のストーリー、モーダル（ヘルプ含む）がすべて無い状態が3秒続いてから。
+// aiTick（0.5秒ごと）から呼ばれるので、間が空いた＝一時停止中だったとみなし
+// 数え直す。Furnace を持っていて講習が未クリアの人だけ（自力でクリア済みなら
+// 言うことはない）。
+function trainStoryReady() {
+  const now = Date.now();
+  const busy = tutStoryHold || tutStep || storyDialogActive
+    || pendingStoryEvents.some(e => e.id !== 'ST_TRAIN')
+    || isAnyModalOpenForStory()
+    || document.getElementById('help-backdrop')?.classList.contains('open')
+    || now - trainLastCheck > 1500;
+  trainLastCheck = now;
+  if (busy) { trainQuietFrom = now; return false; }
+  if (now - trainQuietFrom < 3000) return false;
+  const ben = coworkers.find(c => c.id === 'ben');
+  if (!ben || !ben.hired) return false;
+  if ((gameStats.ownedEquipment['furnace'] || 0) < 1) return false;
+  return !batchUnlocked('furnace');
+}
+
+// ST_TRAIN を閉じた1秒後：ストア → Eqp → Furnace の講習ボタン。
+// 案内中は後続ストーリー(ST05 等)を保留し、講習を開いた時点で解除する。
+function tutMaybeStartTrain() {
+  if (typeof udmActive !== 'undefined' && udmActive) return;
+  if (storyDialogActive || tutStep) return;
+  if (batchUnlocked('furnace')) return;
+  tutStoryHoldStart();
+  tutGoto('train_eqp_tab');
+}
+
+// 講習を開いた時＝講習チュートリアル完了。
+function tutOnTrainOpen() {
+  if (!tutStep || !tutStep.startsWith('train_')) return;
+  tutClear();
+  tutStoryHoldRelease();
 }
 
 // 畳むチュートリアル。すでに自力で見つけている人には出さない：
