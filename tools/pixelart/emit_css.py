@@ -40,6 +40,14 @@ for did in sorted(DEV):
     w("  .equip[data-id^=\"%s\"] .eq-sprite { background-image: url('assets/pixel/anim/%s.png');"
       " --fr: %d; }" % (did, did, n))
 w("")
+w("""  /* The store's device cards show the still (frame 0) of the same art, two
+     screen pixels to the art pixel, so a device's size there is its size in
+     the lab. */""")
+for did in sorted(DEV):
+    aw, ah = DEV[did][0], DEV[did][1]
+    w("  .dev-art[data-id=\"%s\"] { background-image: url('assets/pixel/%s.png');"
+      " width: %dpx; height: %dpx; }" % (did, did, aw * 2, ah * 2))
+w("")
 w("""  /* Idle devices hold frame 0 and cost nothing; the sheet only runs while
      the device is working, which is the contract the old overlay effects
      had too. */""")
@@ -53,15 +61,15 @@ w("")
 w("""  /* --- lab-floor characters ------------------------------------
      One sheet per person: three facings across, two walk frames down. `side`
      is drawn facing right and mirrored in CSS for left, which the symmetric
-     projection makes free. */""")
+     projection makes free. The Roster (.cw-sprite) uses the same sheets. */""")
 w("  .character[data-face=\"side\"] { background-position-x: 50%; }")
 w("  .character[data-face=\"back\"] { background-position-x: 100%; }")
 w("  .character.walking { animation: cw-step 0.34s steps(2, jump-none) infinite; }")
 w("  @keyframes cw-step { to { background-position-y: 100%; } }")
 w("")
 for cid in CAST:
-    w("  .character[data-cw=\"%s\"] { background-image: url('assets/pixel/char/%s.png'); }"
-      % (cid, cid))
+    w("  .character[data-cw=\"%s\"], .cw-sprite[data-cw=\"%s\"]"
+      " { background-image: url('assets/pixel/char/%s.png'); }" % (cid, cid, cid))
 w("")
 w("""  /* --- the room ------------------------------------------------
      Floor tiles are 32px, two lab tiles square: a pattern that repeats every
