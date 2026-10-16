@@ -3194,6 +3194,21 @@
     background: var(--bg-panel); border-top: 2px solid var(--line-strong);
     padding: 8px 14px; display: flex; flex-direction: column; flex-shrink: 0;
   }
+  /* The next goal, over the bottom-right corner of Active Experiments. It
+     only informs: taps go through to the cards underneath. */
+  .bottombar { position: relative; }
+  .goal-badge { position: absolute; right: 10px; bottom: 8px; z-index: 3; max-width: min(66%, 420px);
+    display: flex; align-items: center; gap: 6px; padding: 5px 10px; border-radius: 14px;
+    background: var(--bg-card); border: 1.5px solid var(--accent-active); box-shadow: 0 2px 8px rgba(0,0,0,.18);
+    font-size: 12px; font-weight: 700; color: var(--text-primary); pointer-events: none; }
+  .goal-badge[hidden] { display: none; }
+  .goal-text { min-width: 0; overflow: hidden; display: -webkit-box; -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2; line-height: 1.35; }
+  .goal-prog { flex-shrink: 0; color: var(--accent-active); font-variant-numeric: tabular-nums; }
+  .goal-badge.met .goal-prog { color: var(--accent-success); }
+  /* Folded away, the bar is only its header: the goal sits just above it. */
+  body.bb-collapsed .goal-badge { bottom: calc(100% + 6px); max-width: calc(50% - 16px); }
+  body.bb-collapsed .goal-text { -webkit-line-clamp: 3; }
   .bottombar .header { font-size: 11px; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 1px; font-weight: 600; display: flex; justify-content: space-between; margin-bottom: 6px; }
   /* Active Experiments is glanced at, not worked in, so on a phone it is the
      row worth trading away for lab space. Collapsing leaves the header — and
@@ -4589,6 +4604,7 @@
   <div class="bottombar">
     <div class="header"><span class="bb-title"><button class="bb-toggle" id="bb-toggle" title="実験一覧の表示切替" aria-expanded="true" aria-controls="bb-exp-cards">▼</button>Active Experiments</span><span id="bb-exp-count">— / —</span></div>
     <div class="exp-cards" id="bb-exp-cards"></div>
+    <div class="goal-badge" id="goal-badge" hidden><span class="goal-ico" aria-hidden="true">🎯</span><span class="goal-text" id="goal-text"></span><span class="goal-prog" id="goal-prog"></span></div>
   </div>
 </div>
 
@@ -11627,7 +11643,87 @@ function renderExpRecipe(recipe, cmp) {
        + ` / <span class="${anaClass}">${ANA_SHORT[recipe.analysis]}</span>`;
 }
 
+// =============================================================
+// 直近の目標 — the next thing to do, over Active Experiments.
+// Read off the same conditions the story events wait for, but in the order the
+// game is played: at each Lab Lv the orders first, then the Discoveries their
+// recipes point to, then the next Lab Lv. Lv1 follows the tutorial instead
+// (E1, E2, the first Discovery, then E3). Hidden in UDM, and while a tutorial
+// spotlight is giving its own instruction.
+// =============================================================
+function currentGoal() {
+  if (!storyFlags['ST01']) return null;
+  const done = codes => codes.filter(c => clearedCodes.has(c)).length;
+  const codesOf = tier => EXPERIMENT_TEMPLATES.filter(t => t.tier === tier).map(t => t.code);
+  const found = list => list.filter(d => (discoveryState[d.id]?.stage ?? 0) >= 4).length;
+  const discOf = f => discoveries.filter(f);
+  const lab = (lv) => {
+    const cost = DEV_LAB.find(l => l.lv === lv).cost;
+    return { text: `LABをレベル${lv}にアップグレードしよう`, cur: Math.min(gameStats.coins, cost), max: cost, unit: 'c' };
+  };
+  const g = (text, cur, max) => ({ text, cur: Math.min(cur, max), max });
+  const lv = gameStats.labLv;
+  if (lv < 2) {
+    if (!storyFlags['ST02']) return g('E1を受注して、試験片を作って観察しよう', specimens.some(x => x.status === 'analyzed') ? 1 : 0, 1);
+    if (!clearedCodes.has('E1')) return g('観察結果をPCで提出しよう', 0, 1);
+    if (!clearedCodes.has('E2')) return g('依頼「E2」を達成しよう', 0, 1);
+    const lv1 = discOf(d => d.lv === 1);
+    if (!found(lv1)) return g('はじめてのDiscoveryを発見しよう', 0, 1);
+    const e1 = codesOf(1);
+    if (done(e1) < e1.length) return g('Lv1の依頼をすべて達成しよう', done(e1), e1.length);
+    return lab(2);
+  }
+  if (lv < 3) {
+    const e = codesOf(2);
+    if (done(e) < 4) return g('Lv2の依頼を4つ達成しよう', done(e), 4);
+    if (!found(discOf(d => d.lv === 2))) return g('Lv2のDiscoveryを発見しよう', 0, 1);
+    return lab(3);
+  }
+  if (lv < 4) {
+    const e = codesOf(3);
+    if (done(e) < 5) return g('Lv3の依頼を5つ達成しよう', done(e), 5);
+    const d3 = discOf(d => d.lv === 3);
+    if (found(d3) < 2) return g('Lv3のDiscoveryを2つ発見しよう', found(d3), 2);
+    return lab(4);
+  }
+  const e4 = codesOf(4);
+  if (done(e4) < 3) return g('Lv4の依頼を3つ達成しよう', done(e4), 3);
+  const t12 = discOf(d => d.tier === 't1' || d.tier === 't2');
+  if (!found(t12)) return g('Lv4のDiscoveryを発見しよう', 0, 1);
+  const all = EXPERIMENT_TEMPLATES.map(t => t.code);
+  const upTo18 = discOf(d => d.tier !== 't3');
+  if (done(all) < all.length || found(upTo18) < upTo18.length) {
+    return { text: `すべての依頼とDiscovery #1〜${upTo18.length}を達成しよう`,
+             prog: `依頼 ${done(all)}/${all.length}・Discovery ${found(upTo18)}/${upTo18.length}` };
+  }
+  const t3 = discOf(d => d.tier === 't3');
+  if (!found(t3)) return g('伝説のレシピを完成させよう', 0, 1);
+  if (found(discoveries) < discoveries.length) return g('すべてのDiscoveryを発見しよう', found(discoveries), discoveries.length);
+  return null;
+}
+let goalKey = null;
+function updateGoal() {
+  const el = document.getElementById('goal-badge');
+  if (!el) return;
+  let goal = null;
+  try {
+    const tutorial = typeof tutStep !== 'undefined' && (tutStep || tutStoryHold);
+    if (!udmActive && !tutorial) goal = currentGoal();
+  } catch (e) { goal = null; }
+  const prog = !goal ? '' : goal.prog || `${goal.cur}/${goal.max}${goal.unit || ''}`;
+  const key = goal ? goal.text + '|' + prog : '';
+  if (key === goalKey) return;
+  goalKey = key;
+  el.hidden = !goal;
+  if (!goal) return;
+  document.getElementById('goal-text').textContent = goal.text;
+  document.getElementById('goal-prog').textContent = prog;
+  el.classList.toggle('met', !goal.prog && goal.cur >= goal.max);
+  el.title = goal.text + '（' + prog + '）';
+}
+
 function renderBottomBar() {
+  try { updateGoal(); } catch (e) {}
   const cards = document.getElementById('bb-exp-cards');
   const count = document.getElementById('bb-exp-count');
   if (!cards || !count) return;
@@ -15499,6 +15595,7 @@ function aiTick() {
   // Story engine: check for events that may have just become eligible.
   // Cheap when the queue is empty and storyDialogActive guards re-entry.
   checkStoryTriggers();
+  updateGoal();
 }
 
 function startAi() {
@@ -15572,6 +15669,7 @@ let storyFlags = {};
 // predates this field (the replay then falls back to today's Day).
 let storyClearDay = null;
 let pendingStoryEvents = [];
+let discPopupPending = 0;   // Discovery popups still to open — see showDiscoveryPopup()
 let storyDialogActive = false;
 // ST_FOCUS's gate — see armFocusStory(). Declared up here with the rest of the
 // story state because STORY_EVENTS' condition closes over it, and that runs
@@ -15590,7 +15688,9 @@ let bulkBrokeOnce = false;
 const UPDATE_LOG = [
   ['v62', ['ストアの装置カードに装置のドット絵を表示',
            '出退勤（ドアマット）の画面にキャラクターのドット絵を表示（出勤中は足踏み、帰宅中は後ろ向き）',
-           '講習の案内が出るタイミングを、2つ目のDiscovery発見の後に変更']],
+           '講習の案内が出るタイミングを、2つ目のDiscovery発見の後に変更',
+           'Active Experiments の右下に、次の目標と進み具合を表示',
+           'Discovery 発見と会話イベントが重なったとき、Discovery のポップアップを先に表示']],
   ['v61', ['ストアで購入・雇用できないとき、理由をストア上に表示']],
   ['v60', ['ストアの装置カードに「講習」を追加（購入済みの装置で、その装置の操作を体験できるミニゲーム）',
            '一括処理は、その装置の講習をクリアすると使えるように',
@@ -16247,6 +16347,8 @@ function checkStoryTriggers() {
 // --- Dispatcher (defers while another modal is open) ---
 function processStoryQueue() {
   if (storyDialogActive) return;
+  // A Discovery popup still to come goes first; closing it re-checks the queue.
+  if (discPopupPending > 0) return;
   // Co-Workerチュートリアル進行中は後続ストーリー(ST05)を保留する。
   if (typeof tutStoryHold !== 'undefined' && tutStoryHold) return;
   if (pendingStoryEvents.length === 0) return;
@@ -17279,7 +17381,19 @@ function discoveryCardIconStyle(disc) {
   return specimenIconStyle(disc.recipe.elements);
 }
 
-function showDiscoveryPopup(disc, spec) { afterRevealFx(() => openDiscoveryPopup(disc, spec)); }
+// The popup waits for the reveal show, and then for any story scene on
+// screen. Until it has opened (and been closed), story events wait for it:
+// the scene a Discovery sets off (ST04, ST07…) comes after the player has
+// seen the Discovery, not over it.
+function showDiscoveryPopup(disc, spec) {
+  discPopupPending++;
+  const open = () => {
+    if (storyDialogActive) { setTimeout(open, 300); return; }
+    discPopupPending--;
+    openDiscoveryPopup(disc, spec);
+  };
+  afterRevealFx(open);
+}
 function openDiscoveryPopup(disc, spec) {
   celebrateDiscovery();   // particles behind the popup that is about to open
   // Render icon using the specimen's elements (same as specimenIconStyle)
