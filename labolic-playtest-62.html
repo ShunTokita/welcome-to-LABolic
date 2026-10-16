@@ -47,7 +47,9 @@
     -webkit-tap-highlight-color: transparent;
     overflow-x: hidden;
   }
-  .screen { width: 100%; max-width: 100%; height: 100vh; height: 100dvh; display: flex; flex-direction: column; }
+  /* --app-h is the height actually on screen (fitAppHeight). In-app browsers
+     often size 100vh/100dvh past their own toolbars, cutting off the bottom. */
+  .screen { width: 100%; max-width: 100%; height: 100vh; height: 100dvh; height: var(--app-h, 100dvh); display: flex; flex-direction: column; }
 
   /* === topbar === */
   .topbar {
@@ -3201,7 +3203,7 @@
   /* The next goal, over the bottom-right corner of Active Experiments. It
      only informs: taps go through to the cards underneath. Above every popup
      (discovery 800, device 810) but under a story scene (850). */
-  .bottombar { position: relative; }
+  .bottombar { position: relative; padding-bottom: calc(8px + env(safe-area-inset-bottom, 0px)); }
   /* bottom: clear of the home indicator, and lifted further (--goal-lift,
      set by questFit) where the page runs below what is actually on screen —
      in-app browsers often size 100vh/100dvh past their own toolbars. */
@@ -3537,7 +3539,7 @@
   body.mobile-mode .screen {
     display: grid;
     grid-template-rows: 38px 1fr;
-    height: 100vh; height: 100dvh;
+    height: 100vh; height: 100dvh; height: var(--app-h, 100dvh);
   }
   body.mobile-mode .topbar { height: 38px; gap: 10px; padding: 0 10px; }
   body.mobile-mode .main {
@@ -3561,7 +3563,8 @@
     border: none; flex: initial;
   }
   body.mobile-mode .panel-left { border-right: 2px solid var(--line-strong); }
-  body.mobile-mode .bottombar { height: auto; min-height: 0; max-height: none; border-top: none; padding: 5px 8px; flex-shrink: initial; }
+  body.mobile-mode .bottombar { height: auto; min-height: 0; max-height: none; border-top: none; padding: 5px 8px; flex-shrink: initial;
+    padding-bottom: calc(5px + env(safe-area-inset-bottom, 0px)); }
   body.mobile-mode .lab-wrap { padding: 4px; }
   body.mobile-mode .lab-header { margin-bottom: 4px; height: 22px; gap: 4px; }
   body.mobile-mode .lab-header .info { font-size: 9px; padding: 1px 4px; }
@@ -17485,7 +17488,7 @@ function init() {
   requestAnimationFrame(() => requestAnimationFrame(autoFit));
   startAi();
   // The quest bar keeps its own clock: it carries on over popups, which pause the AI.
-  setInterval(() => { try { updateGoal(); } catch (e) {} }, 400);
+  setInterval(() => { try { fitAppHeight(); updateGoal(); } catch (e) {} }, 400);
   // Kick off story triggers once the screen is settled. Defer slightly so
   // the lab fade-in finishes before the first dialogue interrupts it.
   setTimeout(checkStoryTriggers, 500);
@@ -21310,7 +21313,22 @@ function bootGame() {
   }
 }
 
+// The page is as tall as what is really on screen (see .screen and
+// visibleBottom()). Checked on every resize and on the quest bar's clock too,
+// since some webviews change their toolbars without a resize event.
+let appH = 0;
+function fitAppHeight() {
+  const h = Math.round(visibleBottom());
+  if (!h || h === appH) return;
+  appH = h;
+  document.documentElement.style.setProperty('--app-h', h + 'px');
+}
+fitAppHeight();
+window.visualViewport?.addEventListener('resize', fitAppHeight);
+window.addEventListener('orientationchange', () => setTimeout(fitAppHeight, 300));
+
 window.addEventListener('resize', () => {
+  fitAppHeight();
   setBaseTile();
   // Re-fit on resize so the user always starts from a sensible view
   autoFit();
