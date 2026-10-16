@@ -16252,7 +16252,7 @@ function closeStoryEvent(ev) {
   if (ev.id === 'ST05') {
     setTimeout(() => { try { tutMaybeStartHelp(); } catch(e) {} }, 1000);
   }
-  // 講習チュートリアル：ST_TRAIN を閉じた1秒後に Furnace の講習を案内。
+  // 講習チュートリアル：ST_TRAIN を閉じた1秒後に Casting の講習を案内。
   if (ev.id === 'ST_TRAIN') {
     setTimeout(() => { try { tutMaybeStartTrain(); } catch(e) {} }, 1000);
   }
@@ -19833,10 +19833,10 @@ const TUT_STEPS = {
     sel: () => document.querySelector('#lpanel-tabs [data-ltab="eqp"]'),
     label: '「Eqp」タブをタップ', hintBelow: true,
   },
-  train_furnace: {
+  train_casting: {
     inStore: true,
-    sel: () => document.querySelector('[data-action="train"][data-id="furnace"]'),
-    scroll: () => document.querySelector('[data-action="train"][data-id="furnace"]')?.closest('.dev-card'),
+    sel: () => document.querySelector('[data-action="train"][data-id="casting"]'),
+    scroll: () => document.querySelector('[data-action="train"][data-id="casting"]')?.closest('.dev-card'),
     label: '使い方講習を受けて一括処理を解放',
   },
 
@@ -19953,7 +19953,7 @@ function tutFollow() {
   if (tutStep === 'ben_co_tab'       && activeLTab === 'co')  { tutGoto('ben_hire');      return; }
   if (tutStep === 'ben_co_right_tab' && activeRTab === 'co')  { tutGoto('ben_toggles');   return; }
   if (tutStep === 'ben_exp_tab'      && activeRTab === 'exp') { tutGoto('ben_d1_accept'); return; }
-  if (tutStep === 'train_eqp_tab'    && activeLTab === 'eqp') { tutGoto('train_furnace'); return; }
+  if (tutStep === 'train_eqp_tab'    && activeLTab === 'eqp') { tutGoto('train_casting'); return; }
 
   // 畳むチュートリアル：実際に畳まれたら次へ。1秒空けるのは、パネルが
   // 閉じて実験室が広がる様子を見せてから次の指示を出すため。
@@ -20296,7 +20296,7 @@ function tutMaybeStartHelp() {
 // ST_TRAIN の発火条件。Ben のチュートリアル（tutStoryHold）、他の誘導、
 // 他のストーリー、モーダル（ヘルプ含む）がすべて無い状態が3秒続いてから。
 // aiTick（0.5秒ごと）から呼ばれるので、間が空いた＝一時停止中だったとみなし
-// 数え直す。Furnace を持っていて講習が未クリアの人だけ（自力でクリア済みなら
+// 数え直す。Casting を持っていて講習が未クリアの人だけ（自力でクリア済みなら
 // 言うことはない）。
 function trainStoryReady() {
   const now = Date.now();
@@ -20310,16 +20310,16 @@ function trainStoryReady() {
   if (now - trainQuietFrom < 3000) return false;
   const ben = coworkers.find(c => c.id === 'ben');
   if (!ben || !ben.hired) return false;
-  if ((gameStats.ownedEquipment['furnace'] || 0) < 1) return false;
-  return !batchUnlocked('furnace');
+  if ((gameStats.ownedEquipment['casting'] || 0) < 1) return false;
+  return !batchUnlocked('casting');
 }
 
-// ST_TRAIN を閉じた1秒後：ストア → Eqp → Furnace の講習ボタン。
+// ST_TRAIN を閉じた1秒後：ストア → Eqp → Casting の講習ボタン。
 // 案内中は後続ストーリー(ST05 等)を保留し、講習を開いた時点で解除する。
 function tutMaybeStartTrain() {
   if (typeof udmActive !== 'undefined' && udmActive) return;
   if (storyDialogActive || tutStep) return;
-  if (batchUnlocked('furnace')) return;
+  if (batchUnlocked('casting')) return;
   tutStoryHoldStart();
   tutGoto('train_eqp_tab');
 }
