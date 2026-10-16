@@ -85,6 +85,46 @@ async function shoot(p, name, clip) {
   await ctx.close();
 }
 
+// ---- ST03 (発見の予感): a Discovery card, Furnace's levels, a hint opening ----
+{
+  const ctx = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2 });
+  const p = await ctx.newPage();
+  // A stopped clock: the hint's show is stepped to the same frame every time.
+  await p.clock.install();
+  await p.goto(url(page));
+  await p.clock.runFor(1500);
+  await p.evaluate(() => startExperiments());
+  await p.clock.runFor(1500);
+  // Brass with its elements and synthesis known; the processing still hidden.
+  await p.evaluate(() => {
+    for (const id of ['ST01', 'ST02', 'ST03', 'ST04', 'ST_TRAIN', 'ST_TRAINED', 'ST_BULK_BREAK']) storyFlags[id] = true;
+    saveStoryFlags();
+    Object.assign(gameStats.ownedEquipment, { casting: 1, om: 1, furnace: 1 });
+    rebuildEquipmentFromOwnership(); renderLab();
+    if (document.getElementById('look-backdrop').classList.contains('open')) closeLookPicker(false);
+    discoveryState.brass = Object.assign(discoveryState.brass || {}, { stage: 2, hintsRevealed: { elements: true, synthesis: true } });
+    renderDisPanel();
+  });
+  await p.clock.runFor(800);
+  const card = p.locator('#dis-content .d-card[data-disc="brass"]');
+  const c = await card.boundingBox();
+  await shoot(p, 'hint-recipe', pad(c, 4));
+  // The processing opens: the orb flies from the player, the plate breaks and
+  // the big text stands over the card (at about 0.85 s).
+  await p.evaluate(() => {
+    discoveryState.brass.hintsRevealed.processing = true;
+    DisFx.reveal({ discId: 'brass', segs: ['p0'], full: false, sources: ['you'] });
+  });
+  for (let t = 0; t < 850; t += 50) await p.clock.runFor(50);   // in steps, as the frames come
+  await shoot(p, 'hint-reveal', { x: 0, y: c.y - 34, width: 240, height: c.height + 44 });
+  await p.clock.runFor(3000);
+  await p.evaluate(() => openPopup('furnace'));
+  await p.clock.runFor(800);
+  const levels = p.locator('#popup .param-control').locator('xpath=ancestor::*[contains(@class,"popup-section")][1]');
+  await shoot(p, 'hint-levels', pad(await levels.boundingBox(), 4));
+  await ctx.close();
+}
+
 // ---- the minigames ----
 async function minigame(id) {
   const ctx = await browser.newContext({ viewport: { width: 390, height: 760 }, deviceScaleFactor: 2 });
