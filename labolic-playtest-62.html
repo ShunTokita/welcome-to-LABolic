@@ -3202,7 +3202,11 @@
      only informs: taps go through to the cards underneath. Above every popup
      (discovery 800, device 810) but under a story scene (850). */
   .bottombar { position: relative; }
-  .goal-badge { position: absolute; right: 10px; bottom: 8px; z-index: 845; max-width: min(66%, 420px);
+  /* bottom: clear of the home indicator, and lifted further (--goal-lift,
+     set by questFit) where the page runs below what is actually on screen —
+     in-app browsers often size 100vh/100dvh past their own toolbars. */
+  .goal-badge { position: absolute; right: 10px; z-index: 845;
+    bottom: calc(8px + env(safe-area-inset-bottom, 0px) + var(--goal-lift, 0px)); max-width: min(66%, 420px);
     overflow: hidden; transform-origin: 85% 100%;
     display: flex; align-items: center; gap: 6px; padding: 5px 10px; border-radius: 14px;
     background: var(--bg-card); border: 1.5px solid var(--accent-active); box-shadow: 0 2px 8px rgba(0,0,0,.18);
@@ -3220,7 +3224,7 @@
     transform: translateX(-160%) skewX(-20deg); }
   .goal-badge.met .goal-prog { color: var(--accent-success); }
   /* Folded away, the bar is only its header: the goal sits just above it. */
-  body.bb-collapsed .goal-badge { bottom: calc(100% + 6px); max-width: calc(50% - 16px); }
+  body.bb-collapsed .goal-badge { bottom: calc(100% + 6px + var(--goal-lift, 0px)); max-width: calc(50% - 16px); }
   body.bb-collapsed .goal-text { -webkit-line-clamp: 3; }
   .bottombar .header { font-size: 11px; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 1px; font-weight: 600; display: flex; justify-content: space-between; margin-bottom: 6px; }
   /* Active Experiments is glanced at, not worked in, so on a phone it is the
@@ -11752,14 +11756,37 @@ function questResetAll() {
   if (el) el.hidden = true;
 }
 
+// The bottom of what is really on screen. innerHeight and the visual viewport
+// follow the browser's own toolbars where CSS viewport units may not.
+function visibleBottom() {
+  const vv = window.visualViewport;
+  const ch = document.documentElement.clientHeight || innerHeight;
+  return Math.min(innerHeight, ch, vv ? vv.offsetTop + vv.height : innerHeight);
+}
+// Keep the bar on screen: lift it by however far it runs below the visible
+// bottom. Its own animations move it with transforms, which
+// getBoundingClientRect counts in, so it is only measured at rest.
+let questLift = 0;
+function questFit(el) {
+  if (el.hidden || el.getAnimations?.().length) return;
+  const r = el.getBoundingClientRect();
+  if (!r.height) return;
+  const natural = r.bottom + questLift;
+  const lift = Math.max(0, Math.ceil(natural - (visibleBottom() - 6)));
+  if (lift !== questLift) {
+    questLift = lift;
+    document.body.style.setProperty('--goal-lift', lift + 'px');
+  }
+}
 // The room the bar takes at the bottom of the screen, for popups to keep clear of.
 function questReserve(el) {
   const on = !el.hidden;
   document.body.classList.toggle('has-goal', on);
   if (!on) return;
+  questFit(el);
   const r = el.getBoundingClientRect();
   if (!r.height) return;
-  const px = Math.max(0, Math.ceil(innerHeight - r.top + 8));
+  const px = Math.max(0, Math.ceil(visibleBottom() - r.top + 8));
   document.body.style.setProperty('--goal-reserve', px + 'px');
 }
 function questPaint(el, x) {
