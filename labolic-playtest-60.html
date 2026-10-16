@@ -18602,7 +18602,7 @@ function closeConfirm(result) {
 // Restores the game to the exact "first launch" state.
 async function resetAllGame() {
   const ok = await showConfirm(
-    'ストーリー、コイン、購入状況、プレイタイムをすべてリセットし、初回起動時の状態に戻します。よろしいですか？',
+    'ストーリー、コイン、購入状況、講習の記録、プレイタイムをすべてリセットし、初回起動時の状態に戻します。よろしいですか？',
     'リセットする'
   );
   if (!ok) return;
@@ -18628,6 +18628,10 @@ async function resetAllGame() {
   pendingStoryEvents = [];
   storyDialogActive = false;
   saveStoryFlags();
+  // 講習の記録も消す。残すと ST_TRAINED（Casting 講習の修了）が条件を
+  // 満たしたまま、リセット直後に発火してしまう。
+  try { localStorage.removeItem(MG_STORE_KEY); } catch(e) {}
+  bulkBrokeOnce = false;
 
   // --- 3) Day clock ---
   gameStats.day = 1;
