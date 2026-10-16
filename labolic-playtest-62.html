@@ -1353,6 +1353,10 @@
   .eqp-fail b { color: var(--text-primary); }
   .eqp-fail.locked { color: var(--text-muted); }
   .qty-lock { font-size: 11px; color: var(--text-muted); }
+  /* In the quantity row the lock note takes a line of its own: squeezed in
+     beside the buttons it stood every label on end and doubled the row. */
+  .qty-row .qty-lock { flex-basis: 100%; }
+  .qty-row .qty-label, .qty-row .qty-total { white-space: nowrap; }
   .mg-backdrop {
     position: fixed; inset: 0; z-index: 2000; display: none;
     background: #0a0c0e;
@@ -3319,6 +3323,16 @@
   /* === popup === */
   .popup-backdrop { display: none; position: fixed; inset: 0; background: rgba(31, 44, 68, 0.55); z-index: 200; justify-content: center; align-items: center; padding: 20px; }
   .popup-backdrop.open { display: flex; }
+  /* While the quest bar is up, a popup keeps above it: --goal-reserve is the
+     room the bar takes at the bottom of the screen (set by updateGoal). */
+  body.has-goal .popup-backdrop { padding-bottom: max(20px, var(--goal-reserve, 0px)); }
+  body.has-goal .popup { max-height: calc(100dvh - 20px - max(20px, var(--goal-reserve, 0px))); }
+  /* A phone has no height to spare: tighter padding round the popup's parts. */
+  body.mobile-mode .popup-header { padding: 8px 12px; }
+  body.mobile-mode .popup-body { padding: 10px 12px; }
+  body.mobile-mode .popup-section { margin-bottom: 10px; }
+  body.mobile-mode .popup-footer { padding: 8px 12px; }
+  body.mobile-mode .popup .element-slot { height: 46px; }
   .popup { background: var(--bg-card); border: 2.5px solid var(--line-strong); border-radius: 6px; width: 480px; max-width: 100%; max-height: 92vh; max-height: min(92dvh, calc(100dvh - 40px)); display: flex; flex-direction: column; box-shadow: 6px 6px 0 rgba(31,44,68,0.25); }
   .popup.wide { width: 560px; }
   .popup-header { padding: 12px 16px; background: var(--bg-input); border-bottom: 2px solid var(--line-strong); display: flex; align-items: center; gap: 12px; border-radius: 4px 4px 0 0; }
@@ -3420,7 +3434,7 @@
 
   /* Quantity selector (synth popup) */
   .qty-row {
-    display: flex; align-items: center; gap: 12px;
+    display: flex; align-items: center; gap: 12px; flex-wrap: wrap; row-gap: 4px;
     margin-bottom: 12px; padding: 8px 10px;
     background: var(--bg-card); border: 1.5px solid var(--line-medium); border-radius: 4px;
   }
@@ -11738,6 +11752,16 @@ function questResetAll() {
   if (el) el.hidden = true;
 }
 
+// The room the bar takes at the bottom of the screen, for popups to keep clear of.
+function questReserve(el) {
+  const on = !el.hidden;
+  document.body.classList.toggle('has-goal', on);
+  if (!on) return;
+  const r = el.getBoundingClientRect();
+  if (!r.height) return;
+  const px = Math.max(0, Math.ceil(innerHeight - r.top + 8));
+  document.body.style.setProperty('--goal-reserve', px + 'px');
+}
 function questPaint(el, x) {
   document.getElementById('goal-text').textContent = x.text;
   document.getElementById('goal-prog').textContent = x.prog || `${x.cur}/${x.max}${x.unit}`;
@@ -11791,7 +11815,9 @@ const QFX = {
 
 function updateGoal() {
   const el = document.getElementById('goal-badge');
-  if (!el || questBusy) return;
+  if (!el) return;
+  questReserve(el);
+  if (questBusy) return;
   if (udmActive) { el.hidden = true; questShown = null; return; }
   if (storyDialogActive) return;              // frozen under a scene
   questLoadPaid();
