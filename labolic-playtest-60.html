@@ -896,6 +896,19 @@
   .cv-sys-text { margin: 0; padding: 10px 12px; border-left: 3px solid var(--accent-success); background: rgba(74,122,50,.10);
     border-radius: 0 4px 4px 0; font-size: 14px; line-height: 1.75; white-space: pre-line; overflow-wrap: anywhere;
     max-height: 50vh; max-height: 50dvh; overflow-y: auto; }
+  /* Screenshots on a notice, one page at a time. */
+  .cv-shots { display: grid; gap: 6px; }
+  .cv-shot { margin: 0; display: grid; gap: 6px; justify-items: center; }
+  .cv-shot img { display: block; max-width: 100%; max-height: 34vh; max-height: 34dvh; border-radius: 4px;
+    border: 2px solid var(--line-strong); background: #111; }
+  .cv-shot figcaption { font-size: 13px; font-weight: 700; text-align: center; }
+  .cv-shot-nav { display: flex; align-items: center; justify-content: center; gap: 14px; }
+  .cv-shot-btn { width: 40px; height: 30px; border: 2px solid var(--line-strong); border-radius: 4px; cursor: pointer;
+    background: var(--bg-card); color: var(--text-primary); font-size: 12px; font-family: inherit; }
+  .cv-shot-btn:disabled { opacity: .3; cursor: default; }
+  .cv-shot-dots { display: flex; gap: 6px; }
+  .cv-shot-dots i { width: 8px; height: 8px; border-radius: 50%; background: var(--line-light); }
+  .cv-shot-dots i.on { background: var(--cv-accent); }
   .cv-cont { display: block; width: 100%; padding: 12px; border: none; border-radius: 4px; cursor: pointer;
     font-size: 14px; font-weight: 700; letter-spacing: .06em; background: var(--cv-accent); color: #fff; font-family: inherit; }
   .cv-cont:hover { background: var(--cv-accent-deep); }
@@ -4401,6 +4414,14 @@
         <span class="cv-next" id="cv-next" aria-hidden="true">▼</span>
         <div class="cv-sysview" id="cv-sysview" hidden>
           <p class="cv-sys-text" id="cv-systext"></p>
+          <div class="cv-shots" id="cv-shots" hidden>
+            <figure class="cv-shot"><img id="cv-shot-img" alt=""><figcaption id="cv-shot-cap"></figcaption></figure>
+            <div class="cv-shot-nav">
+              <button class="cv-shot-btn" id="cv-shot-prev" type="button" aria-label="前の画像">◀</button>
+              <span class="cv-shot-dots" id="cv-shot-dots"></span>
+              <button class="cv-shot-btn" id="cv-shot-next" type="button" aria-label="次の画像">▶</button>
+            </div>
+          </div>
           <button class="cv-cont" id="cv-cont" type="button">続ける</button>
         </div>
       </div>
@@ -13257,6 +13278,7 @@ function rollBulkBreakdown(equipId, count) {
   }
   if (!broke) return false;
   eq.broken = true;
+  bulkBrokeOnce = true;
   sfx('break');
   botChat(`💥 ${eq.name} が故障しました（${count}件の一括処理）`, 'breakdown');
   saveEquipmentState();
@@ -15485,6 +15507,8 @@ let focusStoryReady = false;
 // way, and when the gate was last asked (a gap means the game was paused).
 let trainQuietFrom = 0;
 let trainLastCheck = 0;
+// ST_BULK_BREAK's gate: a batch has broken a device (set in rollBulkBreakdown).
+let bulkBrokeOnce = false;
 
 // Are any blocking modals (Discovery, Popup, Settings, Smith Rescue,
 // Story itself) currently open? Used to defer story dispatch.
@@ -15495,7 +15519,10 @@ const UPDATE_LOG = [
            '一括処理の故障率が講習のハイスコアで決まるように（100点で故障なし）',
            '装置カードに一括処理の故障率を表示',
            'Co-Worker 雇用後に、講習を案内するストーリーとチュートリアルを追加',
-           'ストーリー中の Co-Worker の故障率の説明を実際の値に修正']],
+           'ストーリー中の Co-Worker の故障率の説明を実際の値に修正',
+           '講習の修了時と、一括処理ではじめて装置が故障したときの会話を追加',
+           '一部のお知らせに画面の画像を表示',
+           'Furnace の講習で、ネックが細いほど高得点になることをゲージで表示']],
   ['v59', ['PC で装置のポップアップを開いているとき、Space / Enter キーで「Go!」を押せるように',
            '加工装置のポップアップで、1・2・3 キーで加工レベルを選べるように',
            'ポップアップの左下に操作キーを表示（PC のみ）',
@@ -15735,6 +15762,48 @@ const STORY_EVENTS = [
     dialogue: [
       ['you',   '試験片、一気にたくさん作れたらいいのにな'],
       ['smith', '慣れてきたときほど、実験は危ないものです。しっかり講習を受けた後なら、まとめて実験しても構いませんよ'],
+    ],
+  },
+  {
+    // Casting の講習を初めてクリアし、講習画面を閉じた後（開いている間は
+    // isAnyModalOpenForStory が待たせる）。
+    id: 'ST_TRAINED', phase: 'Lv1', requires: 'ST01',
+    title: '講習修了',
+    condition: () => batchUnlocked('casting'),
+    delay: 800,
+    dialogue: [
+      ['you',   'ふう、きれいにできたぞ'],
+      ['smith', 'おつかれさまでした。これだけメンテナンスできるなら、まとめて実験しても構いませんよ'],
+      ['you',   'やった！がんがんやりますよー'],
+    ],
+    popup:
+      'Castingの一括処理が解放されました！\n' +
+      '装置ごとに決められた講習を受けると、その装置での一括処理が解放されます。\n' +
+      'スコアを上げることで故障率が下がります。',
+    shots: [
+      { src: 'assets/tutorial/train-button.webp', cap: '講習は装置ごと' },
+      { src: 'assets/tutorial/train-game.webp',   cap: 'ゲームで実験を学ぼう' },
+      { src: 'assets/tutorial/train-batch.webp',  cap: '成功すると一括で実験！' },
+    ],
+  },
+  {
+    // 一括処理で初めて装置が故障したとき（rollBulkBreakdown が印を付ける）。
+    id: 'ST_BULK_BREAK', phase: 'Lv1', requires: 'ST01',
+    title: 'メンテナンス不足',
+    condition: () => bulkBrokeOnce,
+    dialogue: [
+      ['you',    'やばい、調子に乗ってたくさん実験してたら故障させちゃった…'],
+      ['murphy', 'なーにやってんだ！日頃のメンテナンスが足りないからそうなるんだよ！'],
+      ['you',    'すみません…'],
+      ['murphy', '見ててやるから、掃除からやってみな。きれいに掃除された装置は簡単には壊れねえよ'],
+    ],
+    popup:
+      '講習のスコアを上げると、一括処理における故障率が変化します。\n' +
+      '完璧なメンテナンスを目指しましょう。',
+    shots: [
+      { src: 'assets/tutorial/break-score.webp',  cap: '講習にはスコアがある' },
+      { src: 'assets/tutorial/break-result.webp', cap: '高いスコアを取ると…' },
+      { src: 'assets/tutorial/break-rate.webp',   cap: '一括処理で故障が起きにくくなる' },
     ],
   },
   {
@@ -16791,12 +16860,34 @@ function showNotice() {
   $('cv-line').hidden = true; $('cv-next').classList.remove('on');
   const text = popupText();
   $('cv-systext').textContent = text;
+  showShots(EV.shots);
   $('cv-sysview').hidden = false;
   $('cv-sr').textContent = text;
   $('cv-cont').focus({ preventScroll: true });
   try { botChat(text, 'submit'); } catch (e) {}   // 'submit' = green highlight band
 }
 function finish() { if (EV.popup) showNotice(); else end(); }
+
+// A notice's screenshots (ev.shots: [{ src, cap }]), one page at a time.
+// Continue works on any page; the pictures are an aside, not a gate.
+let shots = [], shotAt = 0;
+function showShots(list) {
+  shots = Array.isArray(list) ? list : [];
+  $('cv-shots').hidden = !shots.length;
+  $('cv-shot-dots').innerHTML = shots.map(() => '<i></i>').join('');
+  shotPage(0);
+}
+function shotPage(n) {
+  if (!shots.length) return;
+  shotAt = Math.max(0, Math.min(shots.length - 1, n));
+  const s = shots[shotAt];
+  $('cv-shot-img').src = s.src;
+  $('cv-shot-img').alt = s.cap;
+  $('cv-shot-cap').textContent = s.cap;
+  [...$('cv-shot-dots').children].forEach((d, i) => d.classList.toggle('on', i === shotAt));
+  $('cv-shot-prev').disabled = shotAt === 0;
+  $('cv-shot-next').disabled = shotAt === shots.length - 1;
+}
 
 function end() {
   mode = 'idle'; clearTimeout(timer); clearTimeout(beat); beat = null; typing = false;
@@ -16917,6 +17008,8 @@ function bind() {
   $('cv-skip').addEventListener('click', () => { if (mode === 'dialogue' || mode === 'beat') finish(); });
   $('cv-open-log').addEventListener('click', openLog);
   $('cv-cont').addEventListener('click', () => { if (mode === 'notice') end(); });
+  $('cv-shot-prev').addEventListener('click', () => shotPage(shotAt - 1));
+  $('cv-shot-next').addEventListener('click', () => shotPage(shotAt + 1));
   $('cv-log-close').addEventListener('click', closeLog);
   $('cv-log').addEventListener('click', e => { if (e.target.id === 'cv-log') closeLog(); });
   $('cv-gallery-back').addEventListener('click', () => { closeGallery(); openSettings(); });

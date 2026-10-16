@@ -244,6 +244,8 @@
       const win = $('neckWin');
       win.style.left = (WIN[0] * 100) + '%';
       win.style.width = ((WIN[1] - WIN[0]) * 100) + '%';
+      // Denser toward the thin edge: the score is best there (see the pull).
+      win.style.background = 'linear-gradient(90deg, rgba(95,227,255,.75), rgba(95,227,255,.06))';
       // Amber while it narrows, green in the window, red once past it.
       $('neckF').style.backgroundColor = S.r > WIN[1] ? '#e8b84a' : S.r >= WIN[0] ? '#5fd38a'
         : P.dangerColor(0.6 + 0.4 * lateDanger());
