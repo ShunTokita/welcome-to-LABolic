@@ -1324,7 +1324,7 @@
     border: 1.5px solid var(--accent-active); border-radius: 3px;
     cursor: pointer; transition: background 0.12s; white-space: nowrap;
   }
-  .dev-buy-btn:hover:not(:disabled) { background: #1a4d8a; }
+  .dev-buy-btn:hover:not(:disabled):not(.broke) { background: #1a4d8a; }
   .dev-buy-btn.broke, .dev-buy-btn:disabled {
     background: var(--bg-input); color: var(--text-muted);
     border-color: var(--line-light); cursor: not-allowed;
@@ -1409,7 +1409,7 @@
     border: 1.5px solid var(--accent-active); border-radius: 3px;
     cursor: pointer; transition: background 0.15s;
   }
-  .hire-btn:hover:not(:disabled) { background: #1a4d8a; }
+  .hire-btn:hover:not(:disabled):not(.locked) { background: #1a4d8a; }
   .hire-btn.locked, .hire-btn:disabled {
     background: var(--bg-input); color: var(--text-muted);
     border-color: var(--line-light); cursor: not-allowed;
@@ -10670,7 +10670,7 @@ function renderLabDev(el) {
     const btnHtml = owned
       ? '<span class="btn-owned">✓ 所有</span>'
       : canUpgrade
-        ? `<button class="dev-buy-btn ${canAfford ? '' : 'broke'}" data-action="upgradeLab" data-lv="${lab.lv}" ${canAfford ? '' : 'disabled'}>
+        ? `<button class="dev-buy-btn ${canAfford ? '' : 'broke'}" data-action="upgradeLab" data-lv="${lab.lv}" ${canAfford ? '' : 'aria-disabled="true"'}>
              ${canAfford ? '昇格する' : 'コイン不足'}
            </button>`
         : `<span class="btn-locked">🔒 Lv${lab.lv-1}が必要</span>`;
@@ -10736,7 +10736,7 @@ function renderEquipCard(eq, labLv) {
     if (owned >= 1) return '<span class="btn-owned">✓</span>';
     const canAfford = gameStats.coins >= eq.cost;
     const canBuy = lvOk && canAfford;
-    return `<button class="dev-buy-btn ${canBuy ? '' : 'broke'}" data-action="buyEquip" data-id="${eq.id}" data-copy="1" ${canBuy ? '' : 'disabled'}>
+    return `<button class="dev-buy-btn ${canBuy ? '' : 'broke'}" data-action="buyEquip" data-id="${eq.id}" data-copy="1" ${canBuy ? '' : 'aria-disabled="true"'}>
       ${!lvOk ? `🔒 Lab Lv${eq.requireLabLv}` : !canAfford ? 'コイン不足' : `${eq.cost}c`}
     </button>`;
   })();
@@ -10749,7 +10749,7 @@ function renderEquipCard(eq, labLv) {
     if (owned < 1) return '<span class="btn-locked" style="font-size:9px">1台目が必要</span>';
     const canAfford = gameStats.coins >= eq.cost2;
     const canBuy = labLv >= 4 && canAfford;
-    return `<button class="dev-buy-btn small ${canBuy ? '' : 'broke'}" data-action="buyEquip" data-id="${eq.id}" data-copy="2" ${canBuy ? '' : 'disabled'}>
+    return `<button class="dev-buy-btn small ${canBuy ? '' : 'broke'}" data-action="buyEquip" data-id="${eq.id}" data-copy="2" ${canBuy ? '' : 'aria-disabled="true"'}>
       ${!canAfford ? `×2 コイン不足` : `×2: ${eq.cost2}c`}
     </button>`;
   })();
@@ -10825,7 +10825,7 @@ function renderElementCard(elm, labLv) {
     const eq = DEV_EQUIPMENT.find(e => e.id === elm.requireEquip);
     btnHtml = `<span class="btn-locked">🔒 ${eq?.name || elm.requireEquip}が必要</span>`;
   } else {
-    btnHtml = `<button class="dev-buy-btn ${canBuy ? '' : 'broke'}" data-action="buyElement" data-sym="${elm.sym}" ${canBuy ? '' : 'disabled'}>
+    btnHtml = `<button class="dev-buy-btn ${canBuy ? '' : 'broke'}" data-action="buyElement" data-sym="${elm.sym}" ${canBuy ? '' : 'aria-disabled="true"'}>
       ${canBuy ? `解禁 ${elm.cost}c` : 'コイン不足'}
     </button>`;
   }
@@ -10849,7 +10849,7 @@ function purchaseLabUpgrade(targetLv) {
   const lab = DEV_LAB.find(l => l.lv === targetLv);
   if (!lab) return;
   if (gameStats.labLv !== targetLv - 1) return;
-  if (gameStats.coins < lab.cost) { botChat('コインが足りません', 'breakdown'); return; }
+  if (gameStats.coins < lab.cost) { botChat('コインが足りません', 'breakdown'); storeDeny('コインが足りません'); return; }
   gameStats.coins -= lab.cost;
   gameStats.labLv = targetLv;
   sfx('levelup');
@@ -10893,7 +10893,9 @@ function applyLabLv(lv) {
   if (infoEl) infoEl.textContent = `Lab Lv ${lv} — ${w} × ${h} tiles`;
 }
 
-// A refused purchase, said on the store: Lab Chat sits behind it. The panel
+// A refused purchase, said on the store: Lab Chat sits behind it. A button
+// that cannot buy is greyed but still takes the tap (aria-disabled, not
+// disabled), so the tap can be answered with the reason. The panel
 // shakes side to side (Web Animations, so its own slide-in is not replayed)
 // and a red line says why, for a couple of seconds.
 let storeDenyTimer = null;
@@ -10920,10 +10922,10 @@ function purchaseEquipment(equipId, copy) {
   // MPSS: no duplicate allowed
   if (def.id === 'mpss' && copy > 1) return;
   if (def.cost2 === null && copy > 1) return;
-  if (gameStats.labLv < def.requireLabLv) { botChat(`Lab Lv${def.requireLabLv}が必要です`, 'breakdown'); return; }
+  if (gameStats.labLv < def.requireLabLv) { botChat(`Lab Lv${def.requireLabLv}が必要です`, 'breakdown'); storeDeny(`Lab Lv${def.requireLabLv}が必要です`); return; }
   const cost = copy === 1 ? def.cost : def.cost2;
   if (cost === null) return;
-  if (gameStats.coins < cost) { botChat('コインが足りません', 'breakdown'); return; }
+  if (gameStats.coins < cost) { botChat('コインが足りません', 'breakdown'); storeDeny('コインが足りません'); return; }
   if (def.lv === 4) {
     const hasEngineering4 = coworkers.some(c => c.hired && c.stats.E >= 4);
     if (!hasEngineering4) {
@@ -10944,6 +10946,7 @@ function purchaseEquipment(equipId, copy) {
     }
     if (!canFit) {
       botChat('⚠️ MPSSを設置するスペースがありません（4×5タイル必要）。LAYOUTモードで装置を移動してスペースを確保してください。', 'breakdown');
+      storeDeny('MPSSを置くスペースがありません（4×5タイル必要）');
       return;
     }
   }
@@ -10988,12 +10991,12 @@ function purchaseElement(sym) {
   const def = DEV_ELEMENTS.find(e => e.sym === sym);
   if (!def) return;
   if (gameStats.unlockedElements.has(sym)) return;
-  if (gameStats.labLv < def.requireLabLv) { botChat(`Lab Lv${def.requireLabLv}が必要です`, 'breakdown'); return; }
+  if (gameStats.labLv < def.requireLabLv) { botChat(`Lab Lv${def.requireLabLv}が必要です`, 'breakdown'); storeDeny(`Lab Lv${def.requireLabLv}が必要です`); return; }
   if (def.requireEquip && !(gameStats.ownedEquipment[def.requireEquip] >= 1)) {
     const eq = DEV_EQUIPMENT.find(e => e.id === def.requireEquip);
-    botChat(`${eq?.name || def.requireEquip}の購入が必要です`, 'breakdown'); return;
+    botChat(`${eq?.name || def.requireEquip}の購入が必要です`, 'breakdown'); storeDeny(`${eq?.name || def.requireEquip}の購入が必要です`); return;
   }
-  if (gameStats.coins < def.cost) { botChat('コインが足りません', 'breakdown'); return; }
+  if (gameStats.coins < def.cost) { botChat('コインが足りません', 'breakdown'); storeDeny('コインが足りません'); return; }
   gameStats.coins -= def.cost;
   gameStats.unlockedElements.add(sym);
   saveEconomy();
@@ -11092,7 +11095,7 @@ function renderHireCard(cw, lvOk) {
       <span class="hire-cost"><span class="coin-icon-small"></span>${cw.cost.toLocaleString()}c</span>
       ${canHire
         ? `<button class="hire-btn" data-cw="${cw.id}">雇用</button>`
-        : `<button class="hire-btn locked" disabled title="${lockMsg}">${lockMsg}</button>`}
+        : `<button class="hire-btn locked" data-cw="${cw.id}" aria-disabled="true" title="${lockMsg}">${lockMsg}</button>`}
     </div>
   </div>`;
 }
@@ -11143,11 +11146,11 @@ function hireCoworker(id) {
   const cw = coworkers.find(c => c.id === id);
   if (!cw || cw.hired) return;
   if (gameStats.labLv < cw.minLv) {
-    flashMessage(`Lab Lv ${cw.minLv} が必要です`);
+    storeDeny(`Lab Lv ${cw.minLv} が必要です`);
     return;
   }
   if (gameStats.coins < cw.cost) {
-    flashMessage('コイン不足です');
+    storeDeny('コインが足りません');
     return;
   }
   // Detect "is this the player's first hire?" — if no Co-Worker is yet
@@ -15548,7 +15551,7 @@ let bulkBrokeOnce = false;
 // Story itself) currently open? Used to defer story dispatch.
 // アップデート履歴 (Settings), newest first. Add a line here with each release.
 const UPDATE_LOG = [
-  ['v61', ['ストアでLv4装置を購入できないとき、理由をストア上に表示']],
+  ['v61', ['ストアで購入・雇用できないとき、理由をストア上に表示']],
   ['v60', ['ストアの装置カードに「講習」を追加（購入済みの装置で、その装置の操作を体験できるミニゲーム）',
            '一括処理は、その装置の講習をクリアすると使えるように',
            '一括処理の故障率が講習のハイスコアで決まるように（100点で故障なし）',
