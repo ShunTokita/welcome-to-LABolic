@@ -472,6 +472,126 @@
   .udm-store-state { font-size: 10px; font-weight: 800; text-align: center; color: var(--text-muted); }
   .udm-store-state.run { color: var(--accent-purple); }
 
+
+  /* ===== UDM skill draft, "lab terminal" (design B) =====================
+     A console the player installs a skill from: dark glass, scanlines,
+     monospace status lines, each option a row with the holder's portrait,
+     their colour as the LED strip on the left, the tier as a gauge. */
+  #udm-draft-backdrop .udm-draft-panel {
+    --t-bg: #0b1214; --t-row: #0f1b1e; --t-row-hi: #12262a; --t-line: #1f3a35; --t-dim: #5fae8f;
+    --t-text: #b6f0d8; --t-head: #e3fff2; --t-ok: #58f0b0; --t-mono: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+    position: relative; background: var(--t-bg); color: var(--t-text); border: 1px solid #2f6b5c; border-radius: 8px;
+    box-shadow: 0 0 0 1px rgba(88,240,176,.08), 0 18px 48px rgba(0,0,0,.55), 0 0 28px rgba(88,240,176,.12);
+    padding: 14px 14px 12px; font-family: var(--t-mono); max-width: 520px;
+  }
+  #udm-draft-backdrop .udm-draft-panel::before {
+    content: ""; position: absolute; inset: 0; border-radius: inherit; pointer-events: none; z-index: 2;
+    background: repeating-linear-gradient(0deg, rgba(255,255,255,.035) 0 1px, transparent 1px 3px);
+  }
+  .term-bar { display: flex; justify-content: space-between; gap: 8px; font-size: 10px; letter-spacing: .1em;
+    color: var(--t-dim); border-bottom: 1px solid var(--t-line); padding-bottom: 7px; }
+  #udm-draft-backdrop .udm-intro-header { text-align: left; color: var(--t-head); font-size: 19px; font-weight: 800;
+    letter-spacing: .04em; margin: 10px 0 0; }
+  .term-cur { color: var(--t-ok); animation: term-blink 1s steps(1) infinite; }
+  @keyframes term-blink { 50% { opacity: 0; } }
+  #udm-draft-backdrop .udm-draft-sub { color: #6aa891; font-size: 10.5px; letter-spacing: .04em; margin: 2px 0 10px; }
+  #udm-draft-backdrop .udm-draft-cards { padding: 0; gap: 8px; }
+  #udm-draft-backdrop .udm-draft-card {
+    --c: #b48cff; display: grid; grid-template-columns: 54px 1fr; gap: 10px; align-items: center;
+    background: var(--t-row); border: 1px solid var(--t-line); border-left: 3px solid var(--c); border-radius: 2px;
+    color: var(--t-text); padding: 8px 10px 8px 8px; position: relative; font-family: var(--t-mono);
+  }
+  #udm-draft-backdrop .udm-draft-card:hover, #udm-draft-backdrop .udm-draft-card.is-held {
+    transform: none; background: var(--t-row-hi); border-color: #2f6b5c; border-left-color: var(--c);
+    box-shadow: inset 0 0 0 1px rgba(88,240,176,.18), 0 0 14px rgba(88,240,176,.12);
+  }
+  #udm-draft-backdrop .udm-draft-card:hover::after, #udm-draft-backdrop .udm-draft-card.is-held::after {
+    content: "▶ 導入"; position: absolute; right: 10px; top: 8px; font-size: 10px; color: var(--t-ok); }
+  #udm-draft-backdrop .udm-draft-card:focus-visible { outline: 2px solid var(--t-ok); outline-offset: 1px; }
+  .term-por { width: 54px; height: 54px; background: #071012; border: 1px solid var(--t-line); overflow: hidden;
+    display: grid; justify-items: center; align-content: start; }
+  .term-por .cw-sprite { width: 32px; height: 48px; margin-top: 12px; background-repeat: no-repeat;
+    background-size: 300% 200%; background-position: 0 0; image-rendering: pixelated;
+    filter: drop-shadow(0 0 4px var(--c)); }
+  .term-por.sys { place-items: center; align-content: center; font-size: 11px; font-weight: 800; color: var(--t-ok); letter-spacing: .08em; }
+  .term-body { min-width: 0; display: grid; gap: 1px; }
+  #udm-draft-backdrop .udm-draft-owner { color: var(--c); font-size: 10px; letter-spacing: .12em; filter: brightness(1.45); }
+  #udm-draft-backdrop .udm-draft-name { color: #effff8; font-size: 15px; line-height: 1.3; }
+  #udm-draft-backdrop .udm-draft-desc { color: #8fc9b2; font-size: 10.5px; line-height: 1.55; font-family: inherit; }
+  #udm-draft-backdrop .udm-draft-flavor { color: #5f8f7d; border-left-color: var(--t-line); font-size: 10px; }
+  .term-gauge { display: flex; gap: 2px; margin-top: 4px; }
+  .term-gauge i { width: 20px; height: 4px; background: #1d3a33; }
+  .term-gauge i.on { background: var(--c); box-shadow: 0 0 6px var(--c); filter: brightness(1.35); }
+  .term-gauge i.uq.on { background: #ffd95a; box-shadow: 0 0 8px #ffd95a; filter: none; }
+  /* The once-a-run unique pick keeps its loud sticker, recoloured for the console. */
+  #udm-draft-backdrop .udm-draft-firstmark { color: #2a1a00; text-shadow: none; }
+  #udm-draft-backdrop .udm-tree-open { max-width: none; margin-top: 10px; background: transparent; color: var(--t-dim);
+    border: 1px solid var(--t-line); border-radius: 2px; font-family: var(--t-mono); letter-spacing: .08em; text-align: left; }
+  #udm-draft-backdrop .udm-tree-open:hover { color: var(--t-ok); border-color: #2f6b5c; background: var(--t-row); }
+
+  /* ===== UDM skill tree / store, "circuit board" (design A) =============
+     One row per holder: a trace with four pads, lit in the holder's colour
+     as far as the tiers go; the unique is a chip. Tap a pad, read (and buy)
+     it below. */
+  #udm-store-backdrop .udm-store-panel {
+    --b-bg: #0d2018; --b-line: #24483a; --b-pad: #3d6b57; --b-dim: #77b396; --b-text: #d6f5e3; --b-head: #f0fff6;
+    --b-gold: #ffd95a; --b-mono: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+    background: var(--b-bg); color: var(--b-text); border: 1px solid #2f5e4a; border-radius: 8px;
+    box-shadow: 0 18px 48px rgba(0,0,0,.55), 0 0 26px rgba(95,227,160,.10); font-family: var(--b-mono); max-width: 620px;
+  }
+  #udm-store-backdrop .udm-intro-header { color: var(--b-head); text-align: left; font-size: 18px; letter-spacing: .04em; }
+  #udm-store-backdrop .udm-store-points { color: var(--b-gold); }
+  #udm-store-backdrop .udm-store-hint { color: var(--b-dim); font-size: 10.5px; }
+  #udm-store-backdrop .udm-store-body { overflow-x: hidden; }
+  .pcb-row { --c: #b48cff; display: grid; grid-template-columns: 92px 1fr; align-items: center; min-height: 32px; }
+  .pcb-row.head { position: sticky; top: 0; z-index: 2; background: var(--b-bg); min-height: 22px;
+    font-size: 9px; letter-spacing: .1em; color: var(--b-dim); }
+  .pcb-row.head .pcb-trace::before, .pcb-row.head .pcb-trace .lit { display: none; }
+  .pcb-row.head .pcb-trace span { text-align: center; }
+  .pcb-who { display: flex; align-items: center; gap: 6px; min-width: 0; font-size: 11px; font-weight: 700; color: var(--b-text); }
+  .pcb-who .cw-sprite { width: 16px; height: 24px; flex: none; background-repeat: no-repeat; background-size: 300% 200%;
+    background-position: 0 0; image-rendering: pixelated; }
+  .pcb-who .sys { width: 16px; height: 24px; flex: none; display: grid; place-items: center; font-size: 8px; color: var(--b-gold); }
+  .pcb-who .nm { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; line-height: 1.15; }
+  .pcb-who .nm small { display: block; font-size: 8.5px; color: var(--b-dim); font-weight: 500; }
+  .pcb-trace { position: relative; height: 30px; display: grid; grid-template-columns: repeat(4, 1fr); align-items: center; }
+  .pcb-trace::before { content: ""; position: absolute; left: 12.5%; right: 12.5%; top: 50%; height: 2px; background: var(--b-line); }
+  .pcb-trace .lit { position: absolute; left: 12.5%; top: 50%; height: 2px; background: var(--c); box-shadow: 0 0 6px var(--c); filter: brightness(1.3); }
+  .pcb-trace .lit.run { background: repeating-linear-gradient(90deg, var(--c) 0 5px, transparent 5px 9px); box-shadow: none; }
+  .pcb-pad { position: relative; z-index: 1; justify-self: center; width: 16px; height: 16px; border-radius: 50%; padding: 0;
+    border: 2px solid var(--b-pad); background: var(--b-bg); cursor: pointer; }
+  .pcb-pad.masked { border-color: #284a3c; }
+  .pcb-pad.rev { border-color: #8fd1b0; }
+  .pcb-pad.run { border-color: var(--c); border-style: dashed; animation: pcb-run 1.2s ease-in-out infinite; }
+  @keyframes pcb-run { 50% { box-shadow: 0 0 8px var(--c); } }
+  .pcb-pad.on { border-color: var(--c); background: color-mix(in srgb, var(--c) 60%, #fff); box-shadow: 0 0 8px var(--c); }
+  .pcb-pad.chip { width: 24px; height: 18px; border-radius: 2px; }
+  .pcb-pad.chip::before, .pcb-pad.chip::after { content: ""; position: absolute; left: 2px; right: 2px; height: 2px;
+    border-left: 2px solid var(--b-pad); border-right: 2px solid var(--b-pad); }
+  .pcb-pad.chip::before { top: -6px; } .pcb-pad.chip::after { bottom: -6px; }
+  .pcb-pad.chip.on { background: var(--b-gold); border-color: var(--b-gold); box-shadow: 0 0 10px var(--b-gold); }
+  .pcb-pad.sel { outline: 2px solid #fff; outline-offset: 3px; }
+  .pcb-pad.buyable::after { content: ""; position: absolute; right: -5px; top: -5px; width: 7px; height: 7px; border-radius: 50%;
+    background: var(--b-gold); box-shadow: 0 0 6px var(--b-gold); border: 0; left: auto; bottom: auto; }
+  .pcb-pad.chip.buyable::after { right: -6px; top: -9px; }
+  .pcb-pad:focus-visible { outline: 2px solid #fff; outline-offset: 3px; }
+  #udm-store-backdrop .udm-store-preview { background: #0a1913; border: 1px solid var(--b-line); color: var(--b-text); border-radius: 2px; font-family: var(--b-mono); }
+  #udm-store-backdrop .udm-store-preview.empty { border-style: dashed; color: var(--b-dim); }
+  #udm-store-backdrop .udm-store-preview .pv-owner { color: var(--b-dim); }
+  #udm-store-backdrop .udm-store-preview .pv-tier { color: var(--b-gold); border-color: var(--b-gold); }
+  #udm-store-backdrop .udm-store-preview .pv-name { color: var(--b-head); }
+  #udm-store-backdrop .udm-store-preview .pv-price { color: var(--b-gold); }
+  #udm-store-backdrop .udm-store-preview .pv-desc { color: #a9d9c1; font-family: inherit; }
+  #udm-store-backdrop .udm-store-preview .pv-flavor { color: #6f9e88; }
+  #udm-store-backdrop .udm-store-preview .pv-state.ok { color: #7cf0b8; }
+  #udm-store-backdrop .udm-store-preview .pv-state.ng { color: var(--b-dim); }
+  .pv-buy { margin-top: 6px; font: inherit; font-size: 11px; font-weight: 800; cursor: pointer; letter-spacing: .06em;
+    background: var(--b-gold); color: #2a1a00; border: 0; border-radius: 2px; padding: 5px 14px; }
+  #udm-store-backdrop .udm-intro-ok { background: #1f4a3a; border-color: #2f6b5c; box-shadow: none; }
+  #udm-store-backdrop .udm-intro-ok:hover { background: #276150; }
+  @media (prefers-reduced-motion: reduce) { .term-cur, .pcb-pad.run { animation: none; } }
+  body.reduce-motion .term-cur, body.reduce-motion .pcb-pad.run { animation: none; }
+
   /* UDM game over panel */
   .udm-gameover-panel { text-align: center; }
   .udm-go-score { font-size: 12px; color: var(--text-muted); margin-top: 4px; }
@@ -4400,10 +4520,11 @@
   <!-- UDM skill draft — one pick per Variant discovered -->
   <div class="udm-intro-backdrop" id="udm-draft-backdrop">
     <div class="udm-intro-panel udm-draft-panel">
-      <div class="udm-intro-header" id="udm-draft-header">🧪 スキル獲得</div>
+      <div class="term-bar" id="udm-draft-bar"></div>
+      <div class="udm-intro-header" id="udm-draft-header">&gt; スキル導入</div>
       <div class="udm-draft-sub" id="udm-draft-sub"></div>
       <div class="udm-draft-cards" id="udm-draft-cards"></div>
-      <button class="udm-tree-open" id="udm-draft-tree">🌳 スキルツリーを見る</button>
+      <button class="udm-tree-open" id="udm-draft-tree">[T] スキルツリーを見る</button>
     </div>
   </div>
 
@@ -4414,9 +4535,9 @@
         <span id="udm-store-title">🧪 UDMスキルストア</span>
         <span class="udm-store-points" id="udm-store-points">0 pt</span>
       </div>
-      <div class="udm-store-hint" id="udm-store-hint">UDM中に一度でも獲得したスキルを、恒常的な強化として購入できます。段階は1から順に。ポイントはUDMを終えたときにスコアがそのまま加算されます。マスをタップすると効果が下に出ます。</div>
+      <div class="udm-store-hint" id="udm-store-hint">UDM中に一度でも獲得したスキルを、恒常的な強化として購入できます。段階は1から順に。ポイントはUDMを終えたときにスコアがそのまま加算されます。点をタップすると効果が下に出て、金の印が付いた点はそこから購入できます。</div>
       <div class="udm-store-body" id="udm-store-body"></div>
-      <div class="udm-store-preview empty" id="udm-store-preview">マスをタップすると、そのスキルの効果がここに表示されます。</div>
+      <div class="udm-store-preview empty" id="udm-store-preview">点をタップすると、そのスキルの効果がここに表示されます。</div>
       <div class="udm-store-actions">
         <button class="udm-store-reset" id="udm-store-reset">UDM強化をリセット</button>
         <button class="udm-store-grant" id="udm-store-grant" style="display:none;">全スキルを解放（テスト用）</button>
@@ -8015,6 +8136,12 @@ const UDM_SKILLS = (() => {
 })();
 
 function udmSkill(id) { return UDM_SKILLS.get(id) || null; }
+// A holder's own colour (the one their avatar wears); the system row is gold.
+function udmOwnerColor(id) {
+  if (id === 'sys') return '#ffd95a';
+  const cw = coworkers.find(c => c.id === id);
+  return (cw && cw.color) || '#b48cff';
+}
 
 // =============================================================
 // UDM skill layer — persistence
@@ -8190,9 +8317,10 @@ function renderUdmDraft() {
   const box = document.getElementById('udm-draft-cards');
   if (!box) return;
   const head = document.getElementById('udm-draft-header');
-  if (head) head.innerHTML = udmDraftIsFirst
-    ? '🧪 スキル獲得<span class="udm-draft-firstmark">初回限定</span>'
-    : '🧪 スキル獲得';
+  if (head) head.innerHTML = '&gt; スキル導入<span class="term-cur">_</span>'
+    + (udmDraftIsFirst ? '<span class="udm-draft-firstmark">初回限定</span>' : '');
+  const bar = document.getElementById('udm-draft-bar');
+  if (bar) bar.innerHTML = `<span>LABOLIC//UDM</span><span>DAY ${gameStats.day || 1} · SCORE ${((udm && udm.score) || 0).toLocaleString()}</span>`;
   if (sub) sub.textContent = (udmDraftIsFirst
     ? '初回限定：ユニークスキル（段階4）から1つ選べます。段階1〜3は別に取得が必要です。'
     : 'Variantを発見しました。1つ選んでください。')
@@ -8200,11 +8328,18 @@ function renderUdmDraft() {
   box.innerHTML = udmDraftOffer.map(id => {
     const sk = udmSkill(id);
     if (!sk) return '';
-    return `<button class="udm-draft-card" data-skill="${sk.id}">
-      <div><span class="udm-draft-owner">${sk.ownerName}</span><span class="udm-draft-tier">段階 ${sk.tier}</span></div>
-      <div class="udm-draft-name">${sk.name}</div>
-      <div class="udm-draft-desc">${sk.desc}</div>
-      ${sk.flavor ? `<div class="udm-draft-flavor">${sk.flavor}</div>` : ''}
+    const por = sk.owner === 'sys'
+      ? '<span class="term-por sys">SYS</span>'
+      : `<span class="term-por"><span class="cw-sprite" data-cw="${sk.owner}"></span></span>`;
+    return `<button class="udm-draft-card" data-skill="${sk.id}" style="--c:${udmOwnerColor(sk.owner)}">
+      ${por}
+      <span class="term-body">
+        <span class="udm-draft-owner">${escapeHtml(String(sk.ownerName).toUpperCase())} · TIER ${sk.tier}</span>
+        <span class="udm-draft-name">${sk.name}</span>
+        <span class="udm-draft-desc">${sk.desc}</span>
+        ${sk.flavor ? `<span class="udm-draft-flavor">${sk.flavor}</span>` : ''}
+        <span class="term-gauge">${[1, 2, 3, 4].map(k => `<i class="${k <= sk.tier ? 'on' : ''}${k === 4 ? ' uq' : ''}"></i>`).join('')}</span>
+      </span>
     </button>`;
   }).join('');
   box.querySelectorAll('[data-skill]').forEach(el => {
@@ -8677,8 +8812,8 @@ function renderUdmStore() {
   if (ttl) ttl.textContent = view ? '🌳 スキルツリー' : '🧪 UDMスキルストア';
   const hint = document.getElementById('udm-store-hint');
   if (hint) hint.textContent = view
-    ? 'このランで取得済み（破線）と、購入済みの恒常強化（紫）を一覧で確認できます。マスをタップすると効果が下に出ます。購入はUDMを終えてから。'
-    : 'UDM中に一度でも獲得したスキルを、恒常的な強化として購入できます。段階は1から順に。ポイントはUDMを終えたときにスコアがそのまま加算されます。マスをタップすると効果が下に出ます。';
+    ? 'このランで取得したスキル（点線の点）と、購入済みの恒常強化（光った点）を一覧で確認できます。点をタップすると効果が下に出ます。購入はUDMを終えてから。'
+    : 'UDM中に一度でも獲得したスキルを、恒常的な強化として購入できます。段階は1から順に。ポイントはUDMを終えたときにスコアがそのまま加算されます。点をタップすると効果が下に出て、金の印が付いた点はそこから購入できます。';
   if (pts) pts.textContent = `${udmPoints().toLocaleString()} pt`;
 
   const reset = document.getElementById('udm-store-reset');
@@ -8688,9 +8823,8 @@ function renderUdmStore() {
   const close = document.getElementById('udm-store-close');
   if (close) close.textContent = view ? '選択に戻る' : '閉じる';
 
-  let html = `<div class="udm-store-row head">
-    <div>対象</div><div>段階1</div><div>段階2</div><div>段階3</div><div>段階4</div>
-  </div>`;
+  let html = `<div class="pcb-row head"><span></span>
+    <span class="pcb-trace"><span>段階1</span><span>段階2</span><span>段階3</span><span>UNIQUE</span></span></div>`;
   const rows = UDM_SKILL_OWNERS.slice().sort((a, b) =>
     (a.id === 'sys' ? 0 : 1) - (b.id === 'sys' ? 0 : 1));
   for (const owner of rows) {
@@ -8698,38 +8832,31 @@ function renderUdmStore() {
     const cw = coworkers.find(c => c.id === owner.id);
     const name = owner.name || (cw ? cw.name : owner.id);
     const sub = owner.id === 'sys' ? 'システム' : `Tier ${cw ? cw.tier : '-'}`;
-    html += `<div class="udm-store-row">
-      <div class="udm-store-who">${name}<span class="sub">${sub}</span></div>`;
+    // How far the trace is lit: bought tiers solid, this run's dashed beyond.
+    let solid = 0, run = 0;
+    const pads = [];
     for (let tier = 1; tier <= 4; tier++) {
       const sk = udmSkill(`${owner.id}:${tier}`);
       const owned = !!udmMeta.owned[sk.id];
       const runHeld = !owned && udmRunHolds(sk.id);
       const revealed = udmStoreRevealed(sk);
-      const affordable = udmPoints() >= sk.price;
-      const inOrder = ownedTier === tier - 1;
-      const cls = 'udm-store-cell'
-        + (owned ? ' owned' : (revealed ? '' : ' masked'))
-        + (runHeld ? ' run' : '')
+      if (owned) solid = tier;
+      if (owned || runHeld) run = tier;
+      const buyable = !view && !owned && revealed && ownedTier === tier - 1 && udmPoints() >= sk.price;
+      const cls = 'pcb-pad' + (tier === 4 ? ' chip' : '')
+        + (owned ? ' on' : runHeld ? ' run' : revealed ? ' rev' : ' masked')
+        + (buyable ? ' buyable' : '')
         + (udmStoreSelected === sk.id ? ' sel' : '');
-      const label = revealed ? sk.name : '???';
-      let action;
-      if (owned) action = '<div class="udm-store-have">所持</div>';
-      else if (view) {
-        action = runHeld
-          ? '<div class="udm-store-state run">このラン</div>'
-          : `<div class="udm-store-state">${revealed ? '未購入' : '未取得'}</div>`;
-      } else {
-        const can = revealed && inOrder && affordable;
-        const why = !revealed ? '未取得' : (!inOrder ? '前の段階が必要' : (!affordable ? 'ポイント不足' : '購入'));
-        action = `<button class="udm-store-buy" data-buy="${sk.id}" ${can ? '' : 'disabled'}>${can ? '購入' : why}</button>`;
-      }
-      html += `<div class="${cls}" data-pv="${sk.id}" role="button" tabindex="0">
-        <div class="nm">${label}</div>
-        <div class="price">${sk.price.toLocaleString()} pt</div>
-        ${action}
-      </div>`;
+      const state = owned ? '所持' : runHeld ? 'このラン' : revealed ? '未購入' : '未取得';
+      pads.push(`<button class="${cls}" data-pv="${sk.id}" aria-label="${escapeHtml(name)} 段階${tier}（${state}）"></button>`);
     }
-    html += `</div>`;
+    const lit = (n, extra) => n > 1 ? `<span class="lit${extra}" style="width:${(n - 1) * 25}%"></span>` : '';
+    const face = owner.id === 'sys'
+      ? '<span class="sys">SYS</span>'
+      : `<span class="cw-sprite" data-cw="${owner.id}"></span>`;
+    html += `<div class="pcb-row" style="--c:${udmOwnerColor(owner.id)}">
+      <span class="pcb-who">${face}<span class="nm">${escapeHtml(name)}<small>${sub}</small></span></span>
+      <span class="pcb-trace">${lit(run, run > solid ? ' run' : '')}${lit(solid, '')}${pads.join('')}</span></div>`;
   }
   body.innerHTML = html;
   body.querySelectorAll('[data-buy]').forEach(el =>
@@ -8768,7 +8895,7 @@ function udmStoreRenderPreview() {
   const sk = udmStoreSelected ? udmSkill(udmStoreSelected) : null;
   if (!sk) {
     box.className = 'udm-store-preview empty';
-    box.textContent = 'マスをタップすると、そのスキルの効果がここに表示されます。';
+    box.textContent = '点をタップすると、そのスキルの効果がここに表示されます。';
     return;
   }
   box.className = 'udm-store-preview';
@@ -8796,10 +8923,13 @@ function udmStoreRenderPreview() {
   else if (ownedTier !== sk.tier - 1) { state = `段階 ${sk.tier - 1} を先に購入する必要があります`; cls = 'ng'; }
   else if (udmPoints() < sk.price)    { state = `ポイント不足（あと ${(sk.price - udmPoints()).toLocaleString()} pt）`; cls = 'ng'; }
   else                                { state = '購入できます'; cls = 'ok'; }
+  const canBuy = !owned && !udmStoreViewOnly && ownedTier === sk.tier - 1 && udmPoints() >= sk.price;
   box.innerHTML = head
     + `<div class="pv-desc">${escapeHtml(sk.desc)}</div>`
     + (sk.flavor ? `<div class="pv-flavor">${escapeHtml(sk.flavor)}</div>` : '')
-    + `<div class="pv-state ${cls}">${state}</div>`;
+    + `<div class="pv-state ${cls}">${state}</div>`
+    + (canBuy ? `<button class="pv-buy" id="udm-pv-buy">購入する（${sk.price.toLocaleString()} pt）</button>` : '');
+  document.getElementById('udm-pv-buy')?.addEventListener('click', () => udmBuySkill(sk.id));
 }
 
 function udmBuySkill(id) {
@@ -15956,7 +16086,8 @@ let bulkBrokeOnce = false;
 // Story itself) currently open? Used to defer story dispatch.
 // アップデート履歴 (Settings), newest first. Add a line here with each release.
 const UPDATE_LOG = [
-  ['v63', ['UDMでユニークスキルが発動したとき、そのキャラクターが画面左下に登場するカットインを追加']],
+  ['v63', ['UDMでユニークスキルが発動したとき、そのキャラクターが画面左下に登場するカットインを追加',
+           'UDMのスキル獲得画面とスキルツリーのデザインを一新']],
   ['v62', ['ストアの装置カードに装置のドット絵を表示',
            '出退勤（ドアマット）の画面にキャラクターのドット絵を表示（出勤中は足踏み、帰宅中は後ろ向き）',
            '講習の案内が出るタイミングを、Lv2の依頼を4つ達成した後に変更',
