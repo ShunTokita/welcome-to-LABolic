@@ -2671,6 +2671,10 @@
     font-size: 9px; color: var(--text-muted); font-weight: 700;
     background: var(--bg-input); padding: 1px 5px; border-radius: 2px;
   }
+  /* The Discovery's Lab Lv, small under its number: the side column is
+     shorter than the card's text, so the card does not grow. */
+  .d-lv { font-size: 8px; line-height: 1; font-weight: 800; letter-spacing: .3px; color: var(--text-muted); }
+  .d-lv.lv4 { color: var(--accent-purple); }
 
   /* NEW badge on individual Discovery cards */
   .disc-new-badge {
@@ -12786,6 +12790,7 @@ function renderDiscoveryCard(disc) {
   return `<div class="${cls} d-card-split" data-disc="${disc.id}">
     <div class="d-card-side">
       <span class="d-no">#${disc.no}</span>
+      <span class="d-lv lv${disc.lv}">Lv${disc.lv}</span>
       ${iconStyle ? `<div class="d-card-art" style="${iconStyle}"></div>` : ''}
     </div>
     <div class="d-card-main">
@@ -15875,7 +15880,8 @@ const UPDATE_LOG = [
            '出退勤（ドアマット）の画面にキャラクターのドット絵を表示（出勤中は足踏み、帰宅中は後ろ向き）',
            '講習の案内が出るタイミングを、Lv2の依頼を4つ達成した後に変更',
            'Active Experiments の右下に、次の目標（クエスト）と進み具合を表示。達成すると少額のコインがもらえる',
-           'Discovery 発見と会話イベントが重なったとき、Discovery のポップアップを先に表示']],
+           'Discovery 発見と会話イベントが重なったとき、Discovery のポップアップを先に表示',
+           'DisパネルのカードにDiscoveryのレベルを表示']],
   ['v61', ['ストアで購入・雇用できないとき、理由をストア上に表示']],
   ['v60', ['ストアの装置カードに「講習」を追加（購入済みの装置で、その装置の操作を体験できるミニゲーム）',
            '一括処理は、その装置の講習をクリアすると使えるように',
