@@ -42,6 +42,7 @@
 
   const HL = [95, 227, 255];          // highlight colour (the guide colour)
   const RUB = 30;                     // buffer px of rubbing to clear a stain
+  const BRUSH = 12;                   // brush radius in CSS px: what a stroke reaches
   const PASS = 0.9;                   // removal rate that opens Next
   const SCANS = 3, SCAN_T = 4;        // scanner uses per game, seconds it shows
   const FLY_T = 0.8;                  // seconds for a part to travel
@@ -184,15 +185,26 @@
       // ---- input on the stage: taps take parts off and put them back,
       // drags rub stains ----
       let down = null, last = null, moved = 0;
+      // The brush drawn on the stage while cleaning: under the mouse
+      // whenever it is over the stage, under a finger while it touches.
+      const brush = { x: 0, y: 0, show: false, touch: false, rubT: -1 };
+      const aim = e => { brush.x = e.clientX; brush.y = e.clientY; };
       MG.drag(canvas, {
-        start(e) { down = last = [e.clientX, e.clientY]; moved = 0; rub(e, 6); },
+        start(e) {
+          down = last = [e.clientX, e.clientY]; moved = 0;
+          brush.touch = e.pointerType !== 'mouse'; brush.show = true; aim(e);
+          rub(e, 6);
+        },
         move(e) {
           const d = Math.hypot(e.clientX - last[0], e.clientY - last[1]);
           moved += d; last = [e.clientX, e.clientY];
+          aim(e);
           rub(e, d);
         },
-        end() { if (down && moved < 10) tap(down); down = null; },
+        end() { if (down && moved < 10) tap(down); down = null; if (brush.touch) brush.show = false; },
       });
+      canvas.addEventListener('pointermove', e => { if (e.pointerType === 'mouse') { brush.show = true; aim(e); } });
+      canvas.addEventListener('pointerleave', e => { if (e.pointerType === 'mouse' && !down) brush.show = false; });
 
       function tap([cx, cy]) {
         if (!ctx.running) return;
@@ -213,12 +225,16 @@
       function rub(e, dist) {
         if (!ctx.running || (S.phase !== 'clean' && S.phase !== 'parts')) return;
         const br = canvas.getBoundingClientRect(), k = r3.w / br.width;
-        // A brush, not a pin: sample a small cross around the finger.
+        // A brush, not a pin: sample a disc of BRUSH round the finger.
         const hit = new Set();
-        for (const [ox, oy] of [[0, 0], [7, 0], [-7, 0], [0, 7], [0, -7]]) {
-          const id = r3.pickAt(canvas, e.clientX + ox / k, e.clientY + oy / k);
-          if (id >= 1000) hit.add(id - 1000);
+        for (const [rr, n] of [[0, 1], [0.5, 6], [1, 10]]) {
+          for (let j = 0; j < n; j++) {
+            const a = j / n * Math.PI * 2;
+            const id = r3.pickAt(canvas, e.clientX + Math.cos(a) * rr * BRUSH, e.clientY + Math.sin(a) * rr * BRUSH);
+            if (id >= 1000) hit.add(id - 1000);
+          }
         }
+        if (hit.size) brush.rubT = S.t;
         for (const i of hit) {
           const s = dirt[i];
           if (s.hp <= 0 || !!s.part !== (S.phase === 'parts')) continue;
@@ -341,7 +357,35 @@
           }
           if (S.phase === 'special' && cfg.special.overlay) cfg.special.overlay(g, api);
           if (S.scanT > 0) drawScan(g);
+          drawBrush(g);
         });
+        canvas.style.cursor = ctx.running && cleaning() ? 'none' : '';
+      }
+
+      // The brush: its reach as a faint ring, and a scrubbing brush over it
+      // that jiggles while it is taking dirt off.
+      function drawBrush(g) {
+        if (!brush.show || !ctx.running || !cleaning()) return;
+        const br = canvas.getBoundingClientRect(), k = r3.w / br.width;
+        const x = (brush.x - br.left) * k, y = (brush.y - br.top) * k, R = BRUSH * k;
+        g.strokeStyle = 'rgba(255,255,255,0.45)';
+        g.lineWidth = 1;
+        g.beginPath(); g.arc(x, y, R, 0, Math.PI * 2); g.stroke();
+        const busy = S.t - brush.rubT < 0.15;
+        const jx = busy ? Math.sin(S.t * 60) * R * 0.12 : 0;
+        g.save();
+        g.translate(x + jx, y);
+        g.rotate(-0.45);
+        const w = R * 1.5, u = R / 8;
+        g.fillStyle = '#e8e2c8';                        // bristles, at the point of contact
+        for (let i = 0; i < 6; i++) g.fillRect(-w / 2 + i * w / 6 + u * 0.3, -u * 2.5, w / 6 - u * 0.6, u * 2.5);
+        g.fillStyle = '#5fe3ff';                        // the block
+        g.fillRect(-w / 2, -u * 5, w, u * 2.6);
+        g.fillStyle = '#2b7f99';
+        g.fillRect(-w / 2, -u * 2.9, w, u * 0.5);
+        g.fillStyle = '#5fe3ff';                        // the handle
+        g.fillRect(-u * 1.2, -u * 11, u * 2.4, u * 6.2);
+        g.restore();
       }
 
       // The scanner: a sweep out from the centre, then a marker on every

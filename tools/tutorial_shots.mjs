@@ -125,6 +125,48 @@ async function shoot(p, name, clip) {
   await ctx.close();
 }
 
+// ---- the first hire (firstHireTutorial): the hire list, the CO and EXP panels ----
+{
+  const ctx = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2 });
+  const p = await ctx.newPage();
+  await p.goto(url(page));
+  await p.waitForTimeout(1200);
+  await p.evaluate(() => startExperiments());
+  await p.waitForTimeout(1000);
+  await p.evaluate(() => {
+    for (const id of ['ST01', 'ST02', 'ST03', 'ST04', 'ST05', 'ST_TRAIN', 'ST_TRAINED', 'ST_BULK_BREAK', 'firstHireTutorial']) storyFlags[id] = true;
+    saveStoryFlags();
+    Object.assign(gameStats.ownedEquipment, { casting: 1, om: 1, furnace: 1 });
+    gameStats.coins = 1000;
+    rebuildEquipmentFromOwnership(); renderLab(); updateTopbar(); applyTabVisibility();
+    if (document.getElementById('look-backdrop').classList.contains('open')) closeLookPicker(false);
+  });
+  await p.waitForTimeout(500);
+  await p.evaluate(() => { openStore(); activeLTab = 'co'; renderLPanel(); });
+  await p.waitForTimeout(500);
+  const ben = await p.locator('.hire-btn[data-cw="ben"]').locator('xpath=ancestor::*[contains(@class,"hire-card") or contains(@class,"dev-card")][1]').boundingBox();
+  const tier = await p.getByText('Tier 1 — 駆け出し').first().boundingBox();
+  await shoot(p, 'cw-list', pad(union(tier, ben), 6));
+  // Ben hired and at work on E1: every task switched on.
+  await p.evaluate(() => {
+    closeStore();
+    const b = coworkers.find(c => c.id === 'ben');
+    b.hired = true; b.present = true;
+    Object.assign(b.toggles, { S: 1, P: 1, A: 1, E: 1, W: 1 });
+    activeRTab = 'exp'; renderRPanel(); renderLab();
+  });
+  await p.waitForTimeout(300);
+  await p.locator('#rpanel-content .e-accept-btn').first().click();
+  await p.waitForTimeout(6000);                       // Ben has the order under way
+  const active = p.getByText('取り下げ', { exact: true }).first()
+    .locator('xpath=ancestor::*[contains(@class,"e-card")][1]');
+  await shoot(p, 'cw-exp', pad(await active.boundingBox(), 6));
+  await p.evaluate(() => { activeRTab = 'co'; renderRPanel(); });
+  await p.waitForTimeout(300);
+  await shoot(p, 'cw-tasks', pad(await p.locator('#rpanel-content .cw-row[data-cw="ben"]').boundingBox(), 3));
+  await ctx.close();
+}
+
 // ---- the minigames ----
 async function minigame(id) {
   const ctx = await browser.newContext({ viewport: { width: 390, height: 760 }, deviceScaleFactor: 2 });

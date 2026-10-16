@@ -909,6 +909,11 @@
   .cv-shot-dots { display: flex; gap: 6px; }
   .cv-shot-dots i { width: 8px; height: 8px; border-radius: 50%; background: var(--line-light); }
   .cv-shot-dots i.on { background: var(--cv-accent); }
+  /* A short screen (an iPhone SE) cannot fit a long notice and a picture at
+     full size: both scroll / shrink so the window keeps its top on screen. */
+  @media (max-height: 760px) {
+    .cv-sysview.has-shots .cv-sys-text, .cv-shot img { max-height: 24vh; max-height: 24dvh; }
+  }
   .cv-cont { display: block; width: 100%; padding: 12px; border: none; border-radius: 4px; cursor: pointer;
     font-size: 14px; font-weight: 700; letter-spacing: .06em; background: var(--cv-accent); color: #fff; font-family: inherit; }
   .cv-cont:hover { background: var(--cv-accent-deep); }
@@ -11164,10 +11169,8 @@ function showFirstHireTutorial() {
   const ev = {
     id: 'firstHireTutorial',
     phase: 'Tutorial',
-    dialogue: [
-      ['system',
-        'Co-Workerを雇用しました！「CO」タブの「S, P, A, E, W」スイッチより、それぞれが担当する作業内容を選択できます。'],
-    ],
+    title: 'Co-Worker',
+    dialogue: [],
     popup:
       'Co-Workerを雇用しました！\n' +
       '「CO」タブの「S, P, A, E, W」スイッチより、それぞれが担当する作業内容を選択できます。\n\n' +
@@ -11176,6 +11179,11 @@ function showFirstHireTutorial() {
       '・A = Analysis（分析）\n' +
       '・E = Engineering（修理）\n' +
       '・W = Writing（論文Submit）',
+    shots: [
+      { src: 'assets/tutorial/cw-list.webp',  cap: '実験を手伝ってくれる仲間たち' },
+      { src: 'assets/tutorial/cw-tasks.webp', cap: '得手不得手に合わせて仕事を頼もう' },
+      { src: 'assets/tutorial/cw-exp.webp',   cap: '受注した実験を自動実行' },
+    ],
   };
   // Bypass the queue — this isn't part of the narrative chain, but should
   // still respect modal layering (don't barge in while another modal is up).
@@ -13380,7 +13388,7 @@ function renderProcPopup(meta) {
   popup.innerHTML = `
     <div class="popup-header">
       <div class="equip-mini"><div>${meta.name.slice(0,4)}</div><div>L${meta.lv}</div></div>
-      <div class="title"><div class="name">${meta.name}</div><div class="sub">Processing · 複数選択で一括処理</div></div>
+      <div class="title"><div class="name">${meta.name}</div><div class="sub">Processing · 講習後に一括処理</div></div>
       <button class="popup-close" onclick="closePopup()">×</button>
     </div>
     <div class="popup-body">
@@ -15522,7 +15530,9 @@ const UPDATE_LOG = [
            'ストーリー中の Co-Worker の故障率の説明を実際の値に修正',
            '講習の修了時と、一括処理ではじめて装置が故障したときの会話を追加',
            '一部のお知らせに画面の画像を表示',
-           'Furnace の講習で、ネックが細いほど高得点になることをゲージで表示']],
+           'Furnace の講習で、ネックが細いほど高得点になることをゲージで表示',
+           '合成系の講習の清掃で、こすって落とせる範囲を広げ、ブラシを表示',
+           '加工装置の画面の「複数選択で一括処理」を「講習後に一括処理」に修正']],
   ['v59', ['PC で装置のポップアップを開いているとき、Space / Enter キーで「Go!」を押せるように',
            '加工装置のポップアップで、1・2・3 キーで加工レベルを選べるように',
            'ポップアップの左下に操作キーを表示（PC のみ）',
@@ -16200,9 +16210,9 @@ function fireStoryEvent(ev) {
   if (ev.id === 'ST18') storyClearDay = Number(gameStats.day || 1);
   saveStoryFlags();
   pauseAi();
-  // Story events play as a conversation scene (CONV). The first-hire tutorial
-  // is a System notice rather than a conversation and keeps the panel below.
-  if (ev.id !== 'firstHireTutorial' && CONV.play(ev, { onEnd: () => closeStoryEvent(ev) })) return;
+  // Story events play as a conversation scene (CONV); the first-hire
+  // tutorial, which has no lines, as its notice alone.
+  if (CONV.play(ev, { onEnd: () => closeStoryEvent(ev) })) return;
   const backdrop = document.getElementById('story-event-backdrop');
   const panel = document.getElementById('story-event-panel');
   if (!backdrop || !panel) {
@@ -16879,6 +16889,7 @@ let shots = [], shotAt = 0;
 function showShots(list) {
   shots = Array.isArray(list) ? list : [];
   $('cv-shots').hidden = !shots.length;
+  $('cv-sysview').classList.toggle('has-shots', shots.length > 0);
   $('cv-shot-dots').innerHTML = shots.map(() => '<i></i>').join('');
   shotPage(0);
 }
@@ -16919,7 +16930,8 @@ function play(ev, opts = {}) {
     if (who === '_spacer') { beatNext = true; continue; }
     LINES.push([who, text, mark, beatNext]); beatNext = false;
   }
-  if (!LINES.length) return false;
+  // No lines but a notice (the first-hire tutorial): the notice alone.
+  if (!LINES.length && !ev.popup) return false;
   if (opts.replay && !aiPaused) { pauseAi(); pausedByReplay = true; }
   stage = $('cv-stage'); frame = $('cv-frame');
   loadPlayer();
@@ -16932,8 +16944,9 @@ function play(ev, opts = {}) {
   loadSprites().then(() => {
     if (EV !== ev) return;
     for (const id of Object.keys(actors)) if (id !== 'you' && actors[id].img !== images[id]) { actors[id].el.remove(); delete actors[id]; }
-    mode = 'dialogue';
     fitK();
+    if (!LINES.length) { showNotice(); return; }
+    mode = 'dialogue';
     showLine(idx = 0);
     $('cv-win').focus({ preventScroll: true });
     if (!looping) { looping = true; requestAnimationFrame(tick); }
