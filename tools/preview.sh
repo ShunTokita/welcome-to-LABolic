@@ -18,6 +18,8 @@ src=$(version_file "$ver")
 mkdir -p build
 python3 tools/build_standalone.py "$src" "build/inlined-v$ver.html"
 python3 tools/prep_artifact.py "build/inlined-v$ver.html" "build/artifact-v$ver.html"
+# The minigames (講習) ride along inline: the Artifact has no minigames/ folder.
+python3 tools/minigame_preview.py --inject "build/artifact-v$ver.html"
 
 echo
 echo "publish this file as an Artifact:"

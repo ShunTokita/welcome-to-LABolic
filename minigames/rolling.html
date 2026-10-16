@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Rolling Minigame</title>
+<link rel="stylesheet" href="mg-core.css">
+<link rel="stylesheet" href="mg-proc.css">
+<style>
+  html,body{margin:0;height:100%;background:#0a0c0e;overscroll-behavior:none;}
+  .rl-read{display:grid;grid-template-columns:1fr 1fr;gap:6px 12px;font-family:var(--pc-mono);}
+  .rl-read .k{font-size:9px;letter-spacing:.12em;color:#9aa3ab;text-transform:uppercase;}
+  .rl-read .v{font-size:20px;font-weight:700;color:#dfe4e8;font-variant-numeric:tabular-nums;}
+  .rl-read .v.gap{color:var(--pc-amber);}
+  .rl-read .v small{font-size:11px;color:#9aa3ab;font-weight:400;}
+  .rl-last{grid-column:1 / -1;font-size:11px;color:#b9c2ca;font-variant-numeric:tabular-nums;min-height:1.3em;}
+  .rl-last b{color:#ffcf6a;}
+</style>
+</head>
+<body>
+<div id="mg"></div>
+<script src="mg-core.js"></script>
+<script src="mg-3d.js"></script>
+<script src="mg-proc.js"></script>
+<script>
+// Rolling — setting the roll gap for a multi-pass schedule.
+//
+// A 2.00 mm strip is to be rolled to 1.00 mm. The strip never comes out at
+// the gap that was set: the rolling load stretches the mill, so the exit
+// thickness follows the gaugemeter equation h = S + P/M (S gap, P load,
+// M mill modulus), plus a small elastic recovery of the strip itself.
+// The load grows with the draft of the pass and with the work hardening
+// the strip has already taken, so later passes come out further above the
+// gap than earlier ones. Each pass shows how far the strip sprang back;
+// the skill is reading that and closing the gap a little more than looks
+// necessary, without going under.
+//
+// Too large a draft and the rolls do not bite. Under 0.99 mm there is no
+// way back. Landing within ±1 % of 1.00 mm is the clear.
+(function(){
+  "use strict";
+  const { Renderer, mat, build } = M3;
+
+  const H0 = 2.00, TARGET = 1.00, TOL = 0.01;
+  const BITE = 0.35;                // largest draft the rolls will take (mm)
+  const GAP_MIN = 0.50, GAP_MAX = 2.50;
+  const PASS_T = 1.4;               // seconds a pass takes on screen
+
+  // Exit thickness for entry `hin` at gap S; null when the rolls refuse it.
+  // Tuned offline so a 0.01 mm gap step moves the exit thickness by about
+  // 0.007 mm near the end, finer than the ±0.01 mm window.
+  function exitThickness(hin, S, hard) {
+    const d = hin - S;
+    if (d <= 0) return hin;
+    if (d > BITE) return null;
+    const eps = Math.log(H0 / hin);                         // strain so far
+    const stretch = 0.04 * hard * (1 + 1.5 * Math.sqrt(eps)) * Math.sqrt(d / 0.2);   // P/M
+    return Math.min(hin, S + stretch + hin * 0.002);
+  }
+
+  // Scene scale: thickness is exaggerated so a millimetre reads on screen.
+  const TK = 0.09, R = 0.45, W = 0.5;
+
+  function build_(body, ctx) {
+    body.innerHTML = `
+      <div class="pc">
+        <div class="pc-stage"><canvas></canvas>
+          <div class="pc-hud"><div class="tl">2-High Mill</div><div class="tr" id="pState">ready</div></div>
+        </div>
+        <div class="pc-gauges">
+          <div class="rl-read">
+            <div><div class="k">Roll gap</div><div class="v gap" id="gapV">2.00 <small>mm</small></div></div>
+            <div><div class="k">Thickness / target</div><div class="v" id="hV">2.000 <small>/ 1.00±0.01</small></div></div>
+            <div class="rl-last" id="lastV">　</div>
+          </div>
+          <div class="pc-gauge">
+            <span class="k">板厚</span>
+            <div class="pc-meter"><div class="pc-win" id="tWin"></div><div class="pc-fill" id="tF"></div></div>
+          </div>
+        </div>
+        <div class="pc-buttons">
+          <button class="pc-btn" id="dn">− 0.01</button>
+          <button class="pc-btn" id="up">＋ 0.01</button>
+          <button class="pc-btn act" id="go">通す</button>
+        </div>
+      </div>`;
+    const $ = id => body.querySelector('#' + id);
+    const r3 = new Renderer(body.querySelector('canvas'), { bg:[18, 20, 26], light:[-0.35, 0.85, 0.55] });
+    r3.camera([2.4, 1.5, 4.0], [0, -0.1, 0], 36);
+    const tips = MGProc.tips(body);
+
+    // ---- scenery ----
+    const steel = [168, 174, 184], frame = [72, 96, 124], chock = [96, 102, 112];
+    const scenery = [];
+    { const wall = build.box(16, 4, 0.1, [58, 64, 74]); wall.m = mat.tr(0, 0.8, -1.6); scenery.push(wall); }
+    { const floor = build.box(8, 0.1, 4, [62, 58, 54]); floor.m = mat.tr(0, -1.25, 0); scenery.push(floor); }
+    // Housings: two posts each side and a cross beam, with the screw-down on top.
+    for (const z of [-0.72, 0.72]) {
+      for (const x of [-0.36, 0.36]) { const p = build.box(0.14, 2.4, 0.16, frame); p.m = mat.tr(x, 0, z); scenery.push(p); }
+      const beam = build.box(0.86, 0.18, 0.16, frame); beam.m = mat.tr(0, 1.25, z); scenery.push(beam);
+      const scr = build.cylinder(0.06, 0.3, 16, steel); scr.m = mat.tr(0, 1.3, z); scenery.push(scr);
+      const base = build.box(0.86, 0.14, 0.2, frame); base.m = mat.tr(0, -1.16, z); scenery.push(base);
+    }
+    // Entry and exit tables of small rollers.
+    const tableRollers = [];
+    for (const x of [-1.6, -1.25, -0.9, 0.9, 1.25, 1.6]) {
+      const t = build.lathe([[-0.3, 0.045], [0.3, 0.045]], 20, [120, 124, 132]);
+      tableRollers.push({ mesh: t, x });
+      scenery.push(t);
+    }
+    function roll() { return build.lathe([[-0.62, R * 0.7], [-0.6, R], [0.6, R], [0.62, R * 0.7]], 64, { c: steel }); }
+    const rollTop = roll(), rollBot = roll();
+    const chocks = [0, 1, 2, 3].map(() => build.box(0.4, 0.34, 0.12, chock));
+    const copper = { c:[214, 128, 84] };
+
+    // ---- state ----
+    let S;
+    function reset() {
+      S = { gap: H0, h: H0, len: 1.0, dir: 1, hard: 0.85 + Math.random() * 0.3,
+            phase: 'ready', t: 0, hin: H0, hout: H0, spin: 0, passes: 0, done: false };
+      $('pState').textContent = 'ready';
+      $('lastV').textContent = '　';
+      show();
+    }
+
+    function show() {
+      $('gapV').innerHTML = `${S.gap.toFixed(2)} <small>mm</small>`;
+      $('hV').innerHTML = `${S.h.toFixed(3)} <small>/ ${TARGET.toFixed(2)}±${TOL.toFixed(2)}</small>`;
+      // Thickness bar: full at H0, empty at 0.8 mm.
+      const frac = h => (h - 0.8) / (H0 - 0.8) * 100;
+      $('tF').style.width = Math.max(0, frac(S.h)).toFixed(1) + '%';
+      $('tWin').style.left = frac(TARGET - TOL) + '%';
+      $('tWin').style.width = (frac(TARGET + TOL) - frac(TARGET - TOL)) + '%';
+    }
+
+    // ---- controls: tap for one step, hold to run ----
+    function nudge(d) {
+      if (!ctx.running || S.phase !== 'ready') return;
+      S.gap = Math.min(GAP_MAX, Math.max(GAP_MIN, Math.round((S.gap + d) * 100) / 100));
+      show();
+    }
+    function holdButton(el, d) {
+      let t1, t2;
+      const stop = () => { clearTimeout(t1); clearInterval(t2); };
+      MG.hold(el, () => {
+        stop();
+        nudge(d);
+        t1 = setTimeout(() => { t2 = setInterval(() => nudge(d), 60); }, 350);
+      }, stop);
+    }
+    holdButton($('dn'), -0.01);
+    holdButton($('up'), +0.01);
+
+    $('go').addEventListener('click', () => {
+      if (!ctx.running || S.phase !== 'ready') return;
+      const out = exitThickness(S.h, S.gap, S.hard);
+      if (out === null) {
+        S.phase = 'refused'; S.t = 0;
+        ctx.flash('噛み込まない！圧下しすぎ', '#e2603f');
+        return;
+      }
+      S.hin = S.h; S.hout = out; S.phase = 'pass'; S.t = 0;
+      $('pState').textContent = 'rolling';
+    });
+
+    function endPass() {
+      const back = S.hout - S.gap;
+      S.passes++;
+      S.len *= S.hin / S.hout;       // volume is conserved
+      S.h = S.hout;
+      S.dir = -S.dir;                 // a reversing mill: the next pass goes back
+      $('lastV').innerHTML = S.hin === S.hout
+        ? `パス${S.passes}：ギャップ ${S.gap.toFixed(2)} → 素通り（板厚より広い）`
+        : `パス${S.passes}：ギャップ ${S.gap.toFixed(2)} → 実測 ${S.h.toFixed(3)}　<b>戻り +${back.toFixed(3)}</b>`;
+      S.phase = 'ready';
+      $('pState').textContent = 'ready';
+      show();
+      if (S.h < TARGET - TOL) {
+        S.phase = 'over'; S.t = 0;
+        ctx.flash('薄すぎた！', '#e2603f');
+        ctx.judge(0.2);
+      } else if (S.h <= TARGET + TOL) {
+        const err = Math.abs(S.h - TARGET) / TOL;     // in units of 1 %
+        S.phase = 'over'; S.t = 0;
+        ctx.score(MG.lin(err, 0.2, 1));                // 100 within ±0.2 %, 90 at ±1 %
+        ctx.judge(1 - 0.1 * err * err);
+      }
+    }
+
+    function step(dt) {
+      S.t += dt;
+      if (S.phase === 'pass') {
+        S.spin += dt * 4;
+        if (S.t >= PASS_T) endPass();
+      } else if (S.phase === 'refused' && S.t > 0.6) {
+        S.phase = 'ready';
+      } else if (S.phase === 'over' && S.t > 2.2 && ctx.running) {
+        reset();
+      }
+    }
+
+    // ---- drawing ----
+    function stripPiece(len, h, x0, x1) {
+      const m = build.box(Math.max(0.001, len), h * TK, W, copper.c);
+      m.m = mat.tr((x0 + x1) / 2, 0, 0);
+      return m;
+    }
+    function render() {
+      const meshes = scenery.slice();
+      const contact = S.phase === 'pass';
+      const gapW = (contact ? S.hout : S.gap) * TK;
+      // The top roll rides up by the mill stretch while the strip is in the
+      // bite (drawn exaggerated), and settles back to the set gap after.
+      const lift = contact ? (S.hout - S.gap) * TK * 3 : 0;
+      const spin = S.spin * (S.phase === 'pass' ? S.dir : 1);
+      rollTop.m = mat.chain(mat.tr(0, R + gapW / 2 + lift, 0), mat.ry(Math.PI / 2), mat.rx(-spin));
+      rollBot.m = mat.chain(mat.tr(0, -R - gapW / 2, 0), mat.ry(Math.PI / 2), mat.rx(spin));
+      meshes.push(rollTop, rollBot);
+      chocks.forEach((c, i) => {
+        const y = i < 2 ? R + gapW / 2 + lift : -R - gapW / 2;
+        c.m = mat.tr(0, y, i % 2 ? 0.72 : -0.72);
+        meshes.push(c);
+      });
+      for (const t of tableRollers) t.mesh.m = mat.chain(mat.tr(t.x, -S.h * TK / 2 - 0.045, 0), mat.ry(Math.PI / 2));
+
+      if (S.phase === 'pass') {
+        const p = Math.min(1, S.t / PASS_T), d = S.dir;
+        const inLen = S.len * (1 - p), outLen = S.len * p * S.hin / S.hout;
+        meshes.push(stripPiece(inLen, S.hin, -d * inLen, 0));
+        meshes.push(stripPiece(outLen, S.hout, 0, d * outLen));
+      } else {
+        // Resting on the entry side of the next pass, its end at the bite.
+        const d = S.dir, nose = S.phase === 'refused' ? 0.25 - 0.15 * Math.sin(Math.min(1, S.t / 0.6) * Math.PI) : 0.25;
+        meshes.push(stripPiece(S.len, S.h, -d * (nose + S.len), -d * nose));
+      }
+      r3.draw(meshes);
+    }
+
+    function tipNow() {
+      if (!ctx.running || S.phase !== 'ready') return tips.hide();
+      if (S.passes === 0) return tips.show(S.gap >= S.h ? $('dn') : $('go'), S.gap >= S.h ? 'ギャップを狭めよう！' : '通してみよう！');
+      if (S.h < TARGET + 0.15) return tips.show($('lastV'), '戻り分を見込んで少しずつ詰めよう！');
+      tips.hide();
+    }
+
+    reset();
+    return {
+      start() { reset(); },
+      tick(dt) {
+        step(dt);
+        render();
+        tipNow();
+      },
+    };
+  }
+
+  MG.mount(document.getElementById('mg'), {
+    id: 'rolling',
+    title: 'ROLLING',
+    subtitle: 'Roll Gap Setting',
+    desc: '2.00 mm の板を 1.00±0.01 mm まで圧延する。圧延中はロールがわずかに押し広げられるので、板はギャップより厚く出てくる。戻り分を見込んでギャップを詰めよう。薄すぎたら失敗。',
+    goal: 1,
+    build: build_,
+  });
+})();
+</script>
+</body>
+</html>

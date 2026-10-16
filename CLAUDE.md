@@ -31,7 +31,11 @@ build/                      プレビュー生成物（git管理外）
 `minigames-dev` は装置ミニゲーム（一括処理の解放条件）の開発用ブランチ。
 開発中のファイル（`minigames/`）を公開しないために `subv3` から分けた。
 ミニゲームの作業はこのブランチで行い、`subv3` には本体への統合の段階で反映する。
+v60 で `subv3` に統合済み（以降 `minigames/` は公開物の一部。`subv3` から消さないこと）。
 仕様は `docs/minigames-spec.md`。
+プレビューは `python3 tools/minigame_preview.py [名前...]` で `build/mg-<名前>.html` を作り、Artifact として公開する。
+本体（v60〜）はストアの「講習」から `minigames/<id>.html` を iframe で開く。`tools/preview.sh` は全ミニゲームを
+`window.__MG_INLINE` として本体プレビューに埋め込むので、本体の Artifact からも講習を試せる。
 
 - 入口: https://shuntokita.github.io/welcome-to-LABolic/
 - 各版: https://shuntokita.github.io/welcome-to-LABolic/labolic-playtest-NN.html

@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Casting Minigame</title>
+<link rel="stylesheet" href="mg-core.css">
+<link rel="stylesheet" href="mg-proc.css">
+<style>html,body{margin:0;height:100%;background:#0a0c0e;overscroll-behavior:none;}</style>
+</head>
+<body>
+<div id="mg"></div>
+<script src="mg-core.js"></script>
+<script src="mg-3d.js"></script>
+<script src="mg-proc.js"></script>
+<script src="mg-synth.js"></script>
+<script>
+// Casting — a split steel mould: unclamp it, lift off the pouring cup and
+// the loose half, brush the cavities clean, and close it up again.
+//
+// The fixed half stays on its stand; its cavity is cleaned in place. The
+// loose half and the cup are cleaned on the parts table.
+(function(){
+  "use strict";
+  const { mat, build } = M3;
+  const B = build;
+
+  const steel = [124, 136, 152], clampC = [176, 74, 52], bolt = [196, 200, 206];
+  const TRAY = [6, 0, 0];
+
+  // One mould half, centred on its own origin, with its parting face at
+  // x = face * 0.25 (+x for the fixed half, -x for the loose one). The
+  // cavity is a real pocket DEPTH deep, with a runner groove up to the top
+  // for the cup: the half is built as a back block plus the frame of steel
+  // round the pocket.
+  const DEPTH = 0.12, POCKET_Y = [-0.2, 0.24], POCKET_Z = 0.17, RUNNER_Z = 0.035;
+  function half(face) {
+    const fx = face * (0.25 - DEPTH / 2);            // centre of the frame slab
+    const slab = (y0, y1, z0, z1, col) =>
+      B.at(B.box(DEPTH, y1 - y0, z1 - z0, col || steel), mat.tr(fx, (y0 + y1) / 2, (z0 + z1) / 2));
+    return B.merge([
+      B.at(B.box(0.5 - DEPTH, 0.7, 0.6, steel), mat.tr(-face * DEPTH / 2, 0, 0)),   // back block; its face is the pocket floor
+      slab(-0.35, POCKET_Y[0], -0.3, 0.3),                                         // below the pocket
+      slab(POCKET_Y[0], POCKET_Y[1], -0.3, -POCKET_Z),                             // either side
+      slab(POCKET_Y[0], POCKET_Y[1], POCKET_Z, 0.3),
+      slab(POCKET_Y[1], 0.35, -0.3, -RUNNER_Z),                                    // above, split by the runner
+      slab(POCKET_Y[1], 0.35, RUNNER_Z, 0.3),
+    ]);
+  }
+  // A clamp over the top of both halves: a bar, two cheeks, two bolt heads.
+  function clamp() {
+    return B.merge([
+      B.box(1.16, 0.07, 0.09, clampC),
+      B.at(B.box(0.07, 0.26, 0.09, clampC), mat.tr(-0.575, -0.13, 0)),
+      B.at(B.box(0.07, 0.26, 0.09, clampC), mat.tr(0.575, -0.13, 0)),
+      B.at(B.cylinder(0.035, 0.05, 12, bolt), mat.chain(mat.tr(-0.62, -0.2, 0), mat.rz(Math.PI / 2))),
+      B.at(B.cylinder(0.035, 0.05, 12, bolt), mat.chain(mat.tr(0.67, -0.2, 0), mat.rz(Math.PI / 2))),
+    ]);
+  }
+  // The pouring cup: a cone open at the top, standing on the mould.
+  function cup() {
+    const m = B.lathe([[0, 0.05], [0.16, 0.15], [0.17, 0.15]], 24, { c:[150, 140, 128] }, true);
+    m.v = m.v.map(([x, y, z]) => [y, x, z]);
+    m.f.forEach(f => { f.i = [f.i[0], f.i[2], f.i[1]]; });
+    m.ds = true;
+    return m;
+  }
+
+  // ---- scenery ----
+  const scenery = [
+    B.at(B.box(16, 5, 0.1, [56, 62, 72]), mat.tr(0, 1, -2)),
+    B.at(B.box(16, 0.1, 8, [70, 64, 58]), mat.tr(0, -0.95, 0)),
+    B.at(B.box(1.6, 0.5, 1.0, [88, 84, 80]), mat.tr(0, -0.65, 0)),      // stand
+    B.at(half(1), mat.tr(-0.25, 0, 0)),                                     // fixed half
+    // The parts table.
+    B.at(B.box(2.4, 0.08, 1.4, [120, 98, 72]), mat.tr(TRAY[0], -0.44, 0)),
+    B.at(B.box(0.08, 0.5, 0.08, [90, 74, 56]), mat.tr(TRAY[0] - 1.1, -0.7, 0.6)),
+    B.at(B.box(0.08, 0.5, 0.08, [90, 74, 56]), mat.tr(TRAY[0] + 1.1, -0.7, 0.6)),
+  ];
+
+  const parts = [
+    { id:'clampF', name:'手前のクランプ', mesh: clamp(), at: mat.tr(0, 0.385, 0.2),
+      tray: mat.tr(TRAY[0] - 0.6, -0.36, 0.45) },
+    { id:'clampB', name:'奥のクランプ', mesh: clamp(), at: mat.tr(0, 0.385, -0.2),
+      tray: mat.tr(TRAY[0] - 0.6, -0.36, 0.1) },
+    { id:'cup', name:'湯口カップ', mesh: cup(), at: mat.tr(0, 0.35, 0),
+      tray: mat.tr(TRAY[0] + 0.75, -0.4, 0.35) },
+    { id:'half', name:'可動側の型', mesh: half(-1), at: mat.tr(0.25, 0, 0),
+      // Laid on its back, parting face up.
+      tray: mat.chain(mat.tr(TRAY[0] - 0.05, -0.15, -0.2), mat.rz(-Math.PI / 2)),
+      needs: ['clampF', 'clampB', 'cup'] },
+  ];
+
+  // Stains: on the fixed half's cavity (cleaned in place) and on the loose
+  // half's cavity and in the cup (cleaned on the table).
+  // Burnt-on mould dressing and oxide scale: pale against the dark steel.
+  const SCALE = [184, 156, 112];
+  const dirt = [];
+  // On the pocket floors, kept inside the pocket (spread 0.05 from centres
+  // at least 0.08 in from its walls).
+  const FLOOR = 0.25 - DEPTH;
+  for (const [y, z] of [[0.12, -0.06], [-0.08, 0.06], [-0.1, -0.07], [0.1, 0.07]]) {
+    dirt.push({ p: [-0.25 + FLOOR, y, z], n: [1, 0, 0], r: 0.045, c: SCALE, spread: 0.05 });
+  }
+  for (const [y, z] of [[0.13, 0.06], [-0.1, -0.06], [0.02, 0.08], [-0.08, 0.07]]) {
+    dirt.push({ part: 'half', p: [-FLOOR, y, z], n: [-1, 0, 0], r: 0.045, c: SCALE, spread: 0.05 });
+  }
+  // Inside the cup: on the cone wall, facing inward and up.
+  dirt.push({ part: 'cup', p: [0.105, 0.09, 0.0], n: [-0.85, 0.5, 0], r: 0.03, spread: 0.03, count: 4, c: SCALE });
+  dirt.push({ part: 'cup', p: [-0.07, 0.09, 0.08], n: [0.6, 0.5, -0.65], r: 0.03, spread: 0.03, count: 4, c: SCALE });
+
+  MG.mount(document.getElementById('mg'), {
+    id: 'casting',
+    title: 'CASTING',
+    subtitle: 'Mould Cleaning',
+    desc: '金型を分解して、型の内側（キャビティ）をブラシで掃除し、元通りに組み立てる。光っている部品から外そう。',
+    goal: 1,
+    build: MGSynth.build({
+      hud: 'Split mould',
+      view: { target: [0, 0, 0], dist: 2.7, height: 1.2, fov: 38, az: 0.75 },
+      tray: { target: [TRAY[0], -0.3, 0.1], dist: 2.3, height: 1.9, fov: 38 },
+      cleanView: { target: [0, 0, 0], dist: 1.7, height: 0.6, fov: 38 },
+      scenery, parts, dirt, dirtCount: 6,
+    }),
+  });
+})();
+</script>
+</body>
+</html>

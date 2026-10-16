@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>TEM Minigame</title>
+<link rel="stylesheet" href="mg-core.css">
+<link rel="stylesheet" href="mg-scope.css">
+<style>
+  html,body{margin:0;height:100%;background:#0a0c0e;overscroll-behavior:none;}
+  .tem-hud{color:rgba(170,230,160,.7);}
+</style>
+</head>
+<body>
+<div id="mg"></div>
+<script src="mg-core.js"></script>
+<script src="mg-scope.js"></script>
+<script>
+// TEM — selected-area diffraction, tilted onto a zone axis.
+//
+// The pattern is a 2D reciprocal lattice (square or hexagonal, random
+// spacing and rotation). Off-axis, the Ewald sphere cuts the zero-order
+// Laue zone along a circle through the transmitted beam, whose centre sits
+// in the direction of the tilt error; spots near that circle light up and
+// the rest fade, so the pattern looks lopsided. On the zone axis the circle
+// shrinks to the centre and the intensities fall off symmetrically.
+//
+// Two things are scored: the residual tilt (symmetry) and the diffraction
+// focus (spot size). Brightness only sets how bright the screen is.
+(function(){
+  "use strict";
+  const { ui, clamp, rnd, rsign } = MGScope;
+  const N = 300, C = N / 2;
+  const TILT_RANGE = 100;   // pad units; shown as degrees /10
+  const K_LAUE = 2.0;       // tilt units -> Laue-circle centre offset (px)
+  const W_EXC = 36;         // excitation width around the Laue circle (px)
+  const G_ENV = 110;        // overall fall-off with |g| (px)
+  // Tolerances. At 9 units off in both tilt and focus, q is about 0.90.
+  const SIG_T = 28, SIG_D = 28;
+
+  function build(body, ctx) {
+    body.innerHTML = `
+      <div class="sc">
+        <div class="sc-stage">
+          <canvas width="${N * 2}" height="${N * 2}"></canvas>
+          <div class="sc-hud tem-hud">
+            <div class="tl">SAED&nbsp;&nbsp;200kV</div><div class="tr">SA&nbsp;ap.&nbsp;2</div>
+            <div class="bl">CL&nbsp;80cm</div><div class="br" id="zone">[001]?</div>
+          </div>
+        </div>
+        ${ui.quality}
+        <div class="sc-console">
+          ${ui.pad('tilt', 'Tilt α / β', 'tilt until the<br>pattern looks<br>symmetric.')}
+          ${ui.slider('dfoc', 'Diff Foc', -100, 100)}
+          ${ui.slider('bright', 'Bright', -100, 100)}
+        </div>
+        ${ui.actions}
+      </div>`;
+
+    const cv = body.querySelector('canvas'), g = cv.getContext('2d');
+    g.scale(2, 2);
+    const S = { tx:0, ty:0, t0x:0, t0y:0, dfoc:0, d0:0, bright:0, lat:null };
+    let dirty = true;
+
+    const deg = v => (v / 10).toFixed(1) + '°';
+    const tiltC = ui.bindPad(body, 'tilt', TILT_RANGE, (x, y) => { S.tx = x; S.ty = y; dirty = true; }, deg);
+    const dfocC = ui.bindSlider(body, 'dfoc', v => { S.dfoc = v; dirty = true; });
+    const brightC = ui.bindSlider(body, 'bright', v => { S.bright = v; dirty = true; });
+
+    // Residual tilt and defocus.
+    const resT = () => [S.tx + S.t0x, S.ty + S.t0y];
+    const resD = () => S.dfoc - S.d0;
+
+    function quality() {
+      const [rx, ry] = resT(), D = resD();
+      return Math.exp(-(rx * rx + ry * ry) / (2 * SIG_T * SIG_T)) *
+             Math.exp(-(D * D) / (2 * SIG_D * SIG_D));
+    }
+
+    function newLattice() {
+      const hex = Math.random() < 0.5;
+      const a = rnd(24, 34), rot = rnd(0, Math.PI);
+      const b = hex ? Math.PI / 3 : Math.PI / 2;
+      const spots = [];
+      for (let h = -8; h <= 8; h++) for (let k = -8; k <= 8; k++) {
+        const x = h * a * Math.cos(rot) + k * a * Math.cos(rot + b);
+        const y = h * a * Math.sin(rot) + k * a * Math.sin(rot + b);
+        if (Math.hypot(x, y) < C * 1.05) spots.push({ x, y, h, k });
+      }
+      S.lat = spots;
+      body.querySelector('#zone').textContent = hex ? '[111]?' : '[001]?';
+    }
+
+    function render() {
+      const [rx, ry] = resT(), D = resD();
+      // Laue-circle centre: in the direction of the tilt error.
+      const cx = rx * K_LAUE, cy = -ry * K_LAUE, cr = Math.hypot(cx, cy);
+      const gain = Math.pow(2, S.bright / 50);
+      const rSpot = 1.6 + Math.abs(D) * 0.07;
+      g.fillStyle = '#020603';
+      g.fillRect(0, 0, N, N);
+      // Diffuse inelastic background around the centre.
+      const bg = g.createRadialGradient(C, C, 0, C, C, C);
+      bg.addColorStop(0, `rgba(90,150,90,${(0.22 * gain).toFixed(3)})`);
+      bg.addColorStop(1, 'rgba(0,0,0,0)');
+      g.fillStyle = bg; g.fillRect(0, 0, N, N);
+      g.globalCompositeOperation = 'lighter';
+      for (const s of S.lat) {
+        const r0 = Math.hypot(s.x, s.y);
+        let I;
+        if (r0 < 1) I = 1;
+        else {
+          const dist = Math.abs(Math.hypot(s.x - cx, s.y - cy) - cr);
+          I = Math.exp(-(dist * dist) / (2 * W_EXC * W_EXC)) * Math.exp(-(r0 * r0) / (2 * G_ENV * G_ENV));
+        }
+        I *= gain;
+        if (I < 0.02) continue;
+        const px = C + s.x, py = C + s.y;
+        const rad = (r0 < 1 ? 2.2 : 1) * (rSpot + 2.2 * Math.min(1.5, I));
+        const grd = g.createRadialGradient(px, py, 0, px, py, rad * 2.2);
+        const a = Math.min(1, I);
+        grd.addColorStop(0, `rgba(235,255,225,${a.toFixed(3)})`);
+        grd.addColorStop(0.35, `rgba(150,240,140,${(a * 0.6).toFixed(3)})`);
+        grd.addColorStop(1, 'rgba(0,0,0,0)');
+        g.fillStyle = grd;
+        g.beginPath(); g.arc(px, py, rad * 2.2, 0, Math.PI * 2); g.fill();
+      }
+      g.globalCompositeOperation = 'source-over';
+      // Beam stopper over the transmitted spot, coming in from the edge.
+      g.fillStyle = 'rgba(8,10,8,.92)';
+      g.save(); g.translate(C, C); g.rotate(-0.6);
+      g.fillRect(-2.5, 0, 5, C * 1.5);
+      g.beginPath(); g.arc(0, 0, 7, 0, Math.PI * 2); g.fill();
+      g.restore();
+    }
+
+    function newSample() {
+      newLattice();
+      const m = rnd(30, 70), t = rnd(0, Math.PI * 2);
+      S.t0x = Math.cos(t) * m; S.t0y = Math.sin(t) * m;
+      S.tx = 0; S.ty = 0;
+      S.d0 = rsign() * 50;
+      S.dfoc = clamp(S.d0 + rsign() * 45, -100, 100);
+      S.bright = Math.round(rsign() * 60);
+      tiltC.set(0, 0); dfocC.set(S.dfoc); brightC.set(S.bright);
+      guide.reset();
+      dirty = true;
+    }
+
+    ui.bindActions(body, ctx, quality, newSample);
+    const guide = ui.guide(body, ctx, [
+      { kind:'pad', id:'tilt', range:TILT_RANGE, tol:8,
+        ideal: () => [-S.t0x, -S.t0y], cur: () => [S.tx, S.ty], tip:'パターンを対称にしよう！' },
+      { kind:'slider', id:'dfoc', min:-100, max:100, tol:8,
+        ideal: () => S.d0, cur: () => S.dfoc, tip:'スポットを小さく絞ろう！' },
+    ], '撮影しよう！');
+    newLattice();
+
+    return {
+      start: newSample,
+      tick() {
+        if (!dirty) return;
+        dirty = false;
+        render();
+        ui.showQuality(body, quality());
+        guide.update();
+      },
+    };
+  }
+
+  MG.mount(document.getElementById('mg'), {
+    id: 'tem',
+    title: 'TEM',
+    subtitle: 'SAED Zone-Axis Alignment',
+    desc: '試料を傾けて回折パターンの強度が中心に対して対称になるところ（晶帯軸）を探し、Diff Foc でスポットを点に絞って Capture。明るさは評価に影響しない。',
+    goal: 3,
+    qMax: 1,
+    build,
+  });
+})();
+</script>
+</body>
+</html>

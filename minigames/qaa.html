@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>QAA Minigame</title>
+<link rel="stylesheet" href="mg-core.css">
+<link rel="stylesheet" href="mg-scope.css">
+<style>
+  html,body{margin:0;height:100%;background:#0a0c0e;overscroll-behavior:none;}
+  /* A violet cast sets the fictional analyzer apart from the SEM it is built on. */
+  .sc-stage{border-color:#4b3a78;box-shadow:0 0 22px -8px #8a6cff;}
+  .sc-hud{color:rgba(196,180,255,.7);}
+  .sc-console{background:linear-gradient(180deg,#45424f,#37343f);}
+</style>
+</head>
+<body>
+<div id="mg"></div>
+<script src="mg-core.js"></script>
+<script src="mg-scope.js"></script>
+<script>
+// QAA — focus, stigmator and beam alignment with the wobbler. The HARD・WOBB
+// mode of the SEM prototype: the column starts out of alignment, drifts a
+// little with every sample, and the alignment carries over between them.
+MG.mount(document.getElementById('mg'), {
+  id: 'qaa',
+  title: 'Q-ACCEL',
+  subtitle: 'Focus / Stig / Wobbler',
+  desc: 'WOBB を入れて像の揺れを Beam Align で止め、WOBB を切ってからフォーカスとスティグマを合わせて Capture。軸は試料ごとに少しずつずれる。',
+  goal: 3,
+  qMax: 0.965,
+  build: MGScope.electron({
+    wobble: true,
+    structure: 'cuboid',
+    hud: { tl:'QSE&nbsp;&nbsp;3.2PeV', tr:'φ-LOCK', bl:'Δt&nbsp;0.4as', br:'x2,500,000' },
+  }),
+});
+</script>
+</body>
+</html>

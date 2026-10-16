@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Phase Shift Minigame</title>
+<link rel="stylesheet" href="mg-core.css">
+<link rel="stylesheet" href="mg-proc.css">
+<style>
+  html,body{margin:0;height:100%;background:#0a0c0e;overscroll-behavior:none;}
+  .ps-pips{display:flex;gap:6px;}
+  .ps-pips i{width:14px;height:14px;border-radius:50%;border:1px solid #6a54b0;background:#1d1830;}
+  .ps-pips i.on{background:#c9b4ff;box-shadow:0 0 8px #a98cff;}
+</style>
+</head>
+<body>
+<div id="mg"></div>
+<script src="mg-core.js"></script>
+<script src="mg-3d.js"></script>
+<script src="mg-proc.js"></script>
+<script src="mg-synth.js"></script>
+<script>
+// Phase Shift — the Phase-Shift Synthesizer (fictional): a vessel ringed
+// with field coils, closed by a domed hatch under a clamp ring, with the
+// PhaseShift probe hanging over a sample stage inside, and an energy cell
+// slotted into a port on the side.
+//
+// Unclamp and lift the hatch, draw the probe, lift out the stage, pull
+// the cell; scrub the phase residue (it glows) off the vessel floor and
+// wall; clean the parts; recharge the cell in three stages, letting go of
+// the charge inside the window each time (overcharging empties it); and
+// reassemble. The longest of the synthesis games, as a Lv4 machine.
+(function(){
+  "use strict";
+  const { mat, build } = M3;
+  const B = build;
+
+  const HULL = [70, 72, 92], RIM = [110, 112, 134], GLOW = [190, 150, 255], STEEL = [150, 154, 168];
+  const TRAY = [6, 0, 0];
+  const CHG = [12, 0, 0];                           // the charger, on its own bench
+  const R = 0.55, H = 0.6, Y0 = -0.6;               // vessel radius, height, floor
+
+  const residue = () => [150 + Math.random() * 40, 90 + Math.random() * 30, 230];
+
+  // ---- scenery ----
+  const vesselWall = B.upright(B.lathe([[0, R], [H, R]], 48, { c: HULL }, true));
+  vesselWall.ds = true;
+  const scenery = [
+    B.at(B.box(40, 5, 0.1, [48, 46, 64]), mat.tr(4, 1, -2.2)),
+    B.at(B.box(40, 0.1, 8, [58, 56, 68]), mat.tr(4, -1.05, 0)),
+    B.at(B.cylinder(0.85, 0.35, 48, [60, 60, 76]), mat.tr(0, -1.0, 0)),        // plinth
+    B.at(B.cylinder(R + 0.02, 0.05, 48, [56, 56, 72]), mat.tr(0, Y0 - 0.05, 0)), // vessel floor
+    B.at(vesselWall, mat.tr(0, Y0, 0)),
+    // Field coils: glowing bands round the vessel.
+    ...[0.12, 0.38].map(h => B.at(B.upright(B.lathe([[0, R + 0.06], [0.06, R + 0.06]], 48, { c: GLOW, e: true }, true)), mat.tr(0, Y0 + h, 0))),
+    // The side port the cell slots into.
+    B.at(B.cylinder(0.11, 0.14, 24, RIM), mat.chain(mat.tr(R - 0.02, Y0 + 0.3, 0), mat.rz(-Math.PI / 2))),
+    // Parts table and the charger bench.
+    B.at(B.box(2.6, 0.08, 1.5, [120, 98, 72]), mat.tr(TRAY[0], -0.44, 0)),
+    B.at(B.box(2.0, 0.08, 1.2, [120, 98, 72]), mat.tr(CHG[0], -0.44, 0)),
+    B.at(B.box(0.7, 0.35, 0.5, [52, 50, 70]), mat.tr(CHG[0], -0.22, 0)),        // charger body
+  ];
+
+  // ---- parts ----
+  function ring() {
+    const m = B.upright(B.lathe([[0, R - 0.03], [0, R + 0.09], [0.07, R + 0.09], [0.07, R - 0.03]], 48, { c: RIM }, true));
+    m.ds = true;
+    return B.merge([m, ...[0, 1, 2, 3].map(i => B.at(B.cylinder(0.035, 0.05, 12, STEEL),
+      mat.tr(Math.cos(i * Math.PI / 2 + 0.6) * (R + 0.04), 0.07, Math.sin(i * Math.PI / 2 + 0.6) * (R + 0.04))))]);
+  }
+  function hatch() {
+    // A shallow dome on a rim, closed underneath.
+    const prof = [];
+    for (let i = 0; i <= 10; i++) { const t = i / 10 * Math.PI / 2; prof.push([Math.sin(t) * 0.25, Math.cos(t) * R + 1e-4]); }
+    const dome = B.upright(B.lathe(prof, 48, { c: HULL }));
+    return B.merge([dome, B.at(B.cylinder(0.08, 0.1, 16, GLOW), mat.tr(0, 0.25, 0))]);
+  }
+  function probe() {
+    return B.merge([
+      B.cylinder(0.04, 0.55, 16, STEEL),
+      B.at(B.upright(B.lathe([[0, 0.003], [0.12, 0.06], [0.16, 0.06]], 24, { c: [200, 190, 240] })), mat.tr(0, -0.16, 0)),
+      ...[0, 1, 2].map(i => B.at(B.box(0.02, 0.1, 0.12, GLOW), mat.chain(mat.tr(0, -0.06, 0), mat.ry(i * Math.PI * 2 / 3), mat.tr(0.07, 0, 0)))),
+    ]);
+  }
+  function stage() {
+    return B.merge([B.cylinder(0.26, 0.05, 32, STEEL), B.at(B.cylinder(0.08, 0.14, 16, RIM), mat.tr(0, -0.14, 0))]);
+  }
+  function cell(level) {
+    const c = [120 + 100 * level, 80 + 120 * level, 255];
+    return B.merge([
+      B.cylinder(0.08, 0.32, 24, { c, e: level > 0.05 }),
+      B.at(B.cylinder(0.095, 0.04, 24, STEEL), mat.tr(0, -0.02, 0)),
+      B.at(B.cylinder(0.095, 0.04, 24, STEEL), mat.tr(0, 0.3, 0)),
+    ]);
+  }
+
+  const parts = [
+    { id:'ring', name:'クランプリング', mesh: ring(), at: mat.tr(0, Y0 + H, 0),
+      tray: mat.tr(TRAY[0] - 0.55, -0.4, 0.4) },
+    { id:'hatch', name:'ハッチ', mesh: hatch(), at: mat.tr(0, Y0 + H, 0), needs: ['ring'],
+      tray: mat.chain(mat.tr(TRAY[0] + 0.6, -0.4 + 0.25, 0.3), mat.rx(Math.PI)) },
+    { id:'probe', name:'PhaseShiftプローブ', mesh: probe(), at: mat.tr(0, Y0 + 0.45, 0), needs: ['hatch'],
+      tray: mat.chain(mat.tr(TRAY[0] - 0.4, -0.35, -0.35), mat.rz(Math.PI / 2)) },
+    { id:'stage', name:'試料ステージ', mesh: stage(), at: mat.tr(0, Y0 + 0.14, 0), needs: ['probe'],
+      tray: mat.tr(TRAY[0] + 0.55, -0.26, -0.4) },
+    { id:'cell', name:'エネルギーセル', mesh: cell(0), at: mat.chain(mat.tr(R + 0.1, Y0 + 0.3, 0), mat.rz(-Math.PI / 2)),
+      tray: mat.chain(mat.tr(TRAY[0] + 0.05, -0.31, 0.1), mat.rz(Math.PI / 2)) },
+  ];
+
+  // ---- stains: phase residue glows, so it reads in the dark vessel ----
+  const dirt = [
+    ...[[0.32, 0.15], [-0.3, 0.2], [0.2, -0.3], [-0.25, -0.28]].map(([x, z]) =>
+      ({ p: [x, Y0, z], n: [0, 1, 0], r: 0.06, c: residue() })),
+    ...[0.7, 2.3, 4.2].map(t => ({ p: [Math.sin(t) * (R - 0.002), Y0 + 0.35, Math.cos(t) * (R - 0.002)],
+      n: [-Math.sin(t), 0, -Math.cos(t)], r: 0.07, c: residue(), cyl: [0, 0, R], spread: 0.12 })),
+    { part: 'hatch', p: [0.18, -0.001, 0.1], n: [0, -1, 0], r: 0.06, c: residue() },
+    { part: 'hatch', p: [-0.15, -0.001, -0.2], n: [0, -1, 0], r: 0.06, c: residue() },
+    { part: 'probe', p: [0.0, -0.1, 0.034], n: [0, 0, 1], r: 0.03, c: residue(), spread: 0.02, count: 4 },
+    { part: 'probe', p: [0.0, -0.1, -0.034], n: [0, 0, -1], r: 0.03, c: residue(), spread: 0.02, count: 4 },
+    { part: 'stage', p: [0.1, 0.051, 0.05], n: [0, 1, 0], r: 0.05, c: residue() },
+    { part: 'stage', p: [-0.1, 0.051, -0.08], n: [0, 1, 0], r: 0.05, c: residue() },
+    { part: 'cell', p: [0.0, 0.15, 0.082], n: [0, 0, 1], r: 0.04, c: [90, 80, 60], spread: 0.04, count: 4 },
+  ];
+
+  // ---- special: recharge the cell in three stages ----
+  // Hold to charge; the charge climbs faster the longer it is held, and a
+  // little faster each stage. Let go inside the window to lock a stage in;
+  // run it past full and the cell dumps its charge.
+  const WIN = [0.80, 0.93];
+  let C;
+  let siren = null;
+  const special = {
+    name: 'チャージ',
+    reset() { C = { lv: 0, stage: 0, holding: false, held: 0, doneT: 0, flash: 0 }; },
+    start(api) {
+      special.reset();
+      siren = MGProc.alarm(api.body);
+      api.setView({ target: [CHG[0], 0.0, 0], dist: 1.8, height: 0.7, fov: 36, fixAz: 0.4 });
+      api.panel(`<div class="pc-gauge"><span class="k">充電</span>
+        <div class="pc-meter"><div class="pc-win" id="cw"></div><div class="pc-fill danger" id="cF"></div></div></div>
+        <div class="pc-gauge"><span class="k">段階</span><div class="ps-pips" id="pips"><i></i><i></i><i></i></div></div>`);
+      api.$('cw').style.left = (WIN[0] * 100) + '%';
+      api.$('cw').style.width = ((WIN[1] - WIN[0]) * 100) + '%';
+      api.buttons(`<button class="pc-btn act sy-sp" id="chg">チャージ（長押し）</button>`);
+      MG.hold(api.$('chg'), () => { if (C.stage < 3) { C.holding = true; C.held = 0; } },
+                            () => { if (C.holding) release(api); C.holding = false; });
+      // Automated tests: hold until the middle of the window, then let go.
+      window.__special = () => {
+        if (C.stage >= 3) return;
+        if (!C.holding && C.lv < 0.5) { C.holding = true; C.held = 0; }
+        else if (C.holding && C.lv >= 0.86) { C.holding = false; release(api); }
+      };
+    },
+    tick(dt, api) {
+      if (C.stage >= 3) { C.doneT += dt; siren && siren.set(false); return; }
+      if (C.holding) {
+        C.held += dt;
+        C.lv += dt * (0.18 + 0.35 * C.held) * (1 + 0.25 * C.stage);
+        if (C.lv > 1) {
+          C.holding = false; C.lv = 0;
+          api.flash('過充電！チャージが抜けた', '#e2603f');
+        }
+      } else if (C.lv > 0) {
+        C.lv = Math.max(0, C.lv - dt * 0.4);       // a held charge leaks away
+      }
+      siren && siren.set(C.holding && C.lv > WIN[1] - 0.02, 2 + 4 * Math.max(0, C.lv - WIN[1]) / (1 - WIN[1]));
+      const f = api.$('cF');
+      if (f) {
+        f.style.width = (C.lv * 100).toFixed(1) + '%';
+        f.style.backgroundColor = C.lv > WIN[1] ? '#ff5a3a' : C.lv >= WIN[0] ? '#5fd38a' : '#a98cff';
+        [...api.$('pips').children].forEach((el, i) => el.classList.toggle('on', i < C.stage));
+      }
+    },
+    done() { return C.doneT > 0.8; },
+    status() { return `チャージ ${C.stage} / 3 段階`; },
+    tip(api) {
+      if (C.stage >= 3) return null;
+      if (C.holding && C.lv >= WIN[0]) return [api.$('chg'), '今だ！指を離そう'];
+      return [api.$('chg'), '長押しでチャージ、緑の範囲で離そう！'];
+    },
+    meshes() {
+      const c = cell(Math.min(1, C.stage / 3 + C.lv / 3));
+      c.m = mat.tr(CHG[0], -0.05, 0);
+      return [c];
+    },
+    overlay(g, api) {
+      // Arcs crackling round the cell while it charges.
+      if (!C.holding) return;
+      const q = api.r3.project([CHG[0], 0.12, 0]);
+      if (!q) return;
+      g.strokeStyle = `rgba(200,170,255,${(0.4 + 0.6 * C.lv).toFixed(2)})`;
+      for (let k = 0; k < 3; k++) {
+        g.beginPath();
+        let x = q[0] + (Math.random() - 0.5) * 30, y = q[1] - 40;
+        g.moveTo(x, y);
+        for (let s = 0; s < 5; s++) { x += (Math.random() - 0.5) * 16; y += 14; g.lineTo(x, y); }
+        g.stroke();
+      }
+    },
+  };
+  function release(api) {
+    if (C.lv >= WIN[0] && C.lv <= WIN[1]) {
+      C.stage++; C.lv = 0;
+      api.flash(C.stage >= 3 ? 'チャージ完了！' : `第${C.stage}段階 OK`, '#c9b4ff');
+    } else if (C.lv < WIN[0]) {
+      api.flash('チャージ不足…', '#e8b84a');
+    }
+  }
+
+  MG.mount(document.getElementById('mg'), {
+    id: 'phase',
+    title: 'PHASE SHIFT',
+    subtitle: 'Synthesizer Overhaul',
+    desc: 'Phase-Shift合成装置を分解して、容器内の相残渣（光る汚れ）を落とし、部品を清掃。エネルギーセルを3段階チャージしてから組み立てる。',
+    goal: 1,
+    build: MGSynth.build({
+      hud: 'Phase-Shift Synthesizer',
+      bg: [16, 14, 24],
+      // Steep enough to see the vessel floor over the rim.
+      view: { target: [0, -0.45, 0], dist: 2.0, height: 3.0, fov: 42, az: 0.5 },
+      tray: { target: [TRAY[0], -0.3, 0.0], dist: 2.6, height: 2.1, fov: 38 },
+      cleanView: { target: [0, -0.45, 0], dist: 1.1, height: 2.0, fov: 44 },
+      scenery, parts, dirt, special, dirtCount: 9,
+    }),
+  });
+})();
+</script>
+</body>
+</html>

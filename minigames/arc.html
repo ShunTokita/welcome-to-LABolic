@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Arc Melting Minigame</title>
+<link rel="stylesheet" href="mg-core.css">
+<link rel="stylesheet" href="mg-proc.css">
+<style>html,body{margin:0;height:100%;background:#0a0c0e;overscroll-behavior:none;}</style>
+</head>
+<body>
+<div id="mg"></div>
+<script src="mg-core.js"></script>
+<script src="mg-3d.js"></script>
+<script src="mg-proc.js"></script>
+<script src="mg-synth.js"></script>
+<script>
+// Arc melting — a small button-melter: a stainless chamber on a
+// water-cooled copper hearth, a tungsten-tipped torch through the lid,
+// and a sight glass on the front.
+//
+// Take the torch out, lift the lid, take the sight glass off, lift the
+// chamber away; wipe the spatter off the hearth; clean the chamber wall,
+// the lid and the glass (metal vapour fogs it) on the table; regrind the
+// tungsten tip, which wears round with use; and put it all back.
+(function(){
+  "use strict";
+  const { mat, build } = M3;
+  const B = build;
+
+  const SS = [172, 178, 188], CU = [204, 120, 76], CU_D = [168, 92, 58], W = [150, 150, 158];
+  const TRAY = [6, 0, 0];
+  const GRIND = [12, 0.25, 0];                    // the bench grinder's wheel centre, on its own bench
+  // Where the electrode tip meets the wheel face, and the electrode's lean:
+  // its axis rotated 45° from the face's normal (-x), up and away.
+  const TIP = [GRIND[0] - 0.05, GRIND[1] + 0.12, GRIND[2]];
+  const TILT = Math.PI / 4;    // rz: the electrode's +y (tip to tail) to (-sin45, cos45)
+
+  // Stand a lathe (built along x) upright on y.
+  function upright(m) {
+    m.v = m.v.map(([x, y, z]) => [y, x, z]);
+    m.f.forEach(f => { f.i = [f.i[0], f.i[2], f.i[1]]; });
+    return m;
+  }
+  // Tungsten electrode with its tip, upright, the tip pointing down to y=0.
+  // `sharp` 0..1: worn round to a fine cone.
+  function electrode(sharp, len) {
+    const r = 0.016, cone = 0.012 + 0.05 * sharp;
+    const prof = [[0, 0.002 + 0.01 * (1 - sharp)], [cone * 0.4, r * (0.6 + 0.2 * (1 - sharp))], [cone, r], [len, r]];
+    return upright(B.lathe(prof, 16, W));
+  }
+
+  // ---- parts ----
+  function chamber() {
+    const tube = upright(B.lathe([[0, 0.5], [0.7, 0.5]], 48, { c: SS }, true));
+    tube.ds = true;
+    // Flanges at both ends: rings, so the chamber stays open through.
+    const flange = () => upright(B.lathe([[0, 0.5], [0, 0.56], [0.04, 0.56], [0.04, 0.5]], 48, { c: SS }, true));
+    const m = B.merge([
+      tube,
+      B.at(flange(), mat.tr(0, 0, 0)),
+      B.at(flange(), mat.tr(0, 0.66, 0)),
+      // The sight-glass port on the front.
+      B.at(B.cylinder(0.12, 0.1, 24, SS), mat.chain(mat.tr(0, 0.35, 0.46), mat.rx(Math.PI / 2))),
+    ]);
+    m.ds = true;
+    return m;
+  }
+  function lid() {
+    return B.merge([
+      B.cylinder(0.57, 0.06, 48, SS),
+      B.at(B.box(0.3, 0.05, 0.06, [60, 64, 72]), mat.tr(0.3, 0.085, 0)),     // handle
+    ]);
+  }
+  function windowPart() {
+    const glass = B.blob(new Array(20).fill(0.095), [40, 70, 80]);
+    return B.merge([
+      B.at(B.cylinder(0.13, 0.03, 24, SS), mat.rx(Math.PI / 2)),            // ring, axis along +z
+      B.at(glass, mat.tr(0, 0, 0.032)),
+    ]);
+  }
+  function torch() {
+    return B.merge([
+      B.at(B.cylinder(0.05, 0.9, 20, CU), mat.tr(0, -0.3, 0)),               // water-cooled holder
+      B.at(B.cylinder(0.075, 0.06, 20, [60, 64, 72]), mat.tr(0, 0.6, 0)),    // insulating cap
+      B.at(B.cylinder(0.03, 0.18, 12, [40, 40, 44]), mat.chain(mat.tr(0.05, 0.63, 0), mat.rz(-1.2))),  // cable
+      B.at(electrode(0.15, 0.12), mat.tr(0, -0.42, 0)),
+    ]);
+  }
+
+  // ---- scenery ----
+  const pockets = [[0, 0], [0.22, 0.12], [-0.2, 0.14], [0.02, -0.24]];
+  const scenery = [
+    B.at(B.box(40, 5, 0.1, [56, 62, 72]), mat.tr(4, 1, -2)),
+    B.at(B.box(40, 0.1, 8, [70, 64, 58]), mat.tr(4, -1.05, 0)),
+    B.at(B.box(1.6, 0.4, 1.3, [96, 102, 112]), mat.tr(0, -0.8, 0)),           // base
+    B.at(B.cylinder(0.47, 0.08, 48, CU), mat.tr(0, -0.6, 0)),                 // copper hearth
+    ...pockets.map(([x, z]) => B.at(B.blob(new Array(16).fill(0.075), CU_D), mat.orient([x, -0.519, z], [0, 1, 0]))),
+    B.at(B.box(2.4, 0.08, 1.4, [120, 98, 72]), mat.tr(TRAY[0], -0.44, 0)),   // parts table
+    // The bench grinder, on a bench of its own.
+    B.at(B.box(2.6, 0.08, 1.2, [120, 98, 72]), mat.tr(GRIND[0] - 0.4, -0.24, 0)),
+    B.at(B.box(0.5, 0.3, 0.36, [70, 96, 84]), mat.tr(GRIND[0] + 0.45, -0.05, GRIND[2])),     // motor
+    B.at(B.cylinder(0.05, 0.4, 16, [90, 96, 104]), mat.chain(mat.tr(GRIND[0] + 0.2, GRIND[1], GRIND[2]), mat.rz(Math.PI / 2))),  // shaft
+  ];
+
+  const parts = [
+    { id:'torch', name:'トーチ', mesh: torch(), at: mat.id(),
+      tray: mat.chain(mat.tr(TRAY[0] - 0.2, -0.33, 0.5), mat.rz(Math.PI / 2)) },
+    { id:'window', name:'のぞき窓', mesh: windowPart(), at: mat.tr(0, -0.25, 0.56),
+      tray: mat.chain(mat.tr(TRAY[0] + 0.85, -0.39, 0.45), mat.rx(Math.PI / 2)) },
+    { id:'lid', name:'上蓋', mesh: lid(), at: mat.tr(0, 0.1, 0), needs: ['torch'],
+      tray: mat.chain(mat.tr(TRAY[0] + 0.55, -0.34, -0.25), mat.rx(Math.PI)) },
+    { id:'chamber', name:'チャンバー', mesh: chamber(), at: mat.tr(0, -0.6, 0), needs: ['lid', 'window'],
+      // On its side, open end toward the camera.
+      tray: mat.chain(mat.tr(TRAY[0] - 0.55, -0.4 + 0.56, -0.35), mat.rx(Math.PI / 2)) },
+  ];
+
+  // ---- stains ----
+  const spatter = () => [70 + Math.random() * 20, 70 + Math.random() * 20, 76 + Math.random() * 20];
+  const dirt = [
+    // Spatter beads and soot on the hearth, around the pockets.
+    ...[[0.12, -0.05], [-0.1, -0.08], [0.3, -0.12], [-0.3, 0.0], [0.1, 0.3]].map(([x, z]) =>
+      ({ p: [x, -0.52, z], n: [0, 1, 0], r: 0.045, c: spatter() })),
+    // Inside the chamber wall, near the open end (it lies on its side).
+    ...[-0.6, 0, 0.6].map(t => ({ part: 'chamber', p: [0.5 * Math.sin(t), 0.55, 0.5 * Math.cos(t) - 0.002],
+      n: [-Math.sin(t), 0, -Math.cos(t)], r: 0.06, c: spatter(), cyl: [0, 0, 0.5], spread: 0.1 })),
+    // The underside of the lid.
+    { part: 'lid', p: [0.2, -0.001, 0.1], n: [0, -1, 0], r: 0.06, c: spatter() },
+    { part: 'lid', p: [-0.15, -0.001, -0.2], n: [0, -1, 0], r: 0.06, c: spatter() },
+    // Metal vapour fogging the sight glass, on its inner face.
+    { part: 'window', p: [0, 0, -0.001], n: [0, 0, -1], r: 0.07, c: [150, 150, 140], spread: 0.06 },
+  ];
+
+  // ---- special: regrind the tungsten tip ----
+  let G;
+  const special = {
+    name: '先端研磨',
+    reset() { G = { p: 0, holding: false, spin: 0, wheel: 0, sparks: [], doneT: 0 }; },
+    start(api) {
+      special.reset();
+      api.setView({ target: [GRIND[0] - 0.3, GRIND[1] + 0.3, GRIND[2]], dist: 2.2, height: 0.4, fov: 38, fixAz: 0.2 });
+      api.panel(`<div class="pc-gauge"><span class="k">先端</span>
+        <div class="pc-meter"><div class="pc-fill danger" id="gF"></div></div></div>`);
+      api.buttons(`<button class="pc-btn act sy-sp" id="grind">研磨（長押し）</button>`);
+      MG.hold(api.$('grind'), () => { G.holding = true; }, () => { G.holding = false; });
+      window.__special = () => { G.holding = true; };   // automated tests hold the button
+    },
+    tick(dt, api) {
+      G.wheel += dt * 25;
+      if (G.p >= 1) { G.doneT += dt; G.holding = false; }
+      else if (G.holding) {
+        G.p = Math.min(1, G.p + dt / 2.8);
+        G.spin += dt * 8;
+        if (G.p >= 1) api.flash('先端が鋭くなった！', '#5fd38a');
+      }
+      const f = api.$('gF');
+      if (f) { f.style.width = (G.p * 100).toFixed(1) + '%'; f.style.backgroundColor = MGProc.dangerColor(1 - G.p); }
+      // Sparks off the wheel while grinding.
+      if (G.holding) for (let i = 0; i < 3; i++) G.sparks.push({ t: 0, a: -0.4 - Math.random() * 0.9, v: 60 + Math.random() * 80 });
+      G.sparks = G.sparks.filter(s => (s.t += dt) < 0.35);
+    },
+    done() { return G.doneT > 0.6; },
+    status() { return `先端の鋭さ ${Math.round(G.p * 100)}%`; },
+    tip(api) { return G.p < 1 ? [api.$('grind'), '長押しで電極の先を研ごう！'] : null; },
+    meshes() {
+      // The wheel turns on the shaft (along x) with its face toward the
+      // electrode. The electrode is held at about 45° to that face, tip on
+      // the wheel, and turned in the fingers so the tip grinds to a cone.
+      // Shown at three times scale so the tip reads.
+      const wheel = B.lathe([[-0.04, 0.32], [0.04, 0.32]], 40, { c: [150, 140, 120] });
+      wheel.m = mat.chain(mat.tr(GRIND[0], GRIND[1], GRIND[2]), mat.rx(G.wheel));
+      const e = electrode(0.15 + 0.85 * G.p, 0.3);
+      e.m = mat.chain(mat.tr(TIP[0], TIP[1], TIP[2]), mat.rz(TILT), mat.sc(3, 3, 3), mat.ry(G.spin));
+      return [wheel, e];
+    },
+    overlay(g, api) {
+      const q = api.r3.project(TIP);
+      if (!q) return;
+      for (const s of G.sparks) {
+        const d = s.v * s.t, x = q[0] + Math.cos(s.a + Math.PI) * d, y = q[1] - Math.sin(s.a + Math.PI) * d + 200 * s.t * s.t;
+        g.strokeStyle = `rgba(255,${180 + Math.random() * 60 | 0},80,${(1 - s.t / 0.35).toFixed(2)})`;
+        g.beginPath(); g.moveTo(x, y); g.lineTo(x + Math.cos(s.a + Math.PI) * 4, y - Math.sin(s.a + Math.PI) * 4); g.stroke();
+      }
+    },
+  };
+
+  MG.mount(document.getElementById('mg'), {
+    id: 'arc',
+    title: 'ARC MELTING',
+    subtitle: 'Chamber Cleaning',
+    desc: 'アーク溶解炉を分解して、ハースのスパッタを掃除し、チャンバー・上蓋・のぞき窓を清掃。丸くなったタングステン電極の先を研いでから組み立てる。',
+    goal: 1,
+    build: MGSynth.build({
+      hud: 'Arc melter',
+      view: { target: [0, -0.25, 0], dist: 3.0, height: 1.5, fov: 38, az: 0.6 },
+      tray: { target: [TRAY[0], -0.3, 0.05], dist: 2.5, height: 2.0, fov: 38 },
+      cleanView: { target: [0, -0.52, 0], dist: 1.1, height: 1.0, fov: 40 },
+      scenery, parts, dirt, special, dirtCount: 7,
+    }),
+  });
+})();
+</script>
+</body>
+</html>

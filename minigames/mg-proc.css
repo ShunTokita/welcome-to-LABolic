@@ -1,0 +1,75 @@
+/* Stage, gauges and buttons for the process minigames. */
+.pc{position:relative;display:flex;flex-direction:column;gap:10px;
+  --pc-line:#283038; --pc-amber:#ffb000; --pc-amber-dim:#9a6a00; --pc-txt-dim:#6c7884; --pc-guide:#5fe3ff;
+  --pc-mono: ui-monospace, "SFMono-Regular", "Menlo", "Consolas", monospace;}
+.pc-stage{position:relative;width:100%;max-width:100%;aspect-ratio:4/3;border:1px solid var(--pc-line);
+  border-radius:6px;overflow:hidden;background:#101218;}
+.pc-stage canvas{display:block;width:100%;height:100%;image-rendering:pixelated;}
+.pc-hud{position:absolute;inset:0;pointer-events:none;font-family:var(--pc-mono);font-size:10px;
+  color:rgba(199,208,216,.6);letter-spacing:.08em;}
+.pc-hud .tl{position:absolute;top:8px;left:10px;}
+.pc-hud .tr{position:absolute;top:8px;right:10px;text-transform:uppercase;}
+
+.pc-gauges{display:flex;flex-direction:column;gap:8px;background:linear-gradient(180deg,#41464b,#363b40);
+  border:1px solid #22262a;border-radius:6px;padding:10px 12px;}
+.pc-gauge{display:flex;align-items:center;gap:12px;font-family:Arial,"Helvetica Neue",sans-serif;}
+.pc-gauge .k{width:74px;font-size:11px;font-weight:700;color:#cdd2d6;letter-spacing:.04em;text-transform:uppercase;}
+.pc-meter{position:relative;flex:1;height:14px;border:1px solid #14181b;border-radius:3px;background:#1d2123;overflow:hidden;}
+.pc-fill{position:absolute;left:0;top:0;bottom:0;background:linear-gradient(90deg,#8a6a2a,#e8b84a);}
+.pc-win{position:absolute;top:0;bottom:0;background:rgba(95,227,255,.28);
+  border-left:2px solid var(--pc-guide);border-right:2px solid var(--pc-guide);z-index:1;}
+.pc-sectors{flex:1;display:flex;gap:4px;}
+.pc-sectors i{flex:1;height:14px;border-radius:2px;background:#2a3038;}
+
+.pc-buttons{display:flex;gap:10px;}
+.pc-btn{flex:1;font-family:var(--pc-mono);font-weight:700;font-size:15px;letter-spacing:.06em;
+  color:#dfe4e8;border:1px solid #5a6166;border-radius:6px;padding:16px 0;
+  background:linear-gradient(180deg,#4a4f54,#3a3f44);cursor:pointer;touch-action:manipulation;}
+.pc-btn:active{transform:scale(.97);}
+.pc-btn.act{color:var(--pc-amber);border-color:var(--pc-amber-dim);background:linear-gradient(180deg,#241a05,#160f02);}
+
+.pc-tip{position:absolute;z-index:4;display:none;pointer-events:none;white-space:nowrap;
+  transform:translate(-50%, calc(-100% - 8px));padding:5px 10px;border-radius:6px;
+  background:var(--pc-amber);color:#1c1300;font:700 12px/1.2 system-ui,sans-serif;
+  box-shadow:0 2px 10px rgba(0,0,0,.5);animation:pcTipBob 1.1s ease-in-out infinite;}
+.pc-tip::after{content:"";position:absolute;left:calc(50% + var(--ax, 0px));margin-left:-6px;bottom:-6px;border:6px solid transparent;
+  border-bottom:0;border-top-color:var(--pc-amber);}
+.pc-tip.on{display:block;}
+/* Alarm: a red lamp on the stage, a red frame, and (set from script) a
+   shake of the stage. */
+.pc-lamp{position:absolute;top:28px;right:10px;display:flex;align-items:center;gap:6px;pointer-events:none;
+  font-family:var(--pc-mono);font-size:10px;letter-spacing:.14em;color:#6c5050;}
+.pc-lamp i{width:12px;height:12px;border-radius:50%;background:#3a2222;box-shadow:inset 0 0 3px #000;}
+.pc-lamp.on{color:#ff6a5a;}
+.pc-lamp.on i{background:#ff3a2a;box-shadow:0 0 10px 2px #ff3a2a;animation:pcBlink .35s steps(2) infinite;}
+@keyframes pcBlink{50%{opacity:.35;}}
+.pc-stage.alarm{box-shadow:0 0 0 2px #ff3a2a inset, 0 0 18px -4px #ff3a2a;}
+.pc-fill.danger{background:#5fd38a;transition:background-color .15s;}
+@keyframes pcTipBob{0%,100%{margin-top:0}50%{margin-top:-3px}}
+@media (prefers-reduced-motion: reduce){.pc-tip{animation:none;}.pc-lamp.on i{animation:none;}}
+
+/* Step chips (synthesis phases) and the line under them. */
+.pc-steps{display:flex;gap:4px;font-family:var(--pc-mono);font-size:10px;}
+.pc-steps span{flex:1;text-align:center;padding:5px 2px;border-radius:3px;background:#2a2f34;color:#7d868e;line-height:1.3;}
+.pc-steps span.now{background:#3d3420;color:#ffcf6a;box-shadow:0 0 0 1px #9a6a00 inset;}
+.pc-steps span.done{background:#203327;color:#7fd39a;}
+.sy-count{font-family:var(--pc-mono);font-size:12px;color:#dfe4e8;font-variant-numeric:tabular-nums;min-height:1.3em;}
+.sy-anchor{position:absolute;left:50%;bottom:6px;width:1px;height:1px;pointer-events:none;}
+.pc-btn:disabled{opacity:.35;cursor:default;}
+.pc-btn small{font-size:10px;margin-left:3px;opacity:.8;}
+
+/* 100 % clean: a white flash, a bright band wiping across, and sparkles. */
+.sy-wipe{position:absolute;inset:0;pointer-events:none;overflow:hidden;opacity:0;}
+.sy-wipe.play{animation:syFlash 1s ease-out forwards;}
+.sy-wipe i{position:absolute;top:-20%;bottom:-20%;left:0;width:45%;transform:translateX(-120%) skewX(-18deg);
+  background:linear-gradient(90deg,transparent,rgba(255,255,255,.95) 45%,#fff 50%,rgba(255,255,255,.95) 55%,transparent);}
+.sy-wipe.play i{animation:syBand .7s cubic-bezier(.3,.1,.3,1) forwards;}
+.sy-wipe b{position:absolute;width:18px;height:18px;margin:-9px 0 0 -9px;opacity:0;
+  background:radial-gradient(circle,#fff 0 18%,transparent 20%),
+             linear-gradient(0deg,transparent 45%,#fff 45% 55%,transparent 55%),
+             linear-gradient(90deg,transparent 45%,#fff 45% 55%,transparent 55%);}
+.sy-wipe.play b{animation:sySpark .6s ease-out forwards;}
+@keyframes syFlash{0%{opacity:1;background:rgba(255,255,255,.75);}25%{background:rgba(255,255,255,.25);}100%{opacity:1;background:rgba(255,255,255,0);}}
+@keyframes syBand{to{transform:translateX(330%) skewX(-18deg);}}
+@keyframes sySpark{0%{opacity:0;transform:scale(.2) rotate(0);}30%{opacity:1;transform:scale(1.4) rotate(45deg);}100%{opacity:0;transform:scale(.6) rotate(90deg);}}
+@media (prefers-reduced-motion: reduce){.sy-wipe.play i{animation:none;opacity:0;}}

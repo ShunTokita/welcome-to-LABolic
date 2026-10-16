@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>SEM Minigame</title>
+<link rel="stylesheet" href="mg-core.css">
+<link rel="stylesheet" href="mg-scope.css">
+<style>html,body{margin:0;height:100%;background:#0a0c0e;overscroll-behavior:none;}</style>
+</head>
+<body>
+<div id="mg"></div>
+<script src="mg-core.js"></script>
+<script src="mg-scope.js"></script>
+<script>
+// SEM — focus and stigmator. The NORMAL mode of the SEM prototype
+// (sem-proto.html), scored on sharpness alone.
+MG.mount(document.getElementById('mg'), {
+  id: 'sem',
+  title: 'SEM',
+  subtitle: 'Focus & Stigmator',
+  desc: 'フォーカスとスティグマで像を鋭くして Capture。コントラストと明るさは見やすさのためで、評価には影響しない。',
+  goal: 3,
+  qMax: 0.965,            // the blur floor: a perfect setting still scores this
+  build: MGScope.electron({
+    structure: 'precip',
+    hud: { tl:'SEI&nbsp;&nbsp;15.0kV', tr:'TARGET', bl:'WD&nbsp;10.0mm', br:'x5,000' },
+  }),
+});
+</script>
+</body>
+</html>

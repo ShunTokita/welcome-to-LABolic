@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Magnetizer Minigame</title>
+<link rel="stylesheet" href="mg-core.css">
+<link rel="stylesheet" href="mg-proc.css">
+<style>
+  html,body{margin:0;height:100%;background:#0a0c0e;overscroll-behavior:none;}
+  .mz-top{display:grid;grid-template-columns:1fr 1fr;gap:6px 12px;font-family:var(--pc-mono);}
+  .mz-top .k{font-size:9px;letter-spacing:.12em;color:#9aa3ab;text-transform:uppercase;}
+  .mz-top .v{font-size:22px;font-weight:700;color:#dfe4e8;font-variant-numeric:tabular-nums;}
+  .mz-top .v.field{color:var(--pc-amber);}
+  .mz-top .v small{font-size:11px;color:#9aa3ab;font-weight:400;}
+  .mz-steps{display:flex;gap:4px;font-family:var(--pc-mono);font-size:10px;}
+  .mz-steps span{flex:1;text-align:center;padding:4px 2px;border-radius:3px;background:#2a2f34;color:#7d868e;line-height:1.3;}
+  .mz-steps span.now{background:#3d3420;color:#ffcf6a;box-shadow:0 0 0 1px #9a6a00 inset;}
+  .mz-steps span.done{background:#203327;color:#7fd39a;}
+  .pc-meter .mz-limit{position:absolute;top:-2px;bottom:-2px;width:3px;background:#ff5a3a;z-index:2;}
+  .pc-btn.on{color:#7fd39a;border-color:#3f8a5a;}
+  .mz-supply{font-family:var(--pc-mono);font-size:11px;color:#b9c2ca;font-variant-numeric:tabular-nums;}
+</style>
+</head>
+<body>
+<div id="mg"></div>
+<script src="mg-core.js"></script>
+<script src="mg-3d.js"></script>
+<script src="mg-proc.js"></script>
+<script>
+// Magnetizer — energising a superconducting magnet.
+//
+// The magnet sits in liquid helium with a persistent-current switch (PSH)
+// across its terminals: a short of superconducting wire with a heater on
+// it. With the heater on, the switch goes normal and the supply can drive
+// current into the magnet; with it off, the switch superconducts and the
+// magnet holds its current with the supply disconnected.
+//
+// The sequence, shown on screen and followed in order:
+//   1  heater on, and wait for the switch to open
+//   2  ramp up to the target field          <- the part that takes a hand
+//   3  heater off: the magnet is persistent
+//
+// The ramp-rate limit falls as the field rises (the stored energy and the
+// conductor margin both shrink), so the rate has to be eased off on the way
+// up. Over the limit, a quench risk builds; when it fills, the magnet
+// quenches and the helium boils off in a plume.
+//
+// The classic mistakes are here too. Ramping with the heater off moves the
+// supply current but not the field. Opening the switch with the supply and
+// magnet currents mismatched quenches it.
+//
+// Score = how close to the target the field is when the switch is closed.
+(function(){
+  "use strict";
+  const { Renderer, mat, build } = M3;
+
+  const ACC = 0.5, DEC = 1.2, RATE_MAX = 0.9;   // T/s², T/s² (coasting), T/s
+  const limitAt = B => 0.60 - 0.06 * B;          // allowed ramp rate (T/s)
+  const WARM_T = 3.0, COOL_T = 2.0;              // switch opening / closing (s)
+  const MISMATCH = 0.05;                         // T, opening the switch beyond this quenches
+  const REL_TOL = 0.005;                         // ±0.5 % of target for a full score
+
+  function build_(body, ctx) {
+    body.innerHTML = `
+      <div class="pc">
+        <div class="pc-stage"><canvas></canvas>
+          <div class="pc-hud"><div class="tl">SC Magnet / LHe</div><div class="tr" id="pState">standby</div></div>
+        </div>
+        <div class="pc-gauges">
+          <div class="mz-top">
+            <div><div class="k">Field</div><div class="v field" id="bV">0.000 <small>T</small></div></div>
+            <div><div class="k">Target</div><div class="v" id="tV">5.00 <small>T ±0.5%</small></div></div>
+          </div>
+          <div class="mz-supply" id="supV">Supply 0.000 T 相当 ・ PSH closed</div>
+          <div class="pc-gauge"><span class="k">Ramp</span>
+            <div class="pc-meter"><div class="mz-limit" id="limM"></div><div class="pc-fill danger" id="rateF"></div></div></div>
+          <div class="pc-gauge"><span class="k">Quench</span>
+            <div class="pc-meter"><div class="pc-fill danger" id="riskF"></div></div></div>
+          <div class="pc-gauge"><span class="k">Field</span>
+            <div class="pc-meter"><div class="pc-win" id="bWin"></div><div class="pc-fill" id="bF"></div></div></div>
+          <div class="mz-steps" id="steps">
+            <span>① ヒーター ON</span><span>② スイッチ開</span><span>③ 励磁</span><span>④ ヒーター OFF</span>
+          </div>
+        </div>
+        <div class="pc-buttons">
+          <button class="pc-btn" id="heat">PSH ヒーター</button>
+          <button class="pc-btn" id="dn">▼</button>
+          <button class="pc-btn act" id="up">▲ 励磁</button>
+        </div>
+      </div>`;
+    const $ = id => body.querySelector('#' + id);
+    const r3 = new Renderer(body.querySelector('canvas'), { bg:[18, 20, 26], light:[-0.4, 0.85, 0.5] });
+    r3.camera([1.9, 1.7, 3.4], [0.1, 0.35, 0], 38);
+    const tips = MGProc.tips(body);
+    const siren = MGProc.alarm(body);
+
+    // ---- scenery ----
+    const scen = [];
+    const steel = [176, 182, 190], dark = [70, 74, 82];
+    { const m = build.box(14, 4, 0.1, [58, 64, 74]); m.m = mat.tr(0, 1, -1.6); scen.push(m); }
+    { const m = build.box(14, 0.1, 6, [64, 60, 56]); m.m = mat.tr(0, -0.85, 0); scen.push(m); }
+    // The dewar, its top plate, and what comes out of the top.
+    { const m = build.cylinder(0.5, 1.5, 64, steel); m.m = mat.tr(0, -0.8, 0); scen.push(m); }
+    { const m = build.cylinder(0.56, 0.08, 64, [150, 156, 166]); m.m = mat.tr(0, 0.7, 0); scen.push(m); }
+    { const m = build.cylinder(0.06, 0.55, 24, [120, 126, 136]); m.m = mat.tr(0, 0.78, 0); scen.push(m); }   // sample probe
+    { const m = build.cylinder(0.035, 0.35, 12, [200, 120, 70]); m.m = mat.tr(-0.22, 0.78, 0.12); scen.push(m); }  // current leads
+    { const m = build.cylinder(0.035, 0.35, 12, [200, 120, 70]); m.m = mat.tr(-0.22, 0.78, -0.12); scen.push(m); }
+    { const m = build.cylinder(0.04, 0.2, 12, dark); m.m = mat.tr(0.3, 0.78, 0.1); scen.push(m); }  // vent
+    // The supply rack beside it.
+    { const m = build.box(0.6, 1.2, 0.5, [52, 58, 66]); m.m = mat.tr(1.25, -0.2, -0.3); scen.push(m); }
+    { const m = build.box(0.44, 0.16, 0.02, [20, 30, 24]); m.m = mat.tr(1.25, 0.15, -0.04); scen.push(m); }
+    const led = build.box(0.06, 0.06, 0.03, [40, 60, 40]); led.m = mat.tr(1.06, -0.05, -0.04); scen.push(led);
+    const VENT = [0.3, 1.0, 0.1];
+
+    // ---- state ----
+    let S;
+    function reset() {
+      const targets = [4.0, 4.5, 5.0, 5.5, 6.0];
+      S = { target: targets[Math.floor(Math.random() * targets.length)],
+            Bm: 0, Bs: 0, rate: 0, risk: 0, heater: false, warm: 0, open: false,
+            hold: 0, phase: 'run', t: 0, warned: false, puffs: [] };
+      $('tV').innerHTML = `${S.target.toFixed(2)} <small>T ±0.5%</small>`;
+      $('pState').textContent = 'standby';
+    }
+
+    // ---- controls ----
+    function holdButton(el, dir) {
+      MG.hold(el, () => { S.hold = dir; }, () => { if (S.hold === dir) S.hold = 0; });
+    }
+    holdButton($('up'), 1);
+    holdButton($('dn'), -1);
+    $('heat').addEventListener('click', () => {
+      if (!ctx.running || S.phase !== 'run') return;
+      S.heater = !S.heater;
+    });
+
+    function quench(msg) {
+      S.phase = 'quench'; S.t = 0; S.rate = 0; S.hold = 0;
+      $('pState').textContent = 'QUENCH';
+      ctx.flash(msg, '#e2603f');
+      ctx.judge(0.05);
+    }
+    function lock() {
+      // The switch has closed: the field is now persistent. Score it.
+      S.phase = 'locked'; S.t = 0;
+      $('pState').textContent = 'persistent';
+      const err = Math.abs(S.Bm - S.target) / (S.target * REL_TOL);
+      if (S.Bm < 0.05) { ctx.flash('磁場がかかっていない', '#e2603f'); ctx.judge(0); return; }
+      ctx.score(MG.lin(err, 0.1, 1));                 // err is in units of 0.5 %: 100 within ±0.05 %, 90 at ±0.5 %
+      ctx.judge(Math.max(0, 1 - 0.1 * err * err));
+    }
+
+    // ---- per-frame model ----
+    function step(dt) {
+      S.t += dt;
+      if (S.phase !== 'run') {
+        if (S.phase === 'locked') S.Bs = Math.max(0, S.Bs - 1.5 * dt);   // supply ramps down
+        if (S.phase === 'quench') S.Bm = Math.max(0, S.Bm - 4 * dt);
+        if (S.t > 3 && ctx.running) reset();
+        return;
+      }
+      // Rate: pushed by the held button, coasting back to zero otherwise.
+      if (S.hold) S.rate = Math.max(-RATE_MAX, Math.min(RATE_MAX, S.rate + S.hold * ACC * dt));
+      else S.rate = Math.sign(S.rate) * Math.max(0, Math.abs(S.rate) - DEC * dt);
+      if (S.Bs <= 0 && S.rate < 0) { S.rate = 0; S.Bs = 0; }
+      S.Bs += S.rate * dt;
+
+      // The switch warms open or cools shut behind the heater.
+      const wasOpen = S.open;
+      S.warm = Math.max(0, Math.min(1, S.warm + (S.heater ? dt / WARM_T : -dt / COOL_T)));
+      if (!wasOpen && S.warm >= 1) {
+        S.open = true;
+        if (Math.abs(S.Bs - S.Bm) > MISMATCH) return quench('電流不一致のままスイッチを開いた！クエンチ');
+      }
+      if (wasOpen && S.warm <= 0) { S.open = false; return lock(); }
+
+      if (S.open) {
+        S.Bm = S.Bs;
+        const load = Math.abs(S.rate) / limitAt(S.Bm);
+        S.risk = Math.max(0, S.risk + (load > 1 ? (load - 1) * 2.5 : -0.3) * dt);
+        if (S.risk >= 1) return quench('掃引が速すぎた！クエンチ');
+      } else if (!S.warned && Math.abs(S.Bs - S.Bm) > 0.1) {
+        S.warned = true;
+        ctx.flash('電流は上がるのに磁場が上がらない…', '#ffb000');
+      }
+      $('pState').textContent = S.open ? (S.rate ? 'ramping' : 'driven') : S.heater ? 'heating PSH' : 'standby';
+    }
+
+    // ---- drawing ----
+    function render() {
+      led.f.forEach(f => { f.c = S.heater ? [80, 255, 120] : [40, 60, 40]; f.e = S.heater; });
+      // Helium vapour from the vent: a trickle at rest, more while ramping
+      // (the conductor heats a little as the current changes), a plume on
+      // a quench.
+      const rateBoil = S.phase === 'quench' ? (S.t < 1.5 ? 40 : 4) : 1.2 + 10 * Math.abs(S.rate);
+      if (Math.random() < rateBoil / 60) {
+        S.puffs.push({ x: VENT[0], y: VENT[1], z: VENT[2], vx: (Math.random() - 0.5) * 0.15, vy: 0.35 + Math.random() * 0.3, age: 0,
+                       big: S.phase === 'quench' });
+      }
+      S.puffs = S.puffs.filter(p => (p.age += 1 / 60) < (p.big ? 2.2 : 1.4));
+      for (const p of S.puffs) { p.x += p.vx / 60; p.y += p.vy / 60 * (p.big ? 2.2 : 1); }
+      r3.draw(scen, g => {
+        for (const p of S.puffs) {
+          const q = r3.project([p.x, p.y, p.z]);
+          if (!q) continue;
+          const life = p.age / (p.big ? 2.2 : 1.4);
+          const rad = (p.big ? 18 : 5) + life * (p.big ? 70 : 14);
+          g.fillStyle = `rgba(245,248,255,${((p.big ? 0.5 : 0.4) * (1 - life)).toFixed(3)})`;
+          g.beginPath(); g.arc(q[0], q[1], rad, 0, Math.PI * 2); g.fill();
+        }
+      });
+    }
+
+    function drawGauges() {
+      $('bV').innerHTML = `${S.Bm.toFixed(3)} <small>T</small>`;
+      $('supV').textContent = `Supply ${S.Bs.toFixed(3)} T 相当 ・ PSH ${S.open ? 'open' : S.heater ? 'opening…' : 'closed'}`;
+      $('rateF').style.width = (Math.abs(S.rate) / RATE_MAX * 100).toFixed(1) + '%';
+      $('limM').style.left = (limitAt(S.Bm) / RATE_MAX * 100).toFixed(1) + '%';
+      $('riskF').style.width = (Math.min(1, S.risk) * 100).toFixed(1) + '%';
+      // Ramp: green well under the limit, red over it. Quench risk: by fill.
+      $('rateF').style.backgroundColor = MGProc.dangerColor((load() - 0.7) / 0.5);
+      $('riskF').style.backgroundColor = MGProc.dangerColor(S.risk);
+      const BMAX = 7;
+      $('bF').style.width = (S.Bm / BMAX * 100).toFixed(1) + '%';
+      $('bWin').style.left = (S.target * (1 - REL_TOL) / BMAX * 100) + '%';
+      $('bWin').style.width = Math.max(0.6, S.target * 2 * REL_TOL / BMAX * 100) + '%';
+      $('heat').classList.toggle('on', S.heater);
+      const now = S.phase !== 'run' ? 4 : !S.heater && !S.open ? 0 : !S.open ? 1 : S.heater ? 2 : 3;
+      [...$('steps').children].forEach((el, i) => {
+        el.className = i < now ? 'done' : i === now ? 'now' : '';
+      });
+    }
+
+    const load = () => Math.abs(S.rate) / limitAt(S.Bm);
+
+    // Critical: ramping over the limit, or the switch about to open on a
+    // current mismatch. A quench shakes hardest.
+    function alarm() {
+      if (S.phase === 'quench') return siren.set(ctx.running && S.t < 1.5, 5);
+      if (!ctx.running || S.phase !== 'run') return siren.set(false);
+      const over = S.open && load() > 1;
+      const mismatch = S.heater && !S.open && Math.abs(S.Bs - S.Bm) > MISMATCH;
+      siren.set(over || mismatch, mismatch ? 3 : 1.5 + 3 * S.risk);
+    }
+
+    function tipNow() {
+      if (!ctx.running || S.phase !== 'run') return tips.hide();
+      const near = Math.abs(S.Bm - S.target) <= S.target * REL_TOL;
+      if (!S.heater && !S.open) return tips.show($('heat'), 'ヒーターを入れよう！');
+      if (!S.open) return tips.show($('heat'), 'スイッチが開くまで待とう');
+      if (near && Math.abs(S.rate) < 0.01) return S.heater ? tips.show($('heat'), 'ヒーターを切ろう！') : tips.hide();
+      if (S.Bm > S.target * (1 + REL_TOL)) return tips.show($('dn'), '行き過ぎ！少し下げよう');
+      if (S.Bm > S.target - 0.4) return tips.show($('up'), '目標で止めよう！');
+      return tips.show($('up'), '赤線を超えないように上げよう！');
+    }
+
+    reset();
+    return {
+      start() { reset(); },
+      tick(dt) {
+        if (ctx.running || S.phase !== 'run') step(dt);
+        alarm();
+        render();
+        drawGauges();
+        tipNow();
+      },
+    };
+  }
+
+  MG.mount(document.getElementById('mg'), {
+    id: 'magnet',
+    title: 'MAGNETIZER',
+    subtitle: 'SC Magnet Ramp',
+    desc: '超伝導マグネットを目標磁場まで励磁する。①PSHヒーターを入れてスイッチが開くのを待ち、②▲長押しで掃引（赤線＝掃引速度の上限を超え続けるとクエンチ）、③目標で止めて④ヒーターを切れば永久電流モード。',
+    goal: 1,
+    build: build_,
+  });
+})();
+</script>
+</body>
+</html>
