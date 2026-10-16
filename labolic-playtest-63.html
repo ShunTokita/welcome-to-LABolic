@@ -523,8 +523,8 @@
   .term-gauge i { width: 20px; height: 4px; background: #1d3a33; }
   .term-gauge i.on { background: var(--c); box-shadow: 0 0 6px var(--c); filter: brightness(1.35); }
   .term-gauge i.uq.on { background: #ffd95a; box-shadow: 0 0 8px #ffd95a; filter: none; }
-  /* The once-a-run unique pick keeps its loud sticker, recoloured for the console. */
-  #udm-draft-backdrop .udm-draft-firstmark { color: #2a1a00; text-shadow: none; }
+  /* The once-a-run unique pick, said in the console's own type. */
+  .term-boost { color: #ffd95a; font-weight: 800; letter-spacing: .06em; }
   #udm-draft-backdrop .udm-tree-open { max-width: none; margin-top: 10px; background: transparent; color: var(--t-dim);
     border: 1px solid var(--t-line); border-radius: 2px; font-family: var(--t-mono); letter-spacing: .08em; text-align: left; }
   #udm-draft-backdrop .udm-tree-open:hover { color: var(--t-ok); border-color: #2f6b5c; background: var(--t-row); }
@@ -8317,12 +8317,11 @@ function renderUdmDraft() {
   const box = document.getElementById('udm-draft-cards');
   if (!box) return;
   const head = document.getElementById('udm-draft-header');
-  if (head) head.innerHTML = '&gt; スキル導入<span class="term-cur">_</span>'
-    + (udmDraftIsFirst ? '<span class="udm-draft-firstmark">初回限定</span>' : '');
+  if (head) head.innerHTML = '&gt; スキル導入<span class="term-cur">_</span>';
   const bar = document.getElementById('udm-draft-bar');
   if (bar) bar.innerHTML = `<span>LABOLIC//UDM</span><span>DAY ${gameStats.day || 1} · SCORE ${((udm && udm.score) || 0).toLocaleString()}</span>`;
-  if (sub) sub.textContent = (udmDraftIsFirst
-    ? '初回限定：ユニークスキル（段階4）から1つ選べます。段階1〜3は別に取得が必要です。'
+  if (sub) sub.innerHTML = (udmDraftIsFirst
+    ? '<span class="term-boost">初回ブースト発動中</span>：ユニークスキル（段階4）から1つ選べます。段階1〜3は別に取得が必要です。'
     : 'Variantを発見しました。1つ選んでください。')
     + (udmDraftDue > 0 ? `（このあと あと${udmDraftDue}回）` : '');
   box.innerHTML = udmDraftOffer.map(id => {
