@@ -7571,16 +7571,34 @@ const VarResult = (() => {
     return `rgb(${A.map((c, k) => Math.round(c + (B[k] - c) * f)).join(',')})`;
   }
 
+  // A skip lands the number itself rather than waiting for the next frame: frames
+  // stop while the page is in the background, and the show must still end on a tap.
   function count(el, from, to, dur, onFrame) {
     return new Promise(res => {
+      let done = false;
+      const my = token;
+      const end = () => {
+        if (done) return;
+        done = true; pending.delete(end);
+        if (my === token) {                              // stop() bumps the token: leave the closed popup alone
+          el.textContent = to.toLocaleString();
+          if (onFrame) onFrame(1);
+        }
+        res();
+      };
+      if (skipping) return end();
+      pending.add(end);
       const t0 = performance.now(); let lastTick = 0;
       const step = now => {
-        const p = skipping ? 1 : Math.min(1, (now - t0) / dur);
+        if (done) return;
+        if (skipping) return end();
+        // A frame's timestamp can predate t0; unclamped, the first frame reads "-0".
+        const p = Math.max(0, Math.min(1, (now - t0) / dur));
         const e = 1 - Math.pow(1 - p, 2.2);
         el.textContent = Math.round(from + (to - from) * e).toLocaleString();
         if (onFrame) onFrame(p);
-        if (!skipping && now - lastTick > 55 && p < 1) { lastTick = now; SND.tick(p); }
-        if (p >= 1) return res();
+        if (now - lastTick > 55 && p < 1) { lastTick = now; SND.tick(p); }
+        if (p >= 1) return end();
         requestAnimationFrame(step);
       };
       requestAnimationFrame(step);
@@ -16199,7 +16217,8 @@ let bulkBrokeOnce = false;
 const UPDATE_LOG = [
   ['v63', ['UDMでユニークスキルが発動したとき、そのキャラクターが画面左下に登場するカットインを追加',
            'UDMのスキル獲得画面とスキルツリーのデザインを一新',
-           'UDMでスキルを獲得・購入したときの演出を追加']],
+           'UDMでスキルを獲得・購入したときの演出を追加',
+           'UDMのVariant発見画面がまれに閉じられなくなる不具合を修正']],
   ['v62', ['ストアの装置カードに装置のドット絵を表示',
            '出退勤（ドアマット）の画面にキャラクターのドット絵を表示（出勤中は足踏み、帰宅中は後ろ向き）',
            '講習の案内が出るタイミングを、Lv2の依頼を4つ達成した後に変更',
