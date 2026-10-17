@@ -26,14 +26,23 @@
           <input type="range" id="${id}" min="${min}" max="${max}" value="0" step="1"></div>
         <span class="val" id="${id}V">0</span></div>`;
     },
-    pad(id, label, hint, alt) {
+    // `keys`: X's ◀▶ and Y's ▲▼ beside the pad, for the last few units a
+    // drag overshoots. Two separate pairs, as on a microscope's console.
+    pad(id, label, hint, alt, keys) {
+      const k = (d, t) => `<button class="sc-key" type="button" data-d="${d}" aria-label="${label} ${d}">${t}</button>`;
+      const vals = keys
+        ? `<div class="sc-keys">
+            <div class="sc-kx">${k('x-', '◀')}<span class="sc-kv">X&nbsp;<span class="v" id="${id}X">0</span></span>${k('x+', '▶')}</div>
+            <div class="sc-ky">${k('y+', '▲')}<span class="sc-kv">Y&nbsp;<span class="v" id="${id}Y">0</span></span>${k('y-', '▼')}</div>
+          </div>`
+        : `<div>X&nbsp;<span class="v" id="${id}X">0</span></div>
+          <div>Y&nbsp;<span class="v" id="${id}Y">0</span></div>`;
       return `<div class="sc-padrow">
         <div class="sc-pad" id="${id}"><div class="cx"></div><div class="cy"></div>
           <div class="sc-ring" id="${id}Ring"></div><div class="dot${alt ? ' alt' : ''}"></div></div>
         <div class="side">
           <div class="lab">${label}</div>
-          <div>X&nbsp;<span class="v" id="${id}X">0</span></div>
-          <div>Y&nbsp;<span class="v" id="${id}Y">0</span></div>
+          ${vals}
           <div class="hint">${hint}</div>
         </div></div>`;
     },
@@ -57,7 +66,9 @@
       const pad = root.querySelector('#' + id), dot = pad.querySelector('.dot');
       const xv = root.querySelector('#' + id + 'X'), yv = root.querySelector('#' + id + 'Y');
       const f = fmt || (x => Math.round(x));
+      let cx = 0, cy = 0;
       function show(x, y) {
+        cx = x; cy = y;
         dot.style.left = clamp(50 + x / range * 46, 2, 98) + '%';
         dot.style.top  = clamp(50 - y / range * 46, 2, 98) + '%';
         xv.textContent = f(x); yv.textContent = f(y);
@@ -69,6 +80,25 @@
         show(x, y); onInput(x, y);
       }
       MG.drag(pad, { start: fromEvent, move: fromEvent });
+      // The keys: one unit a tap, and held, a unit every 45 ms after a pause.
+      // Whole units, so a drag's fraction is rounded off on the first press.
+      const keys = pad.closest('.sc-padrow').querySelectorAll('.sc-key');
+      for (const key of keys) {
+        const [ax, sg] = [key.dataset.d[0], key.dataset.d[1] === '+' ? 1 : -1];
+        const step = () => {
+          const x = ax === 'x' ? clamp(Math.round(cx) + sg, -range, range) : cx;
+          const y = ax === 'y' ? clamp(Math.round(cy) + sg, -range, range) : cy;
+          show(x, y); onInput(x, y);
+        };
+        let t = null;
+        const stop = () => { clearTimeout(t); clearInterval(t); t = null; key.classList.remove('on'); };
+        MG.hold(key, () => {
+          stop(); key.classList.add('on'); step();
+          t = setTimeout(() => { t = setInterval(step, 45); }, 380);
+        }, stop);
+        // Enter / Space on a focused key (a pointer press is handled above).
+        key.addEventListener('click', e => { if (e.detail === 0) step(); });
+      }
       return { set: show };
     },
 
@@ -348,8 +378,8 @@
           ${ui.quality}
           <div class="sc-console">
             ${ui.slider('focus', 'Focus', -100, 100)}
-            ${ui.pad('stig', 'Stigmator', 'drag pad to<br>correct astig.')}
-            ${wobble ? ui.pad('align', 'Beam Align', 'turn on WOBB,<br>stop the image<br>from shifting.', true) : ''}
+            ${ui.pad('stig', 'Stigmator', 'drag pad or keys<br>to correct astig.', false, true)}
+            ${wobble ? ui.pad('align', 'Beam Align', 'turn on WOBB,<br>stop the image<br>from shifting.', true, true) : ''}
             ${ui.slider('contrast', 'Contrast', 20, 320)}
             ${ui.slider('bright', 'Bright', -100, 100)}
             ${wobble ? '<div class="sc-toggle" id="wobbBtn"><span class="led"></span>WOBB</div>' : ''}
