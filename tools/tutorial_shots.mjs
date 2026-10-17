@@ -167,6 +167,73 @@ async function shoot(p, name, clip) {
   await ctx.close();
 }
 
+// ---- spontaneous_idea (数撃ちゃ当たる…？): Jeff and Bobby left alone on E25 ----
+{
+  const ctx = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2 });
+  const p = await ctx.newPage();
+  await p.goto(url(page));
+  await p.waitForTimeout(1200);
+  await p.evaluate(() => startExperiments());
+  await p.waitForTimeout(1000);
+  // A Lv4 lab short of the ending (ST18 would bring up the UDM announcement),
+  // two Phase-Shift units so both of them synthesize, and only the two of them
+  // on shift: Jeff on S, Bobby on S and E. E25 taken with 反復 on.
+  await p.evaluate(() => {
+    for (const ev of STORY_EVENTS) if (ev.phase !== 'Endgame' && ev.id !== 'ST18') storyFlags[ev.id] = true;
+    storyFlags.firstHireTutorial = true;
+    saveStoryFlags();
+    if (document.getElementById('look-backdrop').classList.contains('open')) closeLookPicker(false);
+    gameStats.coins = 10_000_000;
+    for (const lv of [2, 3, 4]) purchaseLabUpgrade(lv);
+    for (const id of ['casting', 'arc', 'laser', 'furnace', 'rolling', 'magnet', 'agt', 'om', 'sem', 'tem', 'qaa']) gameStats.ownedEquipment[id] = 1;
+    gameStats.ownedEquipment.phase = 2;
+    rebuildEquipmentFromOwnership();
+    for (const e of ['Cu', 'Zn', 'Fe', 'Ni', 'Cr', 'Ti', 'Adam', 'Mit', 'Ori', 'Hii']) gameStats.unlockedElements.add(e);
+    // Their default tiles can sit under a machine; start them on the player's.
+    for (const id of ['jeff', 'bobby']) Object.assign(coworkers.find(c => c.id === id), { hired: true, present: true, col: playerCol, row: playerRow });
+    Object.assign(coworkers.find(c => c.id === 'jeff').toggles, { S: 1, P: 0, A: 0, E: 0, W: 0 });
+    Object.assign(coworkers.find(c => c.id === 'bobby').toggles, { S: 1, P: 0, A: 0, E: 1, W: 0 });
+    document.querySelector('.chat-overlay')?.classList.add('collapsed');
+    renderLab(); updateTopbar(); applyTabVisibility();
+    acceptExperiment('E25');
+    experiments[experiments.length - 1].repeat = true;
+    renderExperiments();
+    activeRTab = 'co'; renderRPanel();
+  });
+  await p.waitForTimeout(500);
+  const jeff = await p.locator('#rpanel-content .cw-row[data-cw="jeff"]').boundingBox();
+  const bobby = await p.locator('#rpanel-content .cw-row[data-cw="bobby"]').boundingBox();
+  await shoot(p, 'idea-tasks', pad(union(jeff, bobby), 3));
+  // Bobby fumbles one: the scribble over his head, caught while it is up.
+  // Not while a machine is down: the hazard stripes would steal the picture.
+  await p.waitForFunction(() => document.querySelector('.character[data-cw="bobby"] .cw-bubble[data-kind="tangle"]')
+    && !equipment.some(e => e.broken), null, { timeout: 240000, polling: 100 });
+  // The Lv4 lab is wider than a phone: bring him into view first.
+  await p.evaluate(() => document.querySelector('.character[data-cw="bobby"]').scrollIntoView({ block: 'center', inline: 'center' }));
+  await p.waitForTimeout(150);
+  const head = await p.locator('.character[data-cw="bobby"]').boundingBox();
+  await shoot(p, 'idea-tangle', { x: head.x - 70, y: head.y - 50, width: head.width + 140, height: head.height + 80 });
+  // Their specimens pile up unprocessed under 作業中.
+  await p.waitForFunction(() => specimens.filter(s => s.status === 'in_lab').length >= 12, null, { timeout: 240000 });
+  await p.evaluate(() => {
+    activeRTab = 'res'; renderRPanel();
+    document.querySelector('#rpanel-content .d-group-header')?.scrollIntoView({ block: 'start' });
+  });
+  await p.waitForTimeout(300);
+  const list = await p.locator('#rpanel-content').boundingBox();
+  const hdr = await p.locator('#rpanel-content .d-group-header').boundingBox();
+  await shoot(p, 'idea-results', { x: list.x, y: hdr.y - 4, width: list.width, height: list.y + list.height - hdr.y + 4 });
+  // The order card, on a wider screen: a phone's right panel stacks its long title letter by letter.
+  await p.setViewportSize({ width: 760, height: 844 });
+  await p.evaluate(() => { activeRTab = 'exp'; renderRPanel(); });
+  await p.waitForTimeout(500);
+  const order = p.locator('#rpanel-content .e-repeat-toggle.on').locator('xpath=ancestor::*[contains(@class,"e-card")][1]');
+  await order.evaluate(el => { window.scrollTo(0, 0); el.scrollIntoView({ block: 'center' }); });
+  await p.waitForTimeout(200);
+  await shoot(p, 'idea-repeat', pad(await order.boundingBox(), 4));
+  await ctx.close();
+}
+
 // ---- the minigames ----
 async function minigame(id) {
   const ctx = await browser.newContext({ viewport: { width: 390, height: 760 }, deviceScaleFactor: 2 });
