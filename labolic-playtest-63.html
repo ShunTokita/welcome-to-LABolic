@@ -3586,7 +3586,8 @@
     content: 'Space / Enter：実行'; flex: 1; min-width: 0; align-self: center;
     font-size: 10px; line-height: 1.4; color: var(--text-muted); letter-spacing: .02em; }
   #popup:has(.param-pill) .button-row:has(.btn-go)::before { content: 'Space / Enter：実行\A 1・2・3：加工レベル'; white-space: pre; }
-  #popup:has(.multi-select-actions) .button-row:has(.btn-go)::before { content: 'Space / Enter：実行\A A：全選択 / 全解除'; white-space: pre; }
+  #popup:has(.multi-select-actions) .button-row:has(.btn-go)::before,
+  #popup:has(#btn-select-all) .button-row:has(.btn-go)::before { content: 'Space / Enter：実行\A A：全選択 / 全解除'; white-space: pre; }
   #popup:has(.param-pill):has(.multi-select-actions) .button-row:has(.btn-go)::before {
     content: 'Space / Enter：実行\A 1・2・3：加工レベル\A A：全選択 / 全解除'; white-space: pre; }
   body.mobile-mode #popup .button-row::before { content: none; }
@@ -13273,7 +13274,8 @@ function tryKeyboardStep(now) {
 
 // PC keys inside a device popup: Space / Enter press its main button (Go!,
 // Write & Submit!, 修理する), 1-3 pick a Processing level, and A selects
-// every specimen, or clears them when every one is already selected.
+// every specimen (or Result, on the PC), or clears them when every one is
+// already selected.
 function popupKey(e) {
   if (e.ctrlKey || e.metaKey || e.altKey) return;
   const t = e.target;
@@ -13290,12 +13292,16 @@ function popupKey(e) {
   } else if (/^[123]$/.test(e.key) && popupState.type === 'proc' && document.querySelector('#popup .param-pill')) {
     e.preventDefault();
     setParam(+e.key);
-  } else if (e.key.toLowerCase() === 'a' && document.querySelector('#popup .multi-select-actions')) {
+  } else if (e.key.toLowerCase() === 'a') {
+    const pcAll = document.querySelector('#popup #btn-select-all');
+    if (!pcAll && !document.querySelector('#popup .multi-select-actions')) return;
     e.preventDefault();
     if (e.repeat) return;
-    const before = popupState.selectedSamples.size;
-    selectAllSpecimensForOp();
-    if (before > 0 && popupState.selectedSamples.size === before) clearSpecimenSelection();
+    const sel = pcAll ? popupState.selectedResults : popupState.selectedSamples, before = sel.size;
+    if (pcAll) pcAll.click(); else selectAllSpecimensForOp();
+    if (before > 0 && sel.size === before) {
+      if (pcAll) document.getElementById('btn-clear-all').click(); else clearSpecimenSelection();
+    }
   }
 }
 
@@ -16241,7 +16247,7 @@ const UPDATE_LOG = [
            'UDMのVariant発見画面がまれに閉じられなくなる不具合を修正',
            '会話ギャラリーから、スクショ付きのお知らせを「ヒント」として見返せるように',
            '分析系の講習で、スティグマ・軸調整・試料傾斜に十字キーを追加',
-           'PC で加工・分析装置のポップアップを開いているとき、A キーで試験片の全選択 / 全解除ができるように']],
+           'PC で加工・分析装置と提出用 PC のポップアップを開いているとき、A キーで全選択 / 全解除ができるように']],
   ['v62', ['ストアの装置カードに装置のドット絵を表示',
            '出退勤（ドアマット）の画面にキャラクターのドット絵を表示（出勤中は足踏み、帰宅中は後ろ向き）',
            '講習の案内が出るタイミングを、Lv2の依頼を4つ達成した後に変更',
