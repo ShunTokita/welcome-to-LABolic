@@ -4219,24 +4219,26 @@
     pointer-events: none;
     text-align: center;
   }
+  /* The logo is pixel art (159×56, stored at ×4), painted from the game's own
+     palette, so it takes no colour filter. It is shown at a whole multiple of
+     its pixels — ×4, ×3 or ×2 by the width available — so every dot comes out
+     the same size; 82vw only on screens narrower than ×2. */
   .title-logo {
     display: block;
-    width: min(82vw, 720px);
+    width: 636px;
+    max-width: 82vw;
     max-height: 46vh;
     object-fit: contain;
-    /* saturate() only — no brightness(). The logo is drawn at full saturation
-       and near-full value, while nothing in the game's palette is both at once
-       (the most saturated colour it owns, --accent-coin, is held down to 79%
-       value). Easing the saturation brings it under that rule. Cutting
-       brightness instead turns the white "olic!" letters grey and the whole
-       mark muddy, because it attacks the neutrals rather than the chroma.
-       This is the taste knob: 1 = untouched artwork, 0.8 = clearly muted. */
-    filter: saturate(0.88) drop-shadow(0 8px 22px rgba(0, 0, 0, 0.45));
+    image-rendering: pixelated;
+    image-rendering: crisp-edges;
+    filter: drop-shadow(0 8px 22px rgba(0, 0, 0, 0.45));
   }
+  @media (max-width: 780px) { .title-logo { width: 477px; } }
+  @media (max-width: 590px) { .title-logo { width: 318px; } }
   /* display:block above outranks the UA sheet's [hidden] rule, so the broken
      image would keep its box and its alt text when the fallback takes over. */
   .title-logo[hidden] { display: none; }
-  /* Shown only if assets/logo.png is missing, so a dropped file degrades to a
+  /* Shown only if assets/logo-pixel.png is missing, so a dropped file degrades to a
      readable wordmark instead of a broken-image icon. */
   .title-logo-fallback {
     font-size: clamp(30px, 8vw, 68px);
@@ -4297,7 +4299,7 @@
   </div>
   <div class="title-scrim"></div>
   <div class="title-fg">
-    <img class="title-logo" id="title-logo" src="assets/logo.png" alt="Welcome to LABolic!">
+    <img class="title-logo" id="title-logo" src="assets/logo-pixel.png" alt="Welcome to LABolic!">
     <div class="title-logo-fallback" id="title-logo-fallback" hidden>Welcome to<span>LABolic!</span></div>
     <div class="title-start">Tap to Start Experiments!</div>
   </div>
@@ -16241,7 +16243,8 @@ let bulkBrokeOnce = false;
 // Story itself) currently open? Used to defer story dispatch.
 // アップデート履歴 (Settings), newest first. Add a line here with each release.
 const UPDATE_LOG = [
-  ['v63', ['UDMでユニークスキルが発動したとき、そのキャラクターが画面左下に登場するカットインを追加',
+  ['v63', ['タイトルロゴをドット絵に変更',
+           'UDMでユニークスキルが発動したとき、そのキャラクターが画面左下に登場するカットインを追加',
            'UDMのスキル獲得画面とスキルツリーのデザインを一新',
            'UDMでスキルを獲得・購入したときの演出を追加',
            'UDMのVariant発見画面がまれに閉じられなくなる不具合を修正',
