@@ -161,6 +161,8 @@
     transition: background 0.12s, border-color 0.12s;
   }
   .settings-btn:hover { background: var(--accent-active-bg); border-color: var(--accent-active); }
+  /* An external page (攻略ノート) is a link, styled as a settings button. */
+  a.settings-btn { display: block; box-sizing: border-box; text-decoration: none; }
   .settings-btn.danger { color: #c0392b; border-color: rgba(192,57,43,0.3); }
   .settings-btn.danger:hover { background: rgba(192,57,43,0.08); border-color: #c0392b; }
 
@@ -4372,6 +4374,7 @@
         </div>
         <div class="settings-section-label">情報</div>
         <button class="settings-btn" id="btn-leaderboard">🏆 リーダーボード</button>
+        <a class="settings-btn" id="btn-wiki" href="https://shuntokita.github.io/LABolic_wiki/" target="_blank" rel="noopener">攻略ノート ↗</a>
         <button class="settings-btn" id="btn-conv-gallery">会話ギャラリー</button>
         <button class="settings-btn" id="btn-update-log">アップデート履歴</button>
         <button class="settings-btn" id="btn-about">このゲームについて</button>
@@ -16250,7 +16253,8 @@ const UPDATE_LOG = [
            'UDMのVariant発見画面がまれに閉じられなくなる不具合を修正',
            '会話ギャラリーから、スクショ付きのお知らせを「ヒント」として見返せるように',
            '分析系の講習で、スティグマ・軸調整・試料傾斜に十字キーを追加',
-           'PC で加工・分析装置と提出用 PC のポップアップを開いているとき、A キーで全選択 / 全解除ができるように']],
+           'PC で加工・分析装置と提出用 PC のポップアップを開いているとき、A キーで全選択 / 全解除ができるように',
+           '設定に「攻略ノート」へのリンクを追加']],
   ['v62', ['ストアの装置カードに装置のドット絵を表示',
            '出退勤（ドアマット）の画面にキャラクターのドット絵を表示（出勤中は足踏み、帰宅中は後ろ向き）',
            '講習の案内が出るタイミングを、Lv2の依頼を4つ達成した後に変更',
