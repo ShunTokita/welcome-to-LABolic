@@ -32,6 +32,9 @@ cat > index.html <<EOF
 <title>Welcome to LABolic!</title>
 <link rel="icon" type="image/png" sizes="32x32" href="assets/favicon-32.png">
 <link rel="icon" type="image/png" sizes="16x16" href="assets/favicon-16.png">
+<link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="apple-mobile-web-app-title" content="LABolic">
 <meta name="description" content="金属材料研究を体験するブラウザゲームです。現役の研究者がAIと作りました。">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="Welcome to LABolic!">

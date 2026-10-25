@@ -1,0 +1,16 @@
+{
+  "name": "Welcome to LABolic!",
+  "short_name": "LABolic",
+  "description": "金属材料研究を体験するブラウザゲームです。現役の研究者がAIと作りました。",
+  "lang": "ja",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#fdf6e8",
+  "theme_color": "#f0e3c2",
+  "icons": [
+    { "src": "assets/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "assets/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "assets/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
