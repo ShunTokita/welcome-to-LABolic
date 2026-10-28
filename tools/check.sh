@@ -33,10 +33,10 @@ done
 
 # 2. Title matches the filename's version.
 title=$(grep -oE '<title>[^<]*</title>' "$src" | head -1)
-if echo "$title" | grep -q "Beta v$ver\b"; then
+if echo "$title" | grep -qE "\bv$ver</title>"; then
   echo "OK   title: $title"
 else
-  echo "MISMATCH title: expected 'Beta v$ver', got $title"; fail=1
+  echo "MISMATCH title: expected '... v$ver', got $title"; fail=1
 fi
 
 # 3. Untracked assets would 404 once pushed, even though they work locally.

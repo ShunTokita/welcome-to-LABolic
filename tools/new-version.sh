@@ -2,7 +2,7 @@
 # Start the next playtest version: copy the newest build and bump its number.
 #
 # The version appears in two places that must stay in step — the filename and
-# the "Beta vNN" suffix in <title>. A filename mistake shows up immediately as
+# the "vNN" at the end of <title> ("Beta vNN" up to v69; v70 dropped "Beta"). A filename mistake shows up immediately as
 # a broken link; a stale title does not, so the bump is scripted rather than
 # done by hand.
 #
@@ -23,12 +23,12 @@ cp "$src" "$dst"
 # Fail loudly if the title does not carry the expected marker: silently
 # shipping a build labelled with the previous version is the exact mistake
 # this script exists to prevent.
-if ! grep -q "Beta v$cur" "$dst"; then
+if ! grep -qE "<title>[^<]*\bv$cur</title>" "$dst"; then
   rm -f "$dst"
-  echo "error: '<title> ... Beta v$cur' not found in $src — title format changed?" >&2
+  echo "error: '<title> ... v$cur</title>' not found in $src — title format changed?" >&2
   exit 1
 fi
-sed -i "s/Beta v$cur/Beta v$next/g" "$dst"
+sed -i -E "s#(<title>[^<]*\b)v$cur(</title>)#\1v$next\2#" "$dst"
 
 echo "created $dst (v$cur -> v$next)"
 grep -oE '<title>[^<]*</title>' "$dst"
