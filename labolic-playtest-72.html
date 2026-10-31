@@ -16783,7 +16783,8 @@ let bulkBrokeOnce = false;
 // Story itself) currently open? Used to defer story dispatch.
 // アップデート履歴 (Settings), newest first. Add a line here with each release.
 const UPDATE_LOG = [
-  ['v72', ['セーブキーを短く（submitされていない作業中の試験片は含めず、元素代をコインとして返却）']],
+  ['v72', ['セーブキーを短く（submitされていない作業中の試験片は含めず、元素代をコインとして返却）',
+         'セーブキーの読み込み後、クエストの進行状況が反映されない不具合を修正']],
   ['v71', ['一度開けば、オフラインでも遊べるように']],
   ['v70', ['UDMモードのスキル調整',
            'UDMを自分で終了したときも、完了報告とリーダーボードへの送信画面を表示',
@@ -20381,6 +20382,13 @@ async function loadSaveKey() {
   loadEquipmentState();
   loadSpecimens();
   loadExperiments();
+  // Story flags last, as in init: a key without them is read as a legacy
+  // save from the lab level and requests just loaded. Without this the
+  // browser's own flags stayed, and the goal bar (which reads them) showed
+  // that browser's progress until the page was reloaded.
+  storyFlags = {}; storyClearDay = null;
+  loadStoryFlags();
+  questShown = null;   // the bar starts over: whatever is met is met already
   initDefaultExperiments();
   applyLabLv(gameStats.labLv);
   updateDefaultLayout();
@@ -20388,6 +20396,7 @@ async function loadSaveKey() {
   loadLayout();
   loadEquipmentState();
   rescueStrandedCoworkers();
+  applyTabVisibility();
   updateTopbar();
   renderBottomBar();
   renderLPanel();
