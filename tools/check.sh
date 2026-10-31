@@ -84,5 +84,9 @@ if [ -f index.html ] && [ -n "${dest:-}" ]; then
   [ $loop -eq 0 ] && echo "OK   redirect: live build ($dest) is stub-free"
 fi
 
+# 6. The offline copy (sw.js) names the live build's files as they are now.
+#    An in-place fix to the live build, or a release without it, leaves it stale.
+python3 tools/make_sw.py --check || fail=1
+
 echo
 [ $fail -eq 0 ] && echo "check passed (v$ver)" || { echo "check FAILED (v$ver)"; exit 1; }

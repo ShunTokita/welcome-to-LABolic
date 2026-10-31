@@ -135,6 +135,19 @@ Artifact を公開するときは `favicon` に 🧪 を指定し、既存のプ
   このコンテナはクラウド上にあり、ユーザーの端末からは到達できない。
   動作確認の手段は Artifact か GitHub Pages のどちらか
 
+## オフライン対応（sw.js）
+
+v71 から Service Worker でオフラインでも遊べる。`sw.js` は公開版の本体・画像・講習・
+マニフェストを端末に保存し、オンラインでは常にネットワークを先に見る（更新はすぐ届く）。
+
+- **`sw.js` は手で編集しない。** `tools/make_sw.py` が公開版（`index.html` の転送先）から生成する。
+  `tools/release.sh` が自動で実行する
+- 保存領域は常に1つ（名前は `labolic-game-v版-ハッシュ`）。新しい `sw.js` が有効になると古いものを消す
+- **公開版を直接修正したとき**（リリースを経ない修正）も `python3 tools/make_sw.py` を実行してコミットする。
+  `tools/check.sh` が古い `sw.js` を検出する
+- 登録は github.io / localhost のときだけ。Artifact のプレビューでは動かない（確認は Pages で）
+- 攻略ノート（LABolic_wiki）も同じ仕組み。ノートを編集したら `python3 tools/make_sw.py` を実行する
+
 ## 旧バージョンの自動転送
 
 旧版を開くと `index.html` 経由で最新版へ転送される。ブックマークやタブの

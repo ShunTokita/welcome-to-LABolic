@@ -59,3 +59,6 @@ echo "index.html -> $target (v$ver)"
 # old version. Must run after index.html is written and must clear the stub
 # from the version just released, or the two redirects chase each other.
 python3 tools/redirect_stubs.py "$ver"
+
+# The offline copy follows the live build (sw.js names its files).
+python3 tools/make_sw.py
