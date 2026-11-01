@@ -2,7 +2,7 @@
 // Keeps the live build and its files so the game opens offline. Online, every
 // request still goes to the network first (so an update shows at once) and
 // refreshes the kept copy; offline, the kept copy answers.
-const CACHE = 'labolic-game-v72-31466e74a0';
+const CACHE = 'labolic-game-v72-d747873bea';
 const PREFIX = 'labolic-game-';
 const FILES = [
   "./",
