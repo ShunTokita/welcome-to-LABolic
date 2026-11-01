@@ -4256,11 +4256,6 @@
   }
   #tut-spot.in-popup { box-shadow: none; }
   #tut-spot.in-popup .tut-shade { display: block; }
-  /* ポップアップの地（ベージュ・黄土色）に黄色い枠は埋もれるので、中では緑。 */
-  #tut-spot.in-popup .tut-ring {
-    border-color: #1fae4b;
-    box-shadow: 0 0 14px 4px rgba(31, 174, 75, 0.8), inset 0 0 8px rgba(31, 174, 75, 0.45);
-  }
   #tut-spot .tut-ring {
     position: absolute; inset: -2px;
     border-radius: 12px;
@@ -18699,7 +18694,7 @@ function showNotice() {
 function finish() { if (EV.popup) showNotice(); else end(); }
 
 // A notice's screenshots (ev.shots: [{ src, cap }]), one page at a time.
-// Continue works on any page; the pictures are an aside, not a gate.
+// Continue turns to the next picture, and closes the notice on the last.
 let shots = [], shotAt = 0;
 function showShots(list) {
   shots = Array.isArray(list) ? list : [];
@@ -18846,7 +18841,11 @@ function bind() {
   $('cv-scene').addEventListener('click', e => { if (!e.target.closest('button')) advance(); });
   $('cv-skip').addEventListener('click', () => { if (mode === 'dialogue' || mode === 'beat') finish(); });
   $('cv-open-log').addEventListener('click', openLog);
-  $('cv-cont').addEventListener('click', () => { if (mode === 'notice') end(); });
+  $('cv-cont').addEventListener('click', () => {
+    if (mode !== 'notice') return;
+    if (shots.length && shotAt < shots.length - 1) return shotPage(shotAt + 1);
+    end();
+  });
   $('cv-shot-prev').addEventListener('click', () => shotPage(shotAt - 1));
   $('cv-shot-next').addEventListener('click', () => shotPage(shotAt + 1));
   $('cv-log-close').addEventListener('click', closeLog);
@@ -22403,6 +22402,14 @@ const TUT_STEPS = {
     sel: () => document.querySelector('#lab .equip.pc'),
     label: 'PCから結果を報告',
   },
+  submit_pick: {
+    sel: () => document.querySelector('#results-list .sample-row:not(.disabled)'),
+    label: '試験片を選択',
+  },
+  submit_go: {
+    sel: () => document.querySelector('#popup #btn-go'),
+    label: 'Submitで提出',
+  },
 
   // ---- 第2チュートリアル：2つ目の実験(E2)を最後まで通す ----
   e2_exp_tab: {
@@ -22654,6 +22661,9 @@ function tutFollow() {
   if (tutStep === 'ben_co_right_tab' && activeRTab === 'co')  { tutGoto('ben_toggles');   return; }
   if (tutStep === 'ben_exp_tab'      && activeRTab === 'exp') { tutGoto('ben_d1_accept'); return; }
   if (tutStep === 'train_eqp_tab'    && activeLTab === 'eqp') { tutGoto('train_casting'); return; }
+  // 初めての提出：PC を閉じたら、もう一度 PC を指す（開けば試験片の選択から）。
+  if ((tutStep === 'submit_pick' || tutStep === 'submit_go')
+      && !document.getElementById('popup-backdrop').classList.contains('open')) { tutGoto('pc_report'); return; }
 
   // 畳むチュートリアル：実際に畳まれたら次へ。1秒空けるのは、パネルが
   // 閉じて実験室が広がる様子を見せてから次の指示を出すため。
@@ -22836,10 +22846,9 @@ function tutOnPopupOpen(baseId, type) {
     later(() => { if (tutStep === 'e2_om_dev') tutGoto('e2_ana_pick'); });
   } else if (type === 'pc' && tutStep === 'e2_pc_dev') {
     later(() => { if (tutStep === 'e2_pc_dev') tutGoto('e2_submit_pick'); });
-  // 第1チュートリアル続き：PC を開いた時点で役目は終わり。以降の提出手順は
-  // 第2チュートリアル(e2_*)が改めて案内する。
+  // 第1チュートリアル続き：初めての提出。PC の中で試験片の選択→Submit まで案内する。
   } else if (type === 'pc' && tutStep === 'pc_report') {
-    later(() => { if (tutStep === 'pc_report') tutClear(); });
+    later(() => { if (tutStep === 'pc_report') tutGoto('submit_pick'); });
   }
 }
 
@@ -22914,13 +22923,16 @@ function tutOnAnaDone() {
 
 // Submit ポップアップで Result を選択／解除した時（第2チュートリアル）。
 function tutOnResultToggle() {
-  if (tutStep !== 'e2_submit_pick' && tutStep !== 'e2_submit_go') return;
-  tutGoto(popupState.selectedResults.size > 0 ? 'e2_submit_go' : 'e2_submit_pick');
+  const has = popupState.selectedResults.size > 0;
+  if (tutStep === 'submit_pick' || tutStep === 'submit_go') tutGoto(has ? 'submit_go' : 'submit_pick');
+  else if (tutStep === 'e2_submit_pick' || tutStep === 'e2_submit_go') tutGoto(has ? 'e2_submit_go' : 'e2_submit_pick');
 }
 
 // Submit 確定時。newlyCleared に新規クリアされた依頼コードが入る。
 function tutOnSubmit(newlyCleared) {
   const codes = newlyCleared || [];
+  // 第1チュートリアル完了：初めての提出
+  if (tutStep === 'submit_pick' || tutStep === 'submit_go') tutClear();
   // 第2チュートリアル完了：E2 を初めてクリア
   if (codes.includes('E2') && String(tutStep || '').startsWith('e2_')) { tutClear(); return; }
   // 第2チュートリアル開始：E1 を初めてクリア（1秒後）
