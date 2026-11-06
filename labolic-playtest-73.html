@@ -4775,6 +4775,54 @@
   @media (hover: none) { #popup.op .keyhint { display: none; } }
   
 
+  /* ===== Panels, pale (v73 rev): ivory chassis, deeper lavender for Lv4 =====
+     LCDs and the analysis console face stay dark. The PC keeps its own white. */
+  /* --- shared: what turns light on a pale chassis --- */
+  #popup.op:not(.op-pc) .names .en { color: var(--ink); }
+  #popup.op:not(.op-pc) .plate { background: linear-gradient(var(--steel-hi), var(--steel)); box-shadow: inset 1px 1px 0 #fff; border-color: var(--steel-lo); }
+  #popup.op:not(.op-pc) .lbl .n,
+  #popup.op:not(.op-pc) .key .c,
+  #popup.op:not(.op-pc) .wkey .writer-lv { color: color-mix(in srgb, var(--accent) 50%, #1f2c44); }
+  #popup.op:not(.op-pc) .lv { border-color: #1f2c44; }
+  #popup.op:not(.op-pc) .socket { border-color: var(--key-lo); color: var(--ink-dim); }
+  #popup.op:not(.op-pc) .socket.next { border-color: color-mix(in srgb, var(--accent) 60%, #1f2c44); color: color-mix(in srgb, var(--accent) 60%, #1f2c44); }
+  #popup.op:not(.op-pc) .socket.filled { color: var(--ink); }
+  #popup.op:not(.op-pc) .socket .c, #popup.op:not(.op-pc) .socket .x { color: var(--ink-dim); }
+  #popup.op:not(.op-pc) .key.locked { background: var(--steel-mid); }
+  #popup.op:not(.op-pc) .key.lv4 { background: #d9cff0; box-shadow: inset 2px 2px 0 #f1ecfb, inset -2px -3px 0 rgba(0,0,0,.12); }
+  #popup.op:not(.op-pc) .key.lv4 .sym { color: #4a3684; }
+  #popup.op-phase .key.lv4 { background: linear-gradient(#e2d8f7, #cfc2ee); box-shadow: inset 2px 2px 0 #f4f0fc, 0 0 6px rgba(140,110,220,.35); }
+  #popup.op:not(.op-pc) .key { box-shadow: inset 2px 2px 0 var(--key-hi), inset -2px -3px 0 rgba(0,0,0,.12); }
+  #popup.op:not(.op-pc) .engr { text-shadow: 0 1px 0 rgba(255,255,255,.6); }
+  #popup.op:not(.op-pc) .flavor { color: rgba(31,44,68,.45); }
+  #popup.op.op-furnace:not(.op-pc) .flavor { color: rgba(255,255,255,.5); }   /* it sits on the dark controller */
+  #popup.op:not(.op-pc) .zone.fixedz b { color: #9a6a00; text-shadow: none; }
+  #popup.op:not(.op-pc) .zone.varz b { color: #4a3684; text-shadow: none; }
+  #popup.op:not(.op-pc) .rivet { background: var(--steel-lo); box-shadow: inset -2px -2px 0 rgba(0,0,0,.25), inset 1px 1px 0 rgba(255,255,255,.6); }
+  #popup.op:not(.op-pc) .op-panel { box-shadow: inset 2px 2px 0 var(--steel-hi), inset -2px -2px 0 var(--steel-lo), 6px 6px 0 rgba(31,44,68,.22); }
+  #popup.op:not(.op-pc) .sample-row.selected { background: color-mix(in srgb, var(--accent) 22%, #fff); }
+  #popup.op:not(.op-pc) .tray, #popup.op:not(.op-pc) .keys { box-shadow: inset 2px 2px 0 rgba(0,0,0,.08); }
+  /* the instrument face of the analysis console stays a dark panel */
+  #popup.op .bay.console { background: #59616b; }
+  
+  /* ivory and warm grey, lab-instrument enamel */
+  #popup.op:not(.op-pc) {
+    --steel: #e3e1da; --steel-hi: #f8f7f3; --steel-lo: #8f8c84; --steel-mid: #d6d3ca;
+    --key: #f0efea; --key-hi: #ffffff; --key-lo: #9b988f; --bay: #cfccc2; --socket: #e9e7e0; --socket-on: #f8f7f3;
+    --ink: #2a2f35; --ink-dim: #5f5c55; --ink-faint: #8f8c84; }
+  /* --- Lv4 (Phase-Shift, AGT, QAA, MPSS): pale lavender on every palette --- */
+  #popup.op:is(.op-phase, .op-agt, .op-qaa, .op-mpss) {
+    --steel: #e4ddf0; --steel-hi: #f7f4fc; --steel-lo: #8f86b0; --steel-mid: #d8cfea;
+    --key: #f0ebf8; --key-hi: #ffffff; --key-lo: #9a91bd; --bay: #d2c9e7; --socket: #eae4f5; --socket-on: #f9f7fd;
+    --ink: #2a2544; --ink-dim: #5a5078; --ink-faint: #8f86b0; }
+  #popup.op:is(.op-phase, .op-agt, .op-qaa, .op-mpss) .plate { background: linear-gradient(#f7f4fc, #e4ddf0); box-shadow: inset 1px 1px 0 #fff, 0 0 10px rgba(150,110,255,.18); }
+  
+  #popup.op:is(.op-phase, .op-agt, .op-qaa, .op-mpss) {
+    --steel: #c8bae3; --steel-hi: #e2d9f3; --steel-lo: #6c5f98; --steel-mid: #b9a9d9;
+    --key: #dbd0ef; --key-hi: #f2edfb; --key-lo: #7d70a8; --bay: #ae9dd4; --socket: #cfc2e9; --socket-on: #e9e2f7; }
+  #popup.op:is(.op-phase, .op-agt, .op-qaa, .op-mpss) .plate { background: linear-gradient(#e2d9f3, #c8bae3); }
+  #popup.op:is(.op-phase, .op-agt, .op-qaa, .op-mpss) .key.lv4 { background: #cbbdea; box-shadow: inset 2px 2px 0 #e8e1f7, inset -2px -3px 0 rgba(0,0,0,.14); }
+
 </style>
 </head>
 <body>
