@@ -268,7 +268,8 @@
       if (!ctx.running || S.phase !== 'heat') return tips.hide();
       if (meanH() > SOFT && S.r < WIN[1] + 0.12) return tips.show($('pull'), '細くなったら引こう！');
       if (!S.rolling) return tips.show($('roll'), '回して加熱しよう！');
-      tips.hide();
+      // Turning, and the glass not soft yet: nothing to press for a while.
+      tips.show($('neckM'), '石英管がくびれるのを待とう');
     }
 
     reset();

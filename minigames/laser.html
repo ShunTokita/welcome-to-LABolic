@@ -105,8 +105,11 @@
   const powder = () => { const v = 180 + Math.random() * 30; return [v, v, v + 8]; };
   const dirt = [
     // Spilt powder on the floor and the table edge, soot up the back wall.
-    ...[[-0.5, 0.25], [0.5, 0.3], [-0.45, -0.3], [0.45, -0.25]].map(([x, z]) =>
-      ({ p: [x, -0.6, z], n: [0, 1, 0], r: 0.07, c: powder() })),
+    // Floor powder stays in front of the XY table and beside it: behind it
+    // (the slot along the back wall) and under it, the table and the plate
+    // hide it from every angle the camera can take (see floorSeen).
+    ...[[-0.5, 0.25], [0.5, 0.3], [-0.54, -0.05], [0.54, 0.0]].map(([x, z]) =>
+      ({ p: [x, -0.6, z], n: [0, 1, 0], r: 0.07, c: powder(), floor: true })),
     { p: [-0.3, 0.15, -0.449], n: [0, 0, 1], r: 0.08, c: [70, 66, 62] },
     { p: [0.25, 0.25, -0.449], n: [0, 0, 1], r: 0.07, c: [70, 66, 62] },
     // Fume on the inside of the door glass (it lies glass-up on the table).
@@ -118,6 +121,10 @@
     { part: 'plate', p: [0.1, 0.026, 0.05], n: [0, 1, 0], r: 0.05, c: [80, 78, 84] },
     { part: 'plate', p: [-0.15, 0.026, -0.1], n: [0, 1, 0], r: 0.05, c: [80, 78, 84] },
   ];
+
+  // Floor stains only where they can be seen: not under the XY table (x ±0.35,
+  // z ±0.3, with a margin) and not in the slot behind it.
+  const floorSeen = (p, d) => !d.floor || (p[2] > -0.2 && !(Math.abs(p[0]) < 0.42 && Math.abs(p[2]) < 0.37));
 
   // ---- special: empty the catch hopper into the waste drum ----
   // Hold to tilt it. Powder only runs past about 35°; past 70° it all goes
@@ -218,7 +225,7 @@
       view: { target: [0, -0.1, 0], dist: 3.0, height: 1.2, fov: 40, az: 0.35 },
       tray: { target: [TRAY[0], -0.3, 0.1], dist: 2.5, height: 2.0, fov: 38 },
       cleanView: { target: [0, -0.25, 0], dist: 2.0, height: 0.7, fov: 42 },
-      scenery, parts, dirt, special, dirtCount: 8,
+      scenery, parts, dirt, special, dirtCount: 8, dirtKeep: floorSeen,
     }),
   });
 })();

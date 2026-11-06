@@ -15,6 +15,8 @@
   .rl-read .v small{font-size:11px;color:#9aa3ab;font-weight:400;}
   .rl-last{grid-column:1 / -1;font-size:11px;color:#b9c2ca;font-variant-numeric:tabular-nums;min-height:1.3em;}
   .rl-last b{color:#ffcf6a;}
+  /* Where the closing-in prompt points from: the foot of the view, clear of the readouts. */
+  .rl-tip-at{position:absolute;left:50%;bottom:8px;width:1px;height:1px;pointer-events:none;}
 </style>
 </head>
 <body>
@@ -35,8 +37,10 @@
 // the skill is reading that and closing the gap a little more than looks
 // necessary, without going under.
 //
-// Too large a draft and the rolls do not bite. Under 0.99 mm there is no
-// way back. Landing within ±1 % of 1.00 mm is the clear.
+// Too large a draft and the rolls do not bite. The run ends when the strip
+// goes under 1.00 mm, or lands within ±0.2 % of it (a full score); short of
+// that the strip can still be closed down, so the run goes on. It is scored
+// on the error: within ±1 % it clears, under 0.99 mm it fails.
 (function(){
   "use strict";
   const { Renderer, mat, build } = M3;
@@ -66,6 +70,7 @@
       <div class="pc">
         <div class="pc-stage"><canvas></canvas>
           <div class="pc-hud"><div class="tl">2-High Mill</div><div class="tr" id="pState">ready</div></div>
+          <div class="rl-tip-at" id="tipAt"></div>
         </div>
         <div class="pc-gauges">
           <div class="rl-read">
@@ -175,12 +180,15 @@
       S.phase = 'ready';
       $('pState').textContent = 'ready';
       show();
+      const err = Math.abs(S.h - TARGET) / TOL;       // in units of 1 %
       if (S.h < TARGET - TOL) {
         S.phase = 'over'; S.t = 0;
         ctx.flash('薄すぎた！', '#e2603f');
         ctx.judge(0.2);
-      } else if (S.h <= TARGET + TOL) {
-        const err = Math.abs(S.h - TARGET) / TOL;     // in units of 1 %
+      } else if (S.h < TARGET || err <= 0.2) {
+        // Under the target (there is no going back up), or as close as
+        // scores full marks: done. Above the target and short of that, the
+        // strip can still be closed down, so the run goes on.
         S.phase = 'over'; S.t = 0;
         ctx.score(MG.lin(err, 0.2, 1));                // 100 within ±0.2 %, 90 at ±1 %
         ctx.judge(1 - 0.1 * err * err);
@@ -239,7 +247,7 @@
     function tipNow() {
       if (!ctx.running || S.phase !== 'ready') return tips.hide();
       if (S.passes === 0) return tips.show(S.gap >= S.h ? $('dn') : $('go'), S.gap >= S.h ? 'ギャップを狭めよう！' : '通してみよう！');
-      if (S.h < TARGET + 0.15) return tips.show($('lastV'), '戻り分を見込んで少しずつ詰めよう！');
+      if (S.h < TARGET + 0.15) return tips.show($('tipAt'), '戻り分を見込んで少しずつ詰めよう！');
       tips.hide();
     }
 

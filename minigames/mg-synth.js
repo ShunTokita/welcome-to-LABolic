@@ -22,6 +22,8 @@
 //        the surface's plane, or round a cylinder wall when `cyl` gives its
 //        axis and radius [cx, cz, R] (axis along y).
 //     dirtCount: stains per patch unless the patch says (default 7)
+//     dirtKeep: optional (p, d) => bool; a stain whose centre it refuses is
+//            placed again (somewhere no camera angle reaches, say)
 //     special: { ... } | null,     // see runSpecial below
 //   })
 //
@@ -121,8 +123,14 @@
             p = [cx + Math.sin(a) * rr, d.p[1] + (Math.random() - 0.5) * 2 * spread, cz + Math.cos(a) * rr];
             n = inward ? [-Math.sin(a), 0, -Math.cos(a)] : [Math.sin(a), 0, Math.cos(a)];
           } else {
-            const rad = spread * Math.sqrt(Math.random()), a = Math.random() * Math.PI * 2;
-            p = d.p.map((v, i) => v + xd[i] * Math.cos(a) * rad + yd[i] * Math.sin(a) * rad);
+            // A spot the apparatus says cannot be seen is drawn again; after
+            // a few tries the patch's own centre is used.
+            for (let tries = 0; tries < 30; tries++) {
+              const rad = spread * Math.sqrt(Math.random()), a = Math.random() * Math.PI * 2;
+              p = d.p.map((v, i) => v + xd[i] * Math.cos(a) * rad + yd[i] * Math.sin(a) * rad);
+              if (!cfg.dirtKeep || cfg.dirtKeep(p, d)) break;
+              p = d.p.slice();
+            }
             n = d.n;
           }
           const rs = d.r * 0.42 * (0.7 + Math.random() * 0.6);
