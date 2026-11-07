@@ -87,7 +87,12 @@
   // on the window once it starts, so it keeps going when the pointer
   // leaves the element and does not depend on pointer capture, and the
   // default action (text selection, native drag, scrolling) is suppressed.
+  //
+  // The element itself must not pan: preventDefault on pointer events does
+  // not stop a touch scroll, and a swipe down on a phone otherwise starts the
+  // browser's pull-to-refresh, which cancels the drag (Chrome on Android).
   function drag(el, h) {
+    el.style.touchAction = 'none';
     let id = null;
     const move = e => { if (e.pointerId === id) { e.preventDefault(); h.move && h.move(e); } };
     const end = e => {
